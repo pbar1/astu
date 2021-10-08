@@ -1,0 +1,143 @@
+version: '3'
+
+env:
+  CGO_ENABLED: '0'
+  DOCKER_BUILDKIT: '1'
+
+# WARNING: Order matters here - ie, LDFLAGS depends on VERSION and must come after it
+vars:
+  BIN:
+    sh: basename "${PWD}"
+  IMAGE: ghcr.io/pbar1/{{.BIN}}
+  BUILD_IMAGE: docker.io/library/golang:alpine
+  UPX_IMAGE: hairyhenderson/upx:latest
+  VERSION:
+    sh: git describe --tags --always --dirty
+  LDFLAGS: -s -w -X main.version={{.VERSION}}
+  GOOS:
+    sh: echo {{OS}}
+  GOARCH:
+    sh: echo {{ARCH}}
+
+tasks:
+  default: task --list
+
+  clean:
+    desc: Remove generated files from the working tree
+    cmds:
+    - rm -rf bin
+    - mdbook clean
+
+  version:
+    desc: Print version string that will be used
+    cmds:
+    - echo {{.VERSION}}
+
+  build:
+    desc: Alias for "bin:build"
+    deps:
+    - bin:build
+
+  bin:build:
+    desc: Build binary for the current platform
+    deps:
+    - pull-build-image
+    cmds:
+    - docker run --rm --volume="${PWD}:/src" --workdir=/src --env=GOOS={{.GOOS}} --env=GOARCH={{.GOARCH}} {{.BUILD_IMAGE}} go build -o ./bin/{{.BIN}}_{{.GOOS}}_{{.GOARCH}}{{if eq .GOOS "windows"}}.exe{{end}} -ldflags="{{.LDFLAGS}}"
+    - docker run --rm --volume="${PWD}:/src" --workdir=/src {{.UPX_IMAGE}} --best ./bin/{{.BIN}}_{{.GOOS}}_{{.GOARCH}}{{if eq .GOOS "windows"}}.exe{{end}}
+    sources:
+    - ./**/*.go
+    generates:
+    - ./bin/{{.BIN}}_{{.GOOS}}_{{.GOARCH}}{{if eq .GOOS "windows"}}.exe{{end}}
+
+  # NOTE: Due to a bug in Go (https://github.com/golang/go/issues/40498),
+  # should probably specify --concurrency=3 or so when running this task
+  bin:build:all:
+    desc: Build binaries for all platforms
+    deps:
+    - bin:build:darwin-amd64
+    - bin:build:darwin-arm64
+    - bin:build:linux-amd64
+    - bin:build:linux-arm64
+    - bin:build:windows-amd64
+
+  bin:build:darwin-amd64:
+    cmds:
+    - task: bin:build
+      vars:
+        GOOS: darwin
+        GOARCH: amd64
+
+  bin:build:darwin-arm64:
+    cmds:
+    - task: bin:build
+      vars:
+        GOOS: darwin
+        GOARCH: arm64
+
+  bin:build:linux-amd64:
+    cmds:
+    - task: bin:build
+      vars:
+        GOOS: linux
+        GOARCH: amd64
+
+  bin:build:linux-arm64:
+    cmds:
+    - task: bin:build
+      vars:
+        GOOS: linux
+        GOARCH: arm64
+
+  bin:build:windows-amd64:
+    cmds:
+    - task: bin:build
+      vars:
+        GOOS: windows
+        GOARCH: amd64
+
+  pull-build-image:
+    run: once
+    cmds:
+    - docker pull {{.BUILD_IMAGE}}
+    status:
+    - docker inspect --type=image {{.BUILD_IMAGE}}
+
+  image:
+    desc: Alias for "image:build"
+    deps:
+    - image:build
+
+  image:name:
+    desc: Print container image name that will be used
+    cmds:
+    - echo {{.IMAGE}}:{{.VERSION}}
+
+  # TODO: Implement multiplatform container images with --platform
+  image:build:
+    desc: Build container image
+    deps:
+    - bin:build:linux-amd64
+    cmds:
+    - docker build --tag={{.IMAGE}}:{{.VERSION}} .
+    status:
+    - docker inspect --type=image {{.IMAGE}}:{{.VERSION}}
+
+  image:push:
+    desc: Push container image to remote repository
+    deps:
+    - image:build
+    cmds:
+    - docker tag {{.IMAGE}}:{{.VERSION}} {{.IMAGE}}:latest
+    - docker push {{.IMAGE}}:{{.VERSION}}
+    - docker push {{.IMAGE}}:latest
+
+  site:build:
+    desc: Build documentation website
+    cmds:
+    - mdbook build
+
+  site:serve:
+    desc: Serve documentation website locally
+    cmds:
+    - mdbook serve

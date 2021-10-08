@@ -1,8 +1,30 @@
-# astu
+package cmd
 
-All-Seeing Trace Utility
+import (
+	"fmt"
 
-```
+	"github.com/muesli/termenv"
+	"github.com/spf13/cobra"
+)
+
+// fsocietyCmd represents the fsociety command
+var fsocietyCmd = &cobra.Command{
+	Hidden: true,
+	Use:    "fsociety",
+	Short:  "AllSafe Trace Utility",
+	Long:   "AllSafe Trace Utility\n\nHello, Elliot.",
+	Run: func(cmd *cobra.Command, args []string) {
+		f := termenv.String(textFsociety).Foreground(termenv.ANSIRed)
+		fmt.Printf("%s%v%s", textLogo, f, textSig)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(fsocietyCmd)
+}
+
+const (
+	textLogo = `
 $ cat fsociety00.dat
 
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -27,8 +49,8 @@ XX   ---mMM ''             'mmMMMMMMMM  MMMMMMMMmm'             '' MMm---   XX
 XX   yyyym'    .              'mMMMMm'  'mMMMMm'              .    'myyyy   XX
 XX   mm''    .y'     ..yyyyy..  ''''      ''''  ..yyyyy..     'y.    ''mm   XX
 XX           MN    .sMMMMMMMMMss.   .    .   .ssMMMMMMMMMs.    NM           XX
-XX           N`    MMMMMMMMMMMMMN   M    M   NMMMMMMMMMMMMM    `N           XX
-XX            +  .sMNNNNNMMMMMN+   `N    N`   +NMMMMMNNNNNMs.  +            XX
+XX           N` + "`" + `    MMMMMMMMMMMMMN   M    M   NMMMMMMMMMMMMM    ` + "`" + `N           XX
+XX            +  .sMNNNNNMMMMMN+   ` + "`" + `N    N` + "`" + `   +NMMMMMNNNNNMs.  +            XX
 XX              o+++     ++++Mo    M      M    oM++++     +++o              XX
 XX                                oo      oo                                XX
 XX           oM                 oo          oo                 Mo           XX
@@ -59,23 +81,23 @@ XX                                                                          XX
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-    .o88o.                               o8o                .
-    888 `"                               `"'              .o8
+`
+
+	textFsociety = `    .o88o.                               o8o                .
+    888 ` + "`" + `"                               ` + "`" + `"'              .o8
    o888oo   .oooo.o  .ooooo.   .ooooo.  oooo   .ooooo.  .o888oo oooo    ooo
-    888    d88(  "8 d88' `88b d88' `"Y8 `888  d88' `88b   888    `88.  .8'
-    888    `"Y88b.  888   888 888        888  888ooo888   888     `88..8'
-    888    o.  )88b 888   888 888   .o8  888  888    .o   888 .    `888'
-   o888o   8""888P' `Y8bod8P' `Y8bod8P' o888o `Y8bod8P'   "888"      d8'
+    888    d88(  "8 d88' ` + "`" + `88b d88' ` + "`" + `"Y8 ` + "`" + `888  d88' ` + "`" + `88b   888    ` + "`" + `88.  .8'
+    888    ` + "`" + `"Y88b.  888   888 888        888  888ooo888   888     ` + "`" + `88..8'
+    888    o.  )88b 888   888 888   .o8  888  888    .o   888 .    ` + "`" + `888'
+   o888o   8""888P' ` + "`" + `Y8bod8P' ` + "`" + `Y8bod8P' o888o ` + "`" + `Y8bod8P'   "888"      d8'
                                                                 .o...P'
-                                                                `XER0'
+                                                                ` + "`" + "XER0'"
+
+	textSig = `
 
 
                                                               http://0w.nz
                                                               http://xero.nu
                                                               http://fontvir.us
-
-```
-
-[Source](https://github.com/syntax-samurai/fsociety)
-
-[Another tool like us](https://github.com/ReddyyZ/astsu).
+`
+)
