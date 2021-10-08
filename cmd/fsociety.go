@@ -23,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(fsocietyCmd)
 }
 
+// Source: https://github.com/syntax-samurai/fsociety
 const (
 	textLogo = `
 $ cat fsociety00.dat
