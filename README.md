@@ -1,4 +1,4 @@
-<h1 align="center" style="border-bottom: none;">`astu`</h1>
+<h1 align="center">astu</h1>
 
 <h3 align="center">All-Seeing Trace Utility</h3>
 
