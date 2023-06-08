@@ -2,7 +2,7 @@
 
 Remote execution Swiss Army knife.
 
-```sh
+```
 Usage: kush <COMMAND>
 
 Commands:
