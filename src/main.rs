@@ -1,5 +1,13 @@
+#![warn(clippy::pedantic)]
+
+mod k8s;
+mod selection;
+
+use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
+
+use crate::k8s::exec_shell;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -15,19 +23,25 @@ enum Commands {
     Exec { target: Option<String> },
     /// Copy files and directories to and from targets
     Cp { target: Option<String> },
+    /// Display what `kush` is capable of on the current system
+    Doctor,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
-        Commands::Exec { target } => {
-            println!("target: {target:?}");
+        Commands::Exec { target: _ } => {
+            // FIXME: Generalize to more than just K8s
+            exec_shell()?;
         }
         Commands::Cp { target } => {
             println!("target: {target:?}");
         }
+        Commands::Doctor => {
+            println!("doctor!");
+        }
     }
+
+    Ok(())
 }
