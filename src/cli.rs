@@ -25,6 +25,7 @@ struct GlobalArgs {}
 #[derive(Subcommand)]
 enum Commands {
     /// Execute a command or shell on a target
+    #[clap(hide = true)]
     Exec(self::exec::ExecArgs),
 
     /// Copy files and directories to and from targets

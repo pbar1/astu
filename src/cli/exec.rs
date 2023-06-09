@@ -17,7 +17,7 @@ pub struct ExecArgs {
 
 impl Runnable for ExecArgs {
     fn run(&self) -> Result<()> {
-        // FIXME: K8s isn't the only thing that exists, believe it or not
-        crate::target_types::k8s::exec_shell()
+        dbg!(&self);
+        todo!()
     }
 }
