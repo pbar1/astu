@@ -9,7 +9,7 @@ use skim::prelude::SkimOptionsBuilder;
 use super::Selector;
 
 #[derive(Default)]
-pub(crate) struct SkimSelector {
+pub struct SkimSelector {
     item_reader: SkimItemReader,
 }
 

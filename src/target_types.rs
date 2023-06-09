@@ -1,1 +1,1 @@
-pub(crate) mod k8s;
+pub mod k8s;

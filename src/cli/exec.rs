@@ -2,7 +2,7 @@ use clap::Args;
 use url::Url;
 
 #[derive(Debug, Args)]
-pub(crate) struct ExecArgs {
+pub struct ExecArgs {
     /// Target for execution
     target: Option<Url>,
 

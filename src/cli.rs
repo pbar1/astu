@@ -14,7 +14,7 @@ use self::exec::ExecArgs;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
-pub(crate) struct Cli {
+pub struct Cli {
     #[clap(flatten)]
     global_args: GlobalArgs,
 
@@ -36,11 +36,11 @@ enum Commands {
 }
 
 impl Cli {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::parse()
     }
 
-    pub(crate) fn run(&self) -> Result<()> {
+    pub fn run(&self) -> Result<()> {
         match &self.command {
             Commands::Exec(_args) => {
                 // FIXME: Generalize to more than just K8s

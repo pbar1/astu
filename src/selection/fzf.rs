@@ -8,7 +8,7 @@ use anyhow::Result;
 use super::Selector;
 
 #[derive(Default)]
-pub(crate) struct FzfSelector {}
+pub struct FzfSelector {}
 
 impl Selector for FzfSelector {
     fn filter(&self, source: Vec<u8>, preview: Option<&str>) -> Result<String> {
