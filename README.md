@@ -2,16 +2,11 @@
 
 Remote execution Swiss Army knife.
 
-```
-Usage: kush <COMMAND>
+## Target Parsing Notes
 
-Commands:
-  exec    Execute a command in a target
-  cp      Copy files and directories to and from targets
-  doctor  Display what `kush` is capable of on the current system
-  help    Print this message or the help of the given subcommand(s)
+Perform helpful speculation on what the given value may be. For example:
+- Assume `arn:` prefixes are ARNs and parse them accordingly
+- Assume `i-` prefixes are EC2
+- Assume `-[a-z0-9]{10}-[a-z0-9]{5}` suffixes are K8s pods
 
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
-```
+[URI vs URL](https://danielmiessler.com/p/difference-between-uri-url/)
