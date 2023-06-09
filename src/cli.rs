@@ -1,10 +1,12 @@
-pub(crate) mod exec;
+mod cp;
+mod exec;
 
 use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
 
+use self::cp::CpArgs;
 use self::exec::ExecArgs;
 
 // Inspired by Rain's Rust CLI recommendations
@@ -30,11 +32,7 @@ enum Commands {
 
     /// Copy files and directories to and from targets
     #[clap(hide = true)]
-    Cp { target: Option<String> },
-
-    /// Display what `kush` is capable of on the current system
-    #[clap(hide = true)]
-    Doctor,
+    Cp(CpArgs),
 }
 
 impl Cli {
@@ -48,14 +46,8 @@ impl Cli {
                 // FIXME: Generalize to more than just K8s
                 crate::target_types::k8s::exec_shell()?;
             }
-            Commands::Cp { target } => {
-                println!("target: {target:?}");
-
-                todo!();
-            }
-            Commands::Doctor => {
-                println!("doctor!");
-
+            Commands::Cp(args) => {
+                dbg!(args);
                 todo!();
             }
         }
