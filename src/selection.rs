@@ -12,8 +12,8 @@ pub(crate) trait Selector {
 /// on `PATH`, otherwise fallback to [`SkimSelector`](self::skim::SkimSelector).
 pub(crate) fn auto() -> Box<dyn Selector> {
     if which::which("fzf").is_ok() {
-        return Box::new(self::fzf::FzfSelector::default());
+        Box::<self::fzf::FzfSelector>::default()
+    } else {
+        Box::<self::skim::SkimSelector>::default()
     }
-
-    Box::new(self::skim::SkimSelector::default())
 }
