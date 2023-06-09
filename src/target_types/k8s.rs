@@ -2,16 +2,17 @@ use std::process::Stdio;
 
 use anyhow::Result;
 
-use crate::selection::preview_select;
-
 pub fn select_pod() -> Result<String> {
     let output = std::process::Command::new("kubectl")
         .args(["get", "pods", "--output=name"])
         .output()?;
 
-    let pods = String::from_utf8(output.stdout)?.replace("pod/", "");
+    let pods = String::from_utf8(output.stdout)?
+        .replace("pod/", "")
+        .into_bytes();
 
-    let sel = preview_select(pods, Some("kubectl describe pod {}"))?;
+    let selector = crate::selection::auto();
+    let sel = selector.filter(pods, Some("kubectl describe pod {}"))?;
 
     Ok(sel)
 }
@@ -26,9 +27,10 @@ pub fn select_container(pod: &str) -> Result<String> {
         ])
         .output()?;
 
-    let containers = String::from_utf8(output.stdout)?;
+    let containers = output.stdout;
 
-    let sel = preview_select(
+    let selector = crate::selection::auto();
+    let sel = selector.filter(
         containers,
         Some(&format!(
             "kubectl get pod {pod} --output=jsonpath='{{.spec.containers[?(@.name==\"{{}}\")]}}' | jq"
@@ -50,13 +52,15 @@ pub fn select_shell(pod: &str, container: &str) -> Result<String> {
         ])
         .output()?;
 
-    let shells: String = String::from_utf8(output.stdout)?
+    let shells = String::from_utf8(output.stdout)?
         .lines()
         .filter(|line| !line.starts_with('#'))
         .collect::<Vec<_>>()
-        .join("\n");
+        .join("\n")
+        .into_bytes();
 
-    let sel = preview_select(shells, None)?;
+    let selector = crate::selection::auto();
+    let sel = selector.filter(shells, None)?;
 
     Ok(sel)
 }

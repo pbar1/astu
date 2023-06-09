@@ -1,27 +1,18 @@
-use std::io::Cursor;
+pub(crate) mod fzf;
+pub(crate) mod skim;
 
-use anyhow::Context;
 use anyhow::Result;
-use skim::prelude::*;
 
-pub fn preview_select(
-    source: impl AsRef<[u8]> + Send + 'static,
-    preview: Option<&str>,
-) -> Result<String> {
-    let options = SkimOptionsBuilder::default().preview(preview).build()?;
+use self::fzf::FzfSelector;
 
-    let item_reader = SkimItemReader::default();
+pub(crate) trait Selector {
+    fn filter(&self, source: Vec<u8>, preview: Option<&str>) -> Result<String>;
+}
 
-    let items = item_reader.of_bufread(Cursor::new(source));
-
-    let output = Skim::run_with(&options, Some(items)).context("Failed to run Skim selection")?;
-
-    let sel = output
-        .selected_items
-        .first()
-        .context("Selection was empty")?
-        .output()
-        .to_string();
-
-    Ok(sel)
+/// Dynamically chose a `Selector` implementation based on the user's system.
+/// Specifically, prefer `FzfSelector` if `fzf` exists on `PATH`, otherwise
+/// fallback to `SkimSelector`.
+pub(crate) fn auto() -> Box<dyn Selector> {
+    // FIXME: Implement actual checking and fallback
+    Box::new(FzfSelector::default())
 }

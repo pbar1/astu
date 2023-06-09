@@ -7,6 +7,8 @@ use clap::Subcommand;
 
 use self::exec::ExecArgs;
 
+// Inspired by Rain's Rust CLI recommendations
+// https://rust-cli-recommendations.sunshowers.io/handling-arguments.html
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
@@ -19,7 +21,7 @@ pub(crate) struct Cli {
 }
 
 #[derive(Debug, Args)]
-pub struct GlobalArgs {}
+struct GlobalArgs {}
 
 #[derive(Subcommand)]
 enum Commands {
@@ -36,15 +38,13 @@ enum Commands {
 }
 
 impl Cli {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::parse()
     }
 
-    pub fn run(&self) -> Result<()> {
+    pub(crate) fn run(&self) -> Result<()> {
         match &self.command {
-            Commands::Exec(args) => {
-                println!("{args:?}");
-
+            Commands::Exec(_args) => {
                 // FIXME: Generalize to more than just K8s
                 crate::target_types::k8s::exec_shell()?;
             }
