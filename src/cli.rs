@@ -6,9 +6,6 @@ use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
 
-use self::cp::CpArgs;
-use self::exec::ExecArgs;
-
 // Inspired by Rain's Rust CLI recommendations
 // https://rust-cli-recommendations.sunshowers.io/handling-arguments.html
 #[derive(Parser)]
@@ -28,11 +25,11 @@ struct GlobalArgs {}
 #[derive(Subcommand)]
 enum Commands {
     /// Execute a command or shell on a target
-    Exec(ExecArgs),
+    Exec(self::exec::ExecArgs),
 
     /// Copy files and directories to and from targets
     #[clap(hide = true)]
-    Cp(CpArgs),
+    Cp(self::cp::CpArgs),
 }
 
 impl Cli {
@@ -42,16 +39,15 @@ impl Cli {
 
     pub fn run(&self) -> Result<()> {
         match &self.command {
-            Commands::Exec(_args) => {
-                // FIXME: Generalize to more than just K8s
-                crate::target_types::k8s::exec_shell()?;
-            }
-            Commands::Cp(args) => {
-                dbg!(args);
-                todo!();
-            }
+            Commands::Exec(args) => args.run()?,
+            Commands::Cp(args) => args.run()?,
         }
 
         Ok(())
     }
+}
+
+pub trait Runnable {
+    // TODO: Consider what to do with GlobalArgs
+    fn run(&self) -> Result<()>;
 }
