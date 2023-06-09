@@ -45,11 +45,9 @@ impl Cli {
         };
 
         match command {
-            Commands::Exec(args) => args.run()?,
-            Commands::Cp(args) => args.run()?,
+            Commands::Exec(args) => args.run(),
+            Commands::Cp(args) => args.run(),
         }
-
-        Ok(())
     }
 }
 
