@@ -16,7 +16,7 @@ pub struct Cli {
     global_args: GlobalArgs,
 
     #[clap(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Debug, Args)]
@@ -38,7 +38,13 @@ impl Cli {
     }
 
     pub fn run(&self) -> Result<()> {
-        match &self.command {
+        // If no subcommand is passed, assume interactive k8s exec is desired
+        // TODO: Maybe allow interactive selection of target types here
+        let Some(command) = &self.command else {
+            return crate::target_types::k8s::exec_shell();
+        };
+
+        match command {
             Commands::Exec(args) => args.run()?,
             Commands::Cp(args) => args.run()?,
         }
