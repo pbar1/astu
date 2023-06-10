@@ -2,98 +2,105 @@ use std::process::Stdio;
 
 use anyhow::Result;
 
-pub fn select_pod() -> Result<String> {
-    let output = std::process::Command::new("kubectl")
-        .args(["get", "pods", "--output=name"])
-        .output()?;
+#[derive(Default)]
+pub struct K8sExec {}
 
-    let pods = String::from_utf8(output.stdout)?
-        .replace("pod/", "")
-        .into_bytes();
+impl K8sExec {
+    pub fn select_pod() -> Result<String> {
+        let output = std::process::Command::new("kubectl")
+            .args(["get", "pods", "--output=name"])
+            .output()?;
 
-    let selector = crate::selection::auto();
-    let sel = selector.filter(pods, Some("kubectl describe pod {}"))?;
+        let pods = String::from_utf8(output.stdout)?
+            .replace("pod/", "")
+            .into_bytes();
 
-    Ok(sel)
-}
+        let selector = crate::selection::auto();
+        let sel = selector.filter(pods, Some("kubectl describe pod {}"))?;
 
-pub fn select_container(pod: &str) -> Result<String> {
-    let output = std::process::Command::new("kubectl")
-        .args([
-            "get",
-            "pod",
-            pod,
-            r#"--output=jsonpath={range .spec.containers[*]}{.name}{"\n"}"#,
-        ])
-        .output()?;
+        Ok(sel)
+    }
 
-    let containers = output.stdout;
+    pub fn select_container(pod: &str) -> Result<String> {
+        let output = std::process::Command::new("kubectl")
+            .args([
+                "get",
+                "pod",
+                pod,
+                r#"--output=jsonpath={range .spec.containers[*]}{.name}{"\n"}"#,
+            ])
+            .output()?;
 
-    let selector = crate::selection::auto();
-    let sel = selector.filter(
+        let containers = output.stdout;
+
+        let selector = crate::selection::auto();
+        let sel = selector.filter(
         containers,
         Some(&format!(
             "kubectl get pod {pod} --output=jsonpath='{{.spec.containers[?(@.name==\"{{}}\")]}}' | jq"
         )),
     )?;
 
-    Ok(sel)
+        Ok(sel)
+    }
+
+    pub fn select_shell(pod: &str, container: &str) -> Result<String> {
+        let output = std::process::Command::new("kubectl")
+            .args([
+                "exec",
+                pod,
+                &format!("--container={container}"),
+                "--",
+                "cat",
+                "/etc/shells",
+            ])
+            .output()?;
+
+        let shells = String::from_utf8(output.stdout)?
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect::<Vec<_>>()
+            .join("\n")
+            .into_bytes();
+
+        let selector = crate::selection::auto();
+        let sel = selector.filter(shells, None)?;
+
+        Ok(sel)
+    }
+
+    pub fn exec_cmd(pod: &str, container: &str, cmd: &str) -> Result<()> {
+        std::process::Command::new("kubectl")
+            .args([
+                "exec",
+                pod,
+                &format!("--container={container}"),
+                "--stdin",
+                "--tty",
+                "--",
+                cmd,
+            ])
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()?;
+
+        Ok(())
+    }
 }
 
-pub fn select_shell(pod: &str, container: &str) -> Result<String> {
-    let output = std::process::Command::new("kubectl")
-        .args([
-            "exec",
-            pod,
-            &format!("--container={container}"),
-            "--",
-            "cat",
-            "/etc/shells",
-        ])
-        .output()?;
+impl super::InteractiveShell for K8sExec {
+    // TODO: Support default container annotation
+    // TODO: Support preferred shell via user preferences
+    fn interactive_shell(&self) -> Result<()> {
+        let pod = Self::select_pod()?;
 
-    let shells = String::from_utf8(output.stdout)?
-        .lines()
-        .filter(|line| !line.starts_with('#'))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .into_bytes();
+        let container = Self::select_container(&pod)?;
 
-    let selector = crate::selection::auto();
-    let sel = selector.filter(shells, None)?;
+        let shell = Self::select_shell(&pod, &container)?;
 
-    Ok(sel)
-}
+        Self::exec_cmd(&pod, &container, &shell)?;
 
-pub fn exec_cmd(pod: &str, container: &str, cmd: &str) -> Result<()> {
-    std::process::Command::new("kubectl")
-        .args([
-            "exec",
-            pod,
-            &format!("--container={container}"),
-            "--stdin",
-            "--tty",
-            "--",
-            cmd,
-        ])
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()?;
-
-    Ok(())
-}
-
-// TODO: Support default container annotation
-// TODO: Support preferred shell via user preferences
-pub fn exec_shell() -> Result<()> {
-    let pod = select_pod()?;
-
-    let container = select_container(&pod)?;
-
-    let shell = select_shell(&pod, &container)?;
-
-    exec_cmd(&pod, &container, &shell)?;
-
-    Ok(())
+        Ok(())
+    }
 }

@@ -1,13 +1,12 @@
 use anyhow::Result;
 use clap::Args;
-use url::Url;
 
 use super::Runnable;
 
 #[derive(Debug, Args)]
 pub struct ExecArgs {
     /// Target for execution
-    target: Option<Url>,
+    target: Option<String>,
 
     /// Command to execute on the target. If omitted, will attempt to spawn an
     /// interactive shell
@@ -17,7 +16,8 @@ pub struct ExecArgs {
 
 impl Runnable for ExecArgs {
     fn run(&self) -> Result<()> {
-        dbg!(&self);
-        todo!()
+        // TODO wip
+        let target = self.target.clone().unwrap_or("".to_owned());
+        crate::target_types::dispatch_interactive_shell(&target)
     }
 }

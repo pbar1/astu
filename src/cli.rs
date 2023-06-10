@@ -6,6 +6,8 @@ use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
 
+use crate::target_types::InteractiveShell;
+
 // Inspired by Rain's Rust CLI recommendations
 // https://rust-cli-recommendations.sunshowers.io/handling-arguments.html
 #[derive(Parser)]
@@ -42,7 +44,7 @@ impl Cli {
         // If no subcommand is passed, assume interactive k8s exec is desired
         // TODO: Maybe allow interactive selection of target types here
         let Some(command) = &self.command else {
-            return crate::target_types::k8s::exec_shell();
+            return crate::target_types::k8s::K8sExec::default().interactive_shell();
         };
 
         match command {
