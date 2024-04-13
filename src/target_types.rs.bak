@@ -1,5 +1,6 @@
 pub mod docker;
 pub mod k8s;
+pub mod ssh;
 
 use anyhow::bail;
 use anyhow::Result;

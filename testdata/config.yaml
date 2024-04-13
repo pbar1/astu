@@ -1,0 +1,64 @@
+inference:
+- provider: k8s
+  pattern: "-[a-z0-9]{10}-[a-z0-9]{5}$" # suffix looks like a pod
+- provider: docker
+  pattern: "^[a-z]+_[a-z]+$" # container names, ex "intelligent_darwin"
+- provider: docker
+  pattern: "^[a-z0-9]{12}$" # container IDs
+
+providers:
+- uri: k8s://context@namespace/pod/container#shell
+  aliases:
+  - kubernetes
+  filters:
+  - vars: namespace/pod/container
+    cmd:
+    - kubectl
+    - get
+    - pod
+    - --all-namespaces
+    - '--output=go-template={{range $p := .items}}{{range $c := $p.spec.containers}}{{printf "%s/%s/%s\n" $p.metadata.namespace $p.metadata.name $c.name}}{{end}}{{end}}'
+  - vars: shell
+    cmd:
+    - kubectl
+    - exec
+    - ${pod}
+    - --namespace=${namespace}
+    - --container=${container}
+    - --
+    - cat
+    - /etc/shells
+  shell:
+    cmd:
+    - kubectl
+    - exec
+    - ${pod}
+    - --namespace=${namespace}
+    - --container=${container}
+    - --stdin
+    - --tty
+    - --
+    - ${shell}
+- uri: docker:///container#shell
+  filters:
+  - vars: container
+    cmd:
+    - docker
+    - ps
+    - --format={{.ID}}
+    preview: docker inspect {}
+  - vars: shell
+    cmd:
+    - docker
+    - exec
+    - ${container}
+    - cat
+    - /etc/shells
+  shell:
+    cmd:
+    - docker
+    - exec
+    - --interactive
+    - --tty
+    - ${container}
+    - ${shell}

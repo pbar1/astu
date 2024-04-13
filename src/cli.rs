@@ -1,6 +1,8 @@
 mod cp;
 mod exec;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::Args;
 use clap::Parser;
@@ -22,7 +24,12 @@ pub struct Cli {
 }
 
 #[derive(Debug, Args)]
-struct GlobalArgs {}
+struct GlobalArgs {
+    /// Config file location. Defaults to `$XDG_CONFIG_HOME/kush/config.toml` if
+    /// unset
+    #[clap(long = "config")]
+    config: Option<PathBuf>,
+}
 
 #[derive(Subcommand)]
 enum Commands {
