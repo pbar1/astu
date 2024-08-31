@@ -1,0 +1,16 @@
+[package]
+name = "kush-connect"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+async-ssh2 = { git = "https://github.com/pbar1/async-ssh2.git", rev = "a1884eb6b49397db3a03f6cb0416b736ba3f664b" }
+async-trait = "0.1"
+kush-uri = { path = "../kush-uri" }
+socket2 = "0.5.7"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1.40"
+
+[dev-dependencies]
+rstest = "0.22.0"

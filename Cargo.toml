@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "kush-uri"]
+members = [".", "kush-connect", "kush-uri"]
 
 [package]
 name = "kush"

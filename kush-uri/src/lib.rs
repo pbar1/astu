@@ -21,6 +21,12 @@ impl FromStr for Uri {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = if s.starts_with('[') && s.ends_with(']') {
+            &s[1..s.len() - 1]
+        } else {
+            s
+        };
+
         let inner = if s.contains("://") {
             Url::parse(s)?
         } else if let Ok(ip) = IpAddr::from_str(s) {
@@ -30,6 +36,8 @@ impl FromStr for Uri {
         } else {
             Url::parse(s)?
         };
+
+        // FIXME: We will have still missed some IPv4-as-domain cases if given scheme
 
         Ok(Self { inner })
     }
@@ -59,17 +67,18 @@ mod tests {
     #[rstest]
     #[case::ipv4("127.0.0.1", "ssh://127.0.0.1")]
     #[case::ipv6("::1", "ssh://[::1]")]
+    #[case::ipv6("[::1]", "ssh://[::1]")]
     #[case::sock4("127.0.0.1:22", "ssh://127.0.0.1:22")]
     #[case::sock6("[::1]:22", "ssh://[::1]:22")]
+    #[case::scheme("ssh://127.0.0.1", "ssh://127.0.0.1")]
     fn uri_roundtrip_works(#[case] input: &str, #[case] should: &str) {
         let got = Uri::from_str(input).unwrap().to_string();
         assert_eq!(got, should);
     }
 
     #[rstest]
-    #[case::ipv4_compressed("127.1")]
+    #[case::ipv4_compressed("127.1")] // TODO: Support compressed IPv4
     #[case::ipv6_ambiguous_port("0:1:2:3:4:5:6:7:8")]
-    #[case::ipv6_naked_brackets("[::1]")]
     fn uri_roundtrip_fails(#[case] input: &str) {
         let result = Uri::from_str(input);
         assert!(result.is_err());
