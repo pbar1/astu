@@ -145,7 +145,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::tcpsocket::TcpFactory;
+    use crate::tcp::TcpFactory;
 
     #[rstest]
     #[case("127.0.0.1:2222")]

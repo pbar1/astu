@@ -1,2 +1,2 @@
 mod ssh;
-mod tcpsocket;
+mod tcp;
