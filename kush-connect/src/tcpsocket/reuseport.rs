@@ -88,6 +88,8 @@ fn new_reuseport_socket_v6(ip: Ipv6Addr, port: u16) -> Result<Socket> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::BufRead;
+    use std::io::BufReader;
     use std::net::ToSocketAddrs;
 
     use rstest::rstest;
@@ -101,8 +103,12 @@ mod tests {
     fn works(#[case] input: &str) {
         let factory = ReuseportTcpFactory::try_new().unwrap();
         let remote = input.to_socket_addrs().unwrap().next().unwrap();
-        let _stream = factory
+        let stream = factory
             .connect_timeout(&remote, Duration::from_secs(5))
             .unwrap();
+        let mut reader = BufReader::new(stream);
+        let mut output = String::new();
+        reader.read_line(&mut output).unwrap();
+        assert!(output.contains("SSH-2"));
     }
 }
