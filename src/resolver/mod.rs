@@ -16,9 +16,6 @@ pub enum ResolverError {
 
     #[error("timeout during resolution")]
     Timeout,
-
-    #[error("failed lookup")]
-    FailedLookup,
 }
 
 #[async_trait]
