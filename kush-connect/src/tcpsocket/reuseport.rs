@@ -94,7 +94,7 @@ impl ReuseportTcpFactory {
                     .context("unable to convert to std socketaddr")?;
                 let socket = tokio::net::TcpSocket::new_v4()?;
                 socket.set_reuseport(true)?;
-                socket.bind(local_addr.into());
+                socket.bind(local_addr.into())?;
                 socket
             }
             SocketAddr::V6(_) => {
@@ -104,7 +104,7 @@ impl ReuseportTcpFactory {
                     .context("unable to convert to std socketaddr")?;
                 let socket = tokio::net::TcpSocket::new_v6()?;
                 socket.set_reuseport(true)?;
-                socket.bind(local_addr.into());
+                socket.bind(local_addr.into())?;
                 socket
             }
         };
