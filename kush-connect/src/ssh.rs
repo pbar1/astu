@@ -109,3 +109,23 @@ pub struct ExecOutput {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
 }
+
+#[cfg(test)]
+mod tests {
+    use std::net::ToSocketAddrs;
+
+    use super::*;
+    use crate::tcp::ReuseportTcpFactory;
+    use crate::tcp::TcpFactoryAsync;
+
+    #[tokio::test]
+    async fn works() {
+        let tcp_factory = ReuseportTcpFactory::try_new().unwrap();
+        let addr = "127.0.0.1:2222".to_socket_addrs().unwrap().next().unwrap();
+        let stream = tcp_factory
+            .connect_timeout_async(&addr, Duration::from_secs(5))
+            .await
+            .unwrap();
+        let _ssh_client = SshClient::connect(stream).await.unwrap();
+    }
+}

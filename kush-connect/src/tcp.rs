@@ -4,6 +4,9 @@ mod reuseport;
 use std::net::SocketAddr;
 use std::time::Duration;
 
+pub use default::DefaultTcpFactory;
+pub use reuseport::ReuseportTcpFactory;
+
 /// Factory for creating standard library TCP streams.
 pub trait TcpFactory {
     fn connect_timeout(
