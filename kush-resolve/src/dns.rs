@@ -5,10 +5,6 @@ use hickory_resolver::error::ResolveError;
 use hickory_resolver::error::ResolveErrorKind;
 use hickory_resolver::TokioAsyncResolver;
 
-use super::Resolver;
-use super::ResolverError;
-use crate::target::Target;
-
 /// Resolves groups of [`Target`] by DNS.
 pub struct DnsResolver {
     resolver: TokioAsyncResolver,

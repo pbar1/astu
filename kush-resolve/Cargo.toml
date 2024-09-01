@@ -1,0 +1,14 @@
+[package]
+name = "kush-resolve"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+hickory-resolver = "0.24"
+ipnet = "2.9.0"
+tracing = "0.1"
+
+[dev-dependencies]
+rstest = "0.22.0"
