@@ -6,12 +6,17 @@ use std::collections::BTreeSet;
 
 use anyhow::bail;
 pub use dns::DnsResolver;
+use futures::Stream;
 pub use ip::IpResolver;
 pub use target::Target;
 
 #[async_trait::async_trait]
 pub trait Resolve {
     async fn resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>>;
+}
+
+pub trait Resolve2 {
+    fn resolve2(&self, target: Target) -> impl Stream<Item = Target>;
 }
 
 pub struct ResolveChain {
