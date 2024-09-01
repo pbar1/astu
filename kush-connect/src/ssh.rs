@@ -16,7 +16,9 @@ impl SshClient {
             ..<_>::default()
         });
 
-        let handler = SshClientHandler;
+        let handler = SshClientHandler {
+            server_banner: None,
+        };
 
         let session = russh::client::connect_stream(config, stream, handler).await?;
 
@@ -90,7 +92,9 @@ impl SshClient {
     }
 }
 
-struct SshClientHandler;
+struct SshClientHandler {
+    server_banner: Option<String>,
+}
 
 #[async_trait::async_trait]
 impl russh::client::Handler for SshClientHandler {
@@ -101,6 +105,15 @@ impl russh::client::Handler for SshClientHandler {
         _server_public_key: &russh::keys::key::PublicKey,
     ) -> Result<bool, Self::Error> {
         Ok(true)
+    }
+
+    async fn auth_banner(
+        &mut self,
+        banner: &str,
+        _session: &mut russh::client::Session,
+    ) -> Result<(), Self::Error> {
+        self.server_banner = Some(banner.to_owned());
+        Ok(())
     }
 }
 
