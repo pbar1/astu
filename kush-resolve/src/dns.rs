@@ -1,5 +1,8 @@
 use std::collections::BTreeSet;
+use std::str::FromStr;
 
+use anyhow::bail;
+use hickory_resolver::Name;
 use hickory_resolver::TokioAsyncResolver;
 
 use crate::Target;
@@ -19,16 +22,48 @@ impl DnsResolver {
 #[async_trait::async_trait]
 impl super::Resolve for DnsResolver {
     async fn resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>> {
-        // TODO: Default IP lookup strategy is `Ipv4thenIpv6`. Consider
-        // changing it to `Ipv4AndIpv6` to gather all possible IPs.
+        let target = Target::from_str(&query)?;
+
+        let targets = match target {
+            Target::Domain(name) => self.resolve_ip(name).await?,
+            Target::DomainPort { name, port } => self.resolve_sock(name, port).await?,
+            unsupported => bail!("unsupported target for IpResolver: {unsupported}"),
+        };
+
+        Ok(targets)
+    }
+}
+
+// TODO: Default IP lookup strategy is `Ipv4thenIpv6`. Consider
+// changing it to `Ipv4AndIpv6` to gather all possible IPs.
+impl DnsResolver {
+    async fn resolve_ip(&self, name: Name) -> anyhow::Result<BTreeSet<Target>> {
         let targets = self
             .resolver
-            .lookup_ip(query)
+            .lookup_ip(name)
             .await?
             .iter()
             .map(|ip| match ip {
                 std::net::IpAddr::V4(x) => Target::Ipv4Addr(x),
                 std::net::IpAddr::V6(x) => Target::Ipv6Addr(x),
+            })
+            .collect();
+        Ok(targets)
+    }
+
+    async fn resolve_sock(&self, name: Name, port: u16) -> anyhow::Result<BTreeSet<Target>> {
+        let targets = self
+            .resolver
+            .lookup_ip(name)
+            .await?
+            .iter()
+            .map(|ip| match ip {
+                std::net::IpAddr::V4(x) => {
+                    Target::SocketAddrV4(std::net::SocketAddrV4::new(x, port))
+                }
+                std::net::IpAddr::V6(x) => {
+                    Target::SocketAddrV6(std::net::SocketAddrV6::new(x, port, 0, 0))
+                }
             })
             .collect();
         Ok(targets)
