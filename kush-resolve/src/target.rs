@@ -69,6 +69,39 @@ impl std::fmt::Display for Target {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Atoms {
+    Known(u128),
+    KnownMax,
+    Unknown,
+}
+
+impl Target {
+    /// Returns the total number of individual atomic targets that this target
+    /// can further resolve into. If that is not possible to determine, returns
+    /// [`None`].
+    pub fn atoms(&self) -> Atoms {
+        match self {
+            Target::Ipv4Addr(_) => Atoms::Known(1),
+            Target::Ipv6Addr(_) => Atoms::Known(1),
+            Target::SocketAddrV4(_) => Atoms::Known(1),
+            Target::SocketAddrV6(_) => Atoms::Known(1),
+            Target::Ipv4Net(x) => ip_atoms(ipnet::IpNet::V4(*x)),
+            Target::Ipv6Net(x) => ip_atoms(ipnet::IpNet::V6(*x)),
+            _unknown => Atoms::Unknown,
+        }
+    }
+}
+
+fn ip_atoms(ip_net: ipnet::IpNet) -> Atoms {
+    let host_bits = ip_net.max_prefix_len() - ip_net.prefix_len();
+    // u128 will overflow if a bit shift this large is attempted
+    if host_bits >= 128 {
+        return Atoms::KnownMax;
+    }
+    Atoms::Known(1u128 << host_bits)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -100,5 +133,20 @@ mod tests {
     fn target_fails(#[case] input: &str) {
         let result = Target::from_str(input);
         assert!(result.is_err());
+    }
+
+    #[rstest]
+    #[case("localhost", Atoms::Unknown)]
+    #[case("127.0.0.1", Atoms::Known(1))]
+    #[case("::1", Atoms::Known(1))]
+    #[case("127.0.0.1:22", Atoms::Known(1))]
+    #[case("[::1]:22", Atoms::Known(1))]
+    #[case("0.0.0.0/0", Atoms::Known(u32::MAX as u128 + 1))]
+    #[case("::/1", Atoms::Known(170141183460469231731687303715884105728))]
+    #[case("::/0", Atoms::KnownMax)]
+    fn target_atoms(#[case] input: &str, #[case] should: Atoms) {
+        let target = Target::from_str(input).unwrap();
+        let got = target.atoms();
+        assert_eq!(got, should);
     }
 }
