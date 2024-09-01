@@ -1,10 +1,8 @@
-use std::collections::BTreeSet;
-
-use anyhow::bail;
 use clap::Args;
 use kush_resolve::Resolve;
+use kush_resolve::ResolveChain;
 use kush_resolve::ReverseResolve;
-use kush_resolve::Target;
+use kush_resolve::ReverseResolveChain;
 
 /// Resolve targets from queries
 #[derive(Debug, Args)]
@@ -21,18 +19,11 @@ pub struct ResolveArgs {
 impl super::Run for ResolveArgs {
     async fn run(&self) -> anyhow::Result<()> {
         let targets = if self.reverse {
-            let mut resolvers: Vec<Box<dyn ReverseResolve + Send + Sync>> = Vec::new();
-            resolvers.push(Box::new(kush_resolve::DnsResolver::system()?));
-            reverse_resolve(resolvers, &self.query).await
+            let resolvers = ReverseResolveChain::try_default()?;
+            resolvers.reverse_resolve(&self.query).await?
         } else {
-            let mut resolvers: Vec<Box<dyn Resolve + Send + Sync>> = Vec::new();
-            resolvers.push(Box::new(kush_resolve::IpResolver));
-            resolvers.push(Box::new(kush_resolve::DnsResolver::system()?));
-            resolve(resolvers, &self.query).await
-        };
-
-        let Some(targets) = targets else {
-            bail!("no targets found for query: {}", &self.query);
+            let resolvers = ResolveChain::try_default()?;
+            resolvers.resolve(&self.query).await?
         };
 
         for target in targets {
@@ -41,31 +32,4 @@ impl super::Run for ResolveArgs {
 
         Ok(())
     }
-}
-
-async fn resolve(
-    resolvers: Vec<Box<dyn Resolve + Send + Sync>>,
-    query: &str,
-) -> Option<BTreeSet<Target>> {
-    let mut targets = None;
-    for resolver in resolvers {
-        if let Ok(t) = resolver.resolve(query).await {
-            targets = Some(t);
-            break;
-        };
-    }
-    targets
-}
-async fn reverse_resolve(
-    resolvers: Vec<Box<dyn ReverseResolve + Send + Sync>>,
-    query: &str,
-) -> Option<BTreeSet<Target>> {
-    let mut targets = None;
-    for resolver in resolvers {
-        if let Ok(t) = resolver.reverse_resolve(query).await {
-            targets = Some(t);
-            break;
-        };
-    }
-    targets
 }
