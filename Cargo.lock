@@ -910,6 +910,7 @@ dependencies = [
  "hickory-resolver",
  "ipnet",
  "rstest",
+ "tokio",
  "tracing",
 ]
 
