@@ -12,3 +12,8 @@ pub use target::Target;
 pub trait Resolve {
     async fn resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>>;
 }
+
+#[async_trait::async_trait]
+pub trait ReverseResolve {
+    async fn reverse_resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>>;
+}
