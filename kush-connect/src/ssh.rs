@@ -16,7 +16,7 @@ impl SshClient {
     async fn connect(stream: tokio::net::TcpStream) -> anyhow::Result<Self> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
-            ..<_>::default()
+            ..Default::default()
         });
 
         let handler = SshClientHandler {
