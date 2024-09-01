@@ -69,6 +69,14 @@ impl std::fmt::Display for Target {
     }
 }
 
+/// Number of known unique targets that a target can be divided into discretely.
+///
+/// For example:
+/// - IP and socket addresses are atomic - they cannot be divided further.
+/// - CIDR blocks are not atomic - they can be divided into their constituent IP
+///   addresses.
+/// - DNS names are indeterminate - they are impossible to divide
+///   deterministically.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atoms {
     Known(u128),
