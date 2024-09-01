@@ -1,14 +1,16 @@
+use std::collections::BTreeSet;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Args;
+use futures::StreamExt;
 use kush_connect::ssh::SshClient;
 use kush_connect::tcp::ReuseportTcpFactory;
 use kush_connect::tcp::TcpFactoryAsync;
+use kush_resolve::ForwardResolveChain;
 use kush_resolve::Resolve;
-use kush_resolve::ResolveChain;
 use kush_resolve::Target;
 use tracing::debug;
 
@@ -16,7 +18,7 @@ use tracing::debug;
 #[derive(Debug, Args)]
 pub struct ExecArgs {
     /// Target query
-    query: String,
+    query: Target,
 
     /// Command to run
     command: String,
@@ -29,8 +31,8 @@ pub struct ExecArgs {
 #[async_trait::async_trait]
 impl super::Run for ExecArgs {
     async fn run(&self) -> anyhow::Result<()> {
-        let resolvers = ResolveChain::forward()?;
-        let targets = resolvers.resolve(&self.query).await?;
+        let resolvers = ForwardResolveChain::try_default()?;
+        let targets: BTreeSet<Target> = resolvers.resolve(self.query.clone()).collect().await;
 
         clowntown_ssh(targets).await?;
 
