@@ -29,7 +29,7 @@ pub struct ExecArgs {
 #[async_trait::async_trait]
 impl super::Run for ExecArgs {
     async fn run(&self) -> anyhow::Result<()> {
-        let resolvers = ResolveChain::try_default()?;
+        let resolvers = ResolveChain::forward()?;
         let targets = resolvers.resolve(&self.query).await?;
 
         clowntown_ssh(targets).await?;

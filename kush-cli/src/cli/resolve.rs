@@ -22,7 +22,7 @@ impl super::Run for ResolveArgs {
             let resolvers = ReverseResolveChain::try_default()?;
             resolvers.reverse_resolve(&self.query).await?
         } else {
-            let resolvers = ResolveChain::try_default()?;
+            let resolvers = ResolveChain::forward()?;
             resolvers.resolve(&self.query).await?
         };
 

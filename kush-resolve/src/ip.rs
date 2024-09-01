@@ -1,26 +1,13 @@
-use std::collections::BTreeSet;
-use std::str::FromStr;
-
 use async_stream::stream;
 use futures::Stream;
-use futures::StreamExt;
 
-use crate::Resolve2;
+use crate::Resolve;
 use crate::Target;
 
 pub struct IpResolver;
 
-#[async_trait::async_trait]
-impl super::Resolve for IpResolver {
-    async fn resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>> {
-        let target = Target::from_str(query)?;
-        let targets = self.resolve2(target).collect().await;
-        Ok(targets)
-    }
-}
-
-impl super::Resolve2 for IpResolver {
-    fn resolve2(&self, target: Target) -> impl Stream<Item = Target> {
+impl Resolve for IpResolver {
+    fn resolve(&self, target: Target) -> impl Stream<Item = Target> {
         stream! {
             match target {
                 Target::Ipv4Addr(_) => yield target,
@@ -37,7 +24,7 @@ impl super::Resolve2 for IpResolver {
                         yield Target::Ipv6Addr(host);
                     }
                 }
-                _rest => return,
+                _unsupported => return,
             };
         }
     }
@@ -45,12 +32,15 @@ impl super::Resolve2 for IpResolver {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+    use std::str::FromStr;
+
     use futures::pin_mut;
     use futures::StreamExt;
     use rstest::rstest;
 
     use super::*;
-    use crate::Resolve2;
+    use crate::Resolve;
 
     #[rstest]
     #[case("127.0.0.1", 1)]
@@ -65,7 +55,7 @@ mod tests {
     async fn resolve2_works(#[case] query: &str, #[case] num: usize) {
         let target = Target::from_str(query).unwrap();
         let resolver = IpResolver;
-        let targets: BTreeSet<Target> = resolver.resolve2(target).collect().await;
+        let targets: BTreeSet<Target> = resolver.resolve(target).collect().await;
         assert_eq!(targets.len(), num);
     }
 
@@ -76,7 +66,7 @@ mod tests {
     async fn resolve2_huge(#[case] query: &str) {
         let target = Target::from_str(query).unwrap();
         let resolver = IpResolver;
-        let resolved = resolver.resolve2(target);
+        let resolved = resolver.resolve(target);
         pin_mut!(resolved);
         let mut counter = 0u128;
         while let Some(_) = resolved.next().await {

@@ -1,12 +1,12 @@
-use std::collections::BTreeSet;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::str::FromStr;
 
-use anyhow::bail;
+use async_stream::stream;
+use futures::Stream;
 use hickory_resolver::Name;
 use hickory_resolver::TokioAsyncResolver;
 
+use crate::Resolve;
 use crate::Target;
 
 pub struct DnsResolver {
@@ -21,47 +21,74 @@ impl DnsResolver {
     }
 }
 
-#[async_trait::async_trait]
-impl super::Resolve for DnsResolver {
-    async fn resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>> {
-        let target = Target::from_str(&query)?;
+impl Resolve for DnsResolver {
+    fn resolve(&self, target: Target) -> impl Stream<Item = Target> {
+        stream! {
+            match target {
+                // Forward
+                Target::Domain(name) => {
+                    for target in self.resolve_ip(name).await {
+                        yield target
+                    }
+                },
+                Target::DomainPort{ name, port } => {
+                    for target in self.resolve_sock(name, port).await {
+                        yield target
+                    }
+                },
 
-        let targets = match target {
-            Target::Domain(name) => self.resolve_ip(name).await?,
-            Target::DomainPort { name, port } => self.resolve_sock(name, port).await?,
-            unsupported => bail!("unsupported resolve target for DnsResolver: {unsupported}"),
-        };
+                // Reverse
+                Target::Ipv4Addr(ip) => {
+                    for target in self.resolve_domain(ip.into()).await {
+                        yield target
+                    }
+                },
+                Target::Ipv6Addr(ip) => {
+                    for target in self.resolve_domain(ip.into()).await {
+                        yield target
+                    }
+                },
+                Target::SocketAddrV4(sock) => {
+                    for target in self.resolve_domain_port(sock.into()).await {
+                        yield target
+                    }
+                },
+                Target::SocketAddrV6(sock) => {
+                    for target in self.resolve_domain_port(sock.into()).await {
+                        yield target
+                    }
+                },
 
-        Ok(targets)
+                _unsupported => return,
+            };
+        }
     }
 }
 
-/// Domain->IP resolvers
+// Forward resolution
 impl DnsResolver {
     // TODO: Default IP lookup strategy is `Ipv4thenIpv6`. Consider
     // changing it to `Ipv4AndIpv6` to gather all possible IPs.
 
-    async fn resolve_ip(&self, name: Name) -> anyhow::Result<BTreeSet<Target>> {
-        let targets = self
-            .resolver
+    async fn resolve_ip(&self, name: Name) -> impl Iterator<Item = Target> {
+        self.resolver
             .lookup_ip(name)
-            .await?
-            .iter()
+            .await
+            .into_iter()
+            .flatten()
             .map(|ip| match ip {
                 std::net::IpAddr::V4(x) => Target::Ipv4Addr(x),
                 std::net::IpAddr::V6(x) => Target::Ipv6Addr(x),
             })
-            .collect();
-        Ok(targets)
     }
 
-    async fn resolve_sock(&self, name: Name, port: u16) -> anyhow::Result<BTreeSet<Target>> {
-        let targets = self
-            .resolver
+    async fn resolve_sock(&self, name: Name, port: u16) -> impl Iterator<Item = Target> {
+        self.resolver
             .lookup_ip(name)
-            .await?
-            .iter()
-            .map(|ip| match ip {
+            .await
+            .into_iter()
+            .flatten()
+            .map(move |ip| match ip {
                 std::net::IpAddr::V4(x) => {
                     Target::SocketAddrV4(std::net::SocketAddrV4::new(x, port))
                 }
@@ -69,60 +96,39 @@ impl DnsResolver {
                     Target::SocketAddrV6(std::net::SocketAddrV6::new(x, port, 0, 0))
                 }
             })
-            .collect();
-        Ok(targets)
     }
 }
 
-#[async_trait::async_trait]
-impl super::ReverseResolve for DnsResolver {
-    async fn reverse_resolve(&self, query: &str) -> anyhow::Result<BTreeSet<Target>> {
-        let target = Target::from_str(&query)?;
-
-        let targets = match target {
-            Target::Ipv4Addr(x) => self.resolve_domain(IpAddr::V4(x)).await?,
-            Target::Ipv6Addr(x) => self.resolve_domain(IpAddr::V6(x)).await?,
-            Target::SocketAddrV4(x) => self.resolve_domain_port(SocketAddr::V4(x)).await?,
-            Target::SocketAddrV6(x) => self.resolve_domain_port(SocketAddr::V6(x)).await?,
-            unsupported => {
-                bail!("unsupported reverse resolve target for DnsResolver: {unsupported}")
-            }
-        };
-
-        Ok(targets)
-    }
-}
-
-/// IP->Domain resolvers
+/// Reverse resolution
 impl DnsResolver {
-    async fn resolve_domain(&self, ip: IpAddr) -> anyhow::Result<BTreeSet<Target>> {
-        let targets = self
-            .resolver
+    async fn resolve_domain(&self, ip: IpAddr) -> impl Iterator<Item = Target> {
+        self.resolver
             .reverse_lookup(ip)
-            .await?
-            .iter()
+            .await
+            .into_iter()
+            .flatten()
             .map(|record| Target::Domain(record.0.clone()))
-            .collect();
-        Ok(targets)
     }
 
-    async fn resolve_domain_port(&self, sock: SocketAddr) -> anyhow::Result<BTreeSet<Target>> {
-        let targets = self
-            .resolver
+    async fn resolve_domain_port(&self, sock: SocketAddr) -> impl Iterator<Item = Target> {
+        self.resolver
             .reverse_lookup(sock.ip())
-            .await?
-            .iter()
-            .map(|record| Target::DomainPort {
+            .await
+            .into_iter()
+            .flatten()
+            .map(move |record| Target::DomainPort {
                 name: record.0.clone(),
                 port: sock.port(),
             })
-            .collect();
-        Ok(targets)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+    use std::str::FromStr;
+
+    use futures::StreamExt;
     use rstest::rstest;
 
     use super::*;
@@ -133,10 +139,10 @@ mod tests {
     #[case("google.com")]
     #[case("google.com.")]
     #[tokio::test]
-    async fn dns_resolver_works(#[case] search_term: &str) {
+    async fn dns_resolver_works(#[case] input: &str) {
+        let target = Target::from_str(input).unwrap();
         let resolver = DnsResolver::system().unwrap();
-        let targets = resolver.resolve(search_term).await.unwrap();
-        dbg!(targets.clone());
+        let targets: BTreeSet<Target> = resolver.resolve(target).collect().await;
         assert!(targets.len() > 0);
     }
 }
