@@ -7,6 +7,8 @@ edition = "2021"
 anyhow = "1"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
+futures = "0.3.30"
+kush-connect = { path = "../kush-connect" }
 kush-resolve = { path = "../kush-resolve" }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"

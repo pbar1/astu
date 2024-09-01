@@ -13,7 +13,7 @@ pub struct SshClient {
 }
 
 impl SshClient {
-    async fn connect(stream: tokio::net::TcpStream) -> anyhow::Result<Self> {
+    pub async fn connect(stream: tokio::net::TcpStream) -> anyhow::Result<Self> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
             ..Default::default()
@@ -28,7 +28,7 @@ impl SshClient {
         Ok(Self { session })
     }
 
-    async fn auth_key(
+    pub async fn auth_key(
         &mut self,
         key_path: impl AsRef<Path>,
         user: impl Into<String>,
@@ -47,7 +47,7 @@ impl SshClient {
         Ok(())
     }
 
-    async fn auth_agent(&mut self, user: &str) -> anyhow::Result<()> {
+    pub async fn auth_agent(&mut self, user: &str) -> anyhow::Result<()> {
         let mut agent = russh::keys::agent::client::AgentClient::connect_env().await?;
         let mut result: Result<bool, _>;
         let identities = agent.request_identities().await?;
@@ -65,7 +65,7 @@ impl SshClient {
         bail!("unable to authenticate with ssh agent");
     }
 
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    pub async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
         let mut channel = self.session.channel_open_session().await?;
         channel.exec(true, command).await?;
 
@@ -105,7 +105,7 @@ impl SshClient {
         })
     }
 
-    async fn close(&mut self) -> anyhow::Result<()> {
+    pub async fn close(&mut self) -> anyhow::Result<()> {
         self.session
             .disconnect(russh::Disconnect::ByApplication, "", "English")
             .await?;

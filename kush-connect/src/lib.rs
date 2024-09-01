@@ -1,2 +1,2 @@
-mod ssh;
-mod tcp;
+pub mod ssh;
+pub mod tcp;

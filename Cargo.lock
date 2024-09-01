@@ -882,6 +882,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
+ "futures",
+ "kush-connect",
  "kush-resolve",
  "tokio",
  "tracing",
