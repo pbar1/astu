@@ -9,7 +9,7 @@ pub struct DnsResolver {
 }
 
 impl DnsResolver {
-    fn system() -> anyhow::Result<Self> {
+    pub fn system() -> anyhow::Result<Self> {
         let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
         let resolver = TokioAsyncResolver::tokio(config, options);
         Ok(Self { resolver })
