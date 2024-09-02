@@ -1,63 +1,164 @@
-use std::path::Path;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::bail;
 use anyhow::Context;
+use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
+use crate::tcp::TcpFactoryAsync;
+use crate::Auth;
+use crate::AuthType;
+use crate::Connect;
 use crate::Exec;
 use crate::ExecOutput;
 
 pub struct SshClient {
-    session: russh::client::Handle<SshClientHandler>,
+    addr: SocketAddr,
+    tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+    session: Option<russh::client::Handle<SshClientHandler>>,
+    user: Option<String>,
 }
 
 impl SshClient {
-    pub async fn connect(stream: tokio::net::TcpStream) -> anyhow::Result<Self> {
+    pub fn new(addr: SocketAddr, tcp: Arc<dyn TcpFactoryAsync + Send + Sync>) -> Self {
+        Self {
+            addr,
+            tcp,
+            session: None,
+            user: None,
+        }
+    }
+
+    pub async fn close(&mut self) -> anyhow::Result<()> {
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+        session
+            .disconnect(russh::Disconnect::ByApplication, "", "English")
+            .await?;
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl Connect for SshClient {
+    async fn connect(&mut self, timeout: Duration) -> anyhow::Result<()> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
             ..Default::default()
         });
+
+        let stream = self.tcp.connect_timeout_async(&self.addr, timeout).await?;
 
         let handler = SshClientHandler {
             server_banner: None,
         };
 
         let session = russh::client::connect_stream(config, stream, handler).await?;
+        self.session = Some(session);
 
-        Ok(Self { session })
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl Auth for SshClient {
+    async fn auth(&mut self, auth_type: &AuthType) -> anyhow::Result<()> {
+        match auth_type {
+            AuthType::User(x) => self.auth_user(x).await,
+            AuthType::Password(x) => self.auth_password(x).await,
+            AuthType::SshKey(x) => self.auth_ssh_key(x).await,
+            AuthType::SshCert { key, cert } => self.auth_ssh_cert(key, cert.clone()).await,
+            AuthType::SshAgent { socket } => self.auth_ssh_agent(socket).await,
+        }
+    }
+}
+
+/// Helpers for [`Auth`]
+impl SshClient {
+    async fn auth_user(&mut self, user: &str) -> anyhow::Result<()> {
+        if self.user.is_some() {
+            bail!("ssh user is already set");
+        }
+        self.user = Some(user.to_owned());
+        Ok(())
     }
 
-    pub async fn auth_key(
-        &mut self,
-        key_path: impl AsRef<Path>,
-        user: impl Into<String>,
-    ) -> anyhow::Result<()> {
-        let key_pair = russh::keys::load_secret_key(key_path, None)?;
+    async fn auth_password(&mut self, password: &str) -> anyhow::Result<()> {
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+        let Some(ref user) = self.user else {
+            bail!("no ssh user");
+        };
 
-        let auth_res = self
-            .session
-            .authenticate_publickey(user, Arc::new(key_pair))
-            .await?;
-
-        if !auth_res {
-            anyhow::bail!("Authentication failed");
+        let authenticated = session.authenticate_password(user, password).await?;
+        if !authenticated {
+            bail!("ssh authentication failed");
         }
 
         Ok(())
     }
 
-    pub async fn auth_agent(&mut self, user: &str) -> anyhow::Result<()> {
-        let mut agent = russh::keys::agent::client::AgentClient::connect_env().await?;
+    async fn auth_ssh_key(&mut self, private_key: &str) -> anyhow::Result<()> {
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+        let Some(ref user) = self.user else {
+            bail!("no ssh user");
+        };
+
+        let key = russh::keys::decode_secret_key(private_key, None)?;
+
+        let authenticated = session.authenticate_publickey(user, Arc::new(key)).await?;
+        if !authenticated {
+            bail!("ssh authentication failed");
+        }
+
+        Ok(())
+    }
+
+    async fn auth_ssh_cert(&mut self, private_key: &str, cert: Certificate) -> anyhow::Result<()> {
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+        let Some(ref user) = self.user else {
+            bail!("no ssh user");
+        };
+
+        let key = russh::keys::decode_secret_key(private_key, None)?;
+
+        let authenticated = session
+            .authenticate_openssh_cert(user, Arc::new(key), cert)
+            .await?;
+        if !authenticated {
+            bail!("ssh authentication failed");
+        }
+
+        Ok(())
+    }
+
+    /// Iterates through all identities found in SSH agent and returns on the
+    /// first authentication success, or failure if exhausted before success.
+    async fn auth_ssh_agent(&mut self, socket: &str) -> anyhow::Result<()> {
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+        let Some(ref user) = self.user else {
+            bail!("no ssh user");
+        };
+
+        let mut agent = russh::keys::agent::client::AgentClient::connect_uds(socket).await?;
         let mut result: Result<bool, _>;
         let identities = agent.request_identities().await?;
 
         for key in identities {
             let fingerprint = key.fingerprint();
-            (agent, result) = self.session.authenticate_future(user, key, agent).await;
+            (agent, result) = session.authenticate_future(user, key, agent).await;
             match result {
                 Ok(true) => return Ok(()),
                 Ok(false) => debug!(%user, key = %fingerprint, "ssh agent auth denied"),
@@ -67,9 +168,23 @@ impl SshClient {
 
         bail!("unable to authenticate with ssh agent");
     }
+}
 
+#[async_trait::async_trait]
+impl Exec for SshClient {
+    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+        self.exec_inner(command).await
+    }
+}
+
+/// Helpers for [`Exec`]
+impl SshClient {
     async fn exec_inner(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
-        let mut channel = self.session.channel_open_session().await?;
+        let Some(ref mut session) = self.session else {
+            bail!("no ssh session");
+        };
+
+        let mut channel = session.channel_open_session().await?;
         channel.exec(true, command).await?;
 
         let mut code = None;
@@ -107,21 +222,9 @@ impl SshClient {
             stderr,
         })
     }
-
-    pub async fn close(&mut self) -> anyhow::Result<()> {
-        self.session
-            .disconnect(russh::Disconnect::ByApplication, "", "English")
-            .await?;
-        Ok(())
-    }
 }
 
-#[async_trait::async_trait]
-impl Exec for SshClient {
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
-        self.exec_inner(command).await
-    }
-}
+// russh details --------------------------------------------------------------
 
 struct SshClientHandler {
     server_banner: Option<String>,
@@ -147,6 +250,8 @@ impl russh::client::Handler for SshClientHandler {
         Ok(())
     }
 }
+
+// Tests ----------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

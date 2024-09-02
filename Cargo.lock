@@ -937,6 +937,7 @@ dependencies = [
  "rstest",
  "russh",
  "socket2",
+ "ssh-key",
  "tokio",
  "tracing",
 ]
