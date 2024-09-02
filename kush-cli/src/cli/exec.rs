@@ -62,17 +62,27 @@ impl super::Run for ExecArgs {
             let Ok(mut client) = mapper.get_client(target) else {
                 continue;
             };
-            let user = AuthType::User(self.user.clone());
-            let agent = AuthType::SshAgent {
-                socket: self.ssh_agent.clone().unwrap_or("".to_string()),
-            };
+
+            let mut auths = Vec::new();
+            auths.push(AuthType::User(self.user.clone()));
+            if let Some(socket) = self.ssh_agent.clone() {
+                auths.push(AuthType::SshAgent { socket });
+            }
+
             let command = self.command.clone();
+
             tasks.push(tokio::spawn(async move {
-                client.connect(Duration::from_secs(30)).await.unwrap();
-                // FIXME: Send of vec of AuthType, would also support partial auth
-                client.auth(&user).await.unwrap();
-                client.auth(&agent).await.unwrap();
-                let output = client.exec(&command).await.unwrap();
+                let Ok(_) = client.connect(Duration::from_secs(30)).await else {
+                    return;
+                };
+                for auth in auths {
+                    let Ok(_) = client.auth(&auth).await else {
+                        return;
+                    };
+                }
+                let Ok(output) = client.exec(&command).await else {
+                    return;
+                };
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 println!("{who}: {}", stdout);
             }));
