@@ -109,6 +109,15 @@ impl Target {
             _unknown => Atoms::Unknown,
         }
     }
+
+    /// Returns true if the variant is [`Target::Unknown`]. This is useful for
+    /// elision of unknown targets in application logic.
+    pub fn is_unknown(&self) -> bool {
+        match self {
+            Target::Unknown(_) => true,
+            _rest => false,
+        }
+    }
 }
 
 fn ip_atoms(ip_net: ipnet::IpNet) -> Atoms {

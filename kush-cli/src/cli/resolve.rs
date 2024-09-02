@@ -15,6 +15,10 @@ pub struct ResolveArgs {
     /// Perform reverse resolution instead of forward
     #[arg(short, long)]
     reverse: bool,
+
+    /// Show targets that resolve to unknown
+    #[arg(long)]
+    unknown: bool,
 }
 
 #[async_trait::async_trait]
@@ -25,6 +29,9 @@ impl super::Run for ResolveArgs {
             let targets = resolvers.resolve(self.query.clone());
             pin_mut!(targets);
             while let Some(target) = targets.next().await {
+                if !self.unknown && target.is_unknown() {
+                    continue;
+                }
                 println!("{target}");
             }
         } else {
@@ -32,6 +39,9 @@ impl super::Run for ResolveArgs {
             let targets = resolvers.resolve(self.query.clone());
             pin_mut!(targets);
             while let Some(target) = targets.next().await {
+                if !self.unknown && target.is_unknown() {
+                    continue;
+                }
                 println!("{target}");
             }
         }
