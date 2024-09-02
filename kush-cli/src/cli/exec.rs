@@ -20,23 +20,31 @@ use crate::mapper::ssh::SshMapper;
 /// Run commands on targets
 #[derive(Debug, Args)]
 pub struct ExecArgs {
-    /// Target query
+    /// Target to connect to.
     target: Target,
 
-    /// Command to run
+    /// Command to run.
     command: String,
 
-    /// User to authenticate as
-    #[arg(short = 'u', long, default_value = "root")]
+    /// Remote user to authenticate as.
+    #[arg(short = 'l', long, default_value = "root")]
     user: String,
 
-    /// SSH agent socket to use
+    /// SSH agent socket to use.
     #[arg(long, env = "SSH_AUTH_SOCK")]
     ssh_agent: Option<String>,
 
-    /// Bind all connections to the same local address
+    /// Bind all connections to the same local address.
+    ///
+    /// This greatly increases the possible number of concurrent connections, at
+    /// the cost of being unable to create more than one simultaneous connection
+    /// to each remote address.
     #[arg(long)]
     reuseport: bool,
+
+    /// Time in seconds to allow connection to complete.
+    #[arg(long, default_value_t = 2)]
+    connect_timeout: u64,
 }
 
 #[async_trait::async_trait]
@@ -70,9 +78,10 @@ impl super::Run for ExecArgs {
             }
 
             let command = self.command.clone();
+            let connect_timeout = Duration::from_secs(self.connect_timeout);
 
             tasks.push(tokio::spawn(async move {
-                let Ok(_) = client.connect(Duration::from_secs(30)).await else {
+                let Ok(_) = client.connect(connect_timeout).await else {
                     return;
                 };
                 for auth in auths {
