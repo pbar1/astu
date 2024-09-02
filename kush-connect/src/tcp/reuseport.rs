@@ -13,8 +13,8 @@ use socket2::Socket;
 use socket2::Type;
 
 pub struct ReuseportTcpFactory {
-    reserved_v4: Socket,
-    reserved_v6: Socket,
+    _reserved_v4: Socket,
+    _reserved_v6: Socket,
     addr_v4: SockAddr,
     addr_v6: SockAddr,
 }
@@ -55,8 +55,8 @@ impl ReuseportTcpFactory {
         let addr_v6 = reserved_v6.local_addr()?;
 
         Ok(Self {
-            reserved_v4,
-            reserved_v6,
+            _reserved_v4: reserved_v4,
+            _reserved_v6: reserved_v6,
             addr_v4,
             addr_v6,
         })
