@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.30"
 kush-connect = { path = "../kush-connect" }
 kush-resolve = { path = "../kush-resolve" }
