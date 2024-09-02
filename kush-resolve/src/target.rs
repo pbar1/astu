@@ -12,6 +12,10 @@ pub enum Target {
         port: u16,
     },
     Uri(fluent_uri::UriRef<String>),
+    Ssh {
+        addr: std::net::SocketAddr,
+        user: Option<String>,
+    },
     Unknown(String),
 }
 
@@ -29,7 +33,7 @@ impl std::str::FromStr for Target {
             s
         };
 
-        // Eagerly detect URI
+        // Only use URI if scheme is set
         if s.contains("://") {
             let uri = fluent_uri::UriRef::from_str(s)?;
             return Ok(Self::Uri(uri));
@@ -73,10 +77,31 @@ impl std::fmt::Display for Target {
             Target::Domain(x) => x.to_string(),
             Target::DomainPort { name, port } => format!("{name}:{port}"),
             Target::Uri(x) => x.to_string(),
+            Target::Ssh { addr, user } => display_ssh(addr, user),
             Target::Unknown(x) => x.to_string(),
         };
         write!(f, "{s}")
     }
+}
+
+fn display_ssh(addr: &std::net::SocketAddr, user: &Option<String>) -> String {
+    let mut out = "ssh://".to_string();
+    if let Some(user) = user {
+        out.push_str(user);
+    }
+    match addr.ip() {
+        std::net::IpAddr::V4(ip) => out.push_str(&ip.to_string()),
+        std::net::IpAddr::V6(ip) => {
+            out.push('[');
+            out.push_str(&ip.to_string());
+            out.push(']');
+        }
+    }
+    match addr.port() {
+        22 => return out,
+        port => out.push_str(&format!(":{port}")),
+    }
+    out
 }
 
 /// Number of known unique targets that a target can be divided into discretely.
@@ -138,30 +163,35 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case("127.0.0.1", "127.0.0.1")]
-    #[case("::1", "::1")]
-    #[case("[::1]", "::1")]
-    #[case("127.0.0.1:22", "127.0.0.1:22")]
-    #[case("[::1]:22", "[::1]:22")]
-    #[case("0.0.0.0/0", "0.0.0.0/0")]
-    #[case("::/0", "::/0")]
-    #[case("localhost", "localhost")]
-    #[case("domain.test", "domain.test")]
-    #[case("localhost:22", "localhost:22")]
-    #[case("domain.test:22", "domain.test:22")]
+    #[case::ipv4("127.0.0.1", "127.0.0.1")]
+    #[case::ipv6("::1", "::1")]
+    #[case::ipv6("[::1]", "::1")]
+    #[case::sock4("127.0.0.1:22", "127.0.0.1:22")]
+    #[case::sock6("[::1]:22", "[::1]:22")]
+    #[case::net4("0.0.0.0/0", "0.0.0.0/0")]
+    #[case::net6("::/0", "::/0")]
+    #[case::domain("localhost", "localhost")]
+    #[case::domain("domain.test", "domain.test")]
+    #[case::domainport("localhost:22", "localhost:22")]
+    #[case::domainport("domain.test:22", "domain.test:22")]
+    #[case::uri("file:///test.txt", "file:///test.txt")]
+    #[case::uri("ssh://user@127.0.0.1", "ssh://user@127.0.0.1")]
+    #[case::uri("ssh://user@localhost:222", "ssh://user@localhost:222")]
     fn target_roundtrip(#[case] input: &str, #[case] should: &str) {
         let target = Target::from_str(input).unwrap();
+        assert!(!target.is_unknown());
         let output = target.to_string();
         assert_eq!(output, should);
     }
 
-    // FIXME: Check for unknown
-    // #[rstest]
-    // #[case("example.test/path")]
-    // fn target_fails(#[case] input: &str) {
-    //     let result = Target::from_str(input);
-    //     assert!(result.is_err());
-    // }
+    #[rstest]
+    #[case("example.test/path", "example.test/path")]
+    fn target_unknown(#[case] input: &str, #[case] should: &str) {
+        let target = Target::from_str(input).unwrap();
+        assert!(target.is_unknown());
+        let got = target.to_string();
+        assert_eq!(got, should);
+    }
 
     #[rstest]
     #[case("localhost", Atoms::Unknown)]
