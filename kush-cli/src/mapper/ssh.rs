@@ -16,13 +16,14 @@ impl SshMapper {
     }
 
     pub fn get_client(&self, target: Target) -> anyhow::Result<SshClient> {
-        let addr = match target {
-            Target::Ipv4Addr(x) => SocketAddr::new(x.into(), 22),
-            Target::Ipv6Addr(x) => SocketAddr::new(x.into(), 22),
-            Target::SocketAddrV4(x) => x.into(),
-            Target::SocketAddrV6(x) => x.into(),
+        let (addr, user) = match target {
+            Target::Ipv4Addr(x) => (SocketAddr::new(x.into(), 22), None),
+            Target::Ipv6Addr(x) => (SocketAddr::new(x.into(), 22), None),
+            Target::SocketAddrV4(x) => (x.into(), None),
+            Target::SocketAddrV6(x) => (x.into(), None),
+            Target::Ssh { addr, user } => (addr, user),
             unsupported => bail!("unsupported ssh target: {unsupported}"),
         };
-        Ok(SshClient::new(addr, self.tcp.clone()))
+        Ok(SshClient::new(addr, self.tcp.clone(), user))
     }
 }

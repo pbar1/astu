@@ -24,12 +24,16 @@ pub struct SshClient {
 }
 
 impl SshClient {
-    pub fn new(addr: SocketAddr, tcp: Arc<dyn TcpFactoryAsync + Send + Sync>) -> Self {
+    pub fn new(
+        addr: SocketAddr,
+        tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+        user: Option<String>,
+    ) -> Self {
         Self {
             addr,
             tcp,
             session: None,
-            user: None,
+            user,
         }
     }
 
@@ -259,19 +263,21 @@ mod tests {
 
     use super::*;
     use crate::tcp::ReuseportTcpFactory;
-    use crate::tcp::TcpFactoryAsync;
 
     #[tokio::test]
     async fn works() {
-        let tcp_factory = ReuseportTcpFactory::try_new().unwrap();
         let addr = "tec.lan:22".to_socket_addrs().unwrap().next().unwrap();
-        let stream = tcp_factory
-            .connect_timeout_async(&addr, Duration::from_secs(5))
-            .await
-            .unwrap();
-        let mut ssh_client = SshClient::connect(stream).await.unwrap();
-        ssh_client.auth_agent("nixos").await.unwrap();
-        let output = ssh_client.exec("uname -a").await.unwrap();
+        let tcp = Arc::new(ReuseportTcpFactory::try_new().unwrap());
+        let user = Some("nixos".to_string());
+
+        let mut client = SshClient::new(addr, tcp, user);
+
+        client.connect(Duration::from_secs(2)).await.unwrap();
+
+        let socket = std::env::var("SSH_AUTH_SOCK").unwrap();
+        client.auth_ssh_agent(&socket).await.unwrap();
+
+        let output = client.exec("uname -a").await.unwrap();
         assert_eq!(output.exit_status, 0);
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("GNU/Linux"));
