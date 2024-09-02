@@ -8,6 +8,9 @@ use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
+use crate::Exec;
+use crate::ExecOutput;
+
 pub struct SshClient {
     session: russh::client::Handle<SshClientHandler>,
 }
@@ -65,7 +68,7 @@ impl SshClient {
         bail!("unable to authenticate with ssh agent");
     }
 
-    pub async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    async fn exec_inner(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
         let mut channel = self.session.channel_open_session().await?;
         channel.exec(true, command).await?;
 
@@ -113,6 +116,13 @@ impl SshClient {
     }
 }
 
+#[async_trait::async_trait]
+impl Exec for SshClient {
+    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+        self.exec_inner(command).await
+    }
+}
+
 struct SshClientHandler {
     server_banner: Option<String>,
 }
@@ -136,12 +146,6 @@ impl russh::client::Handler for SshClientHandler {
         self.server_banner = Some(banner.to_owned());
         Ok(())
     }
-}
-
-pub struct ExecOutput {
-    pub exit_status: u32,
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
 }
 
 #[cfg(test)]

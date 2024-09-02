@@ -58,6 +58,7 @@ mod tests {
     #[case("ssh://127.0.0.1:22", "127.0.0.1:22")]
     #[case("ssh://[::1]", "[::1]:22")]
     #[case("ssh://[::1]:22", "[::1]:22")]
+    #[case("ssh://[::1]:222", "[::1]:222")]
     #[tokio::test]
     async fn resolve_works(#[case] query: &str, #[case] should: &str) {
         let target = Target::from_str(query).unwrap();

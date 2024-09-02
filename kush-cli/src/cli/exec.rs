@@ -9,6 +9,7 @@ use futures::StreamExt;
 use kush_connect::ssh::SshClient;
 use kush_connect::tcp::ReuseportTcpFactory;
 use kush_connect::tcp::TcpFactoryAsync;
+use kush_connect::Exec;
 use kush_resolve::ForwardResolveChain;
 use kush_resolve::Resolve;
 use kush_resolve::Target;
