@@ -27,12 +27,16 @@ fn map_uri(uri: UriRef<String>) -> Target {
     }
 }
 
-// TODO: Infer port
 fn ssh(uri: UriRef<String>) -> Target {
     let Some(authority) = uri.authority() else {
         return Target::Unknown(uri.to_string());
     };
-    let Ok(target) = Target::from_str(authority.as_str()) else {
+    let s = match authority.port_to_u16() {
+        Ok(Some(_)) => authority.as_str(),
+        Ok(None) => &format!("{authority}:22"),
+        _else => return Target::Unknown(uri.to_string()),
+    };
+    let Ok(target) = Target::from_str(&s) else {
         return Target::Unknown(uri.to_string());
     };
     target
@@ -50,9 +54,9 @@ mod tests {
     use crate::Resolve;
 
     #[rstest]
-    #[case("ssh://127.0.0.1", "127.0.0.1")]
+    #[case("ssh://127.0.0.1", "127.0.0.1:22")]
     #[case("ssh://127.0.0.1:22", "127.0.0.1:22")]
-    #[case("ssh://[::1]", "::1")]
+    #[case("ssh://[::1]", "[::1]:22")]
     #[case("ssh://[::1]:22", "[::1]:22")]
     #[tokio::test]
     async fn resolve_works(#[case] query: &str, #[case] should: &str) {
