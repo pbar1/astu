@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+async-stream = "0.3.5"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.30"
 kush-connect = { path = "../kush-connect" }
 kush-resolve = { path = "../kush-resolve" }
 tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1.15", features = ["io-util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

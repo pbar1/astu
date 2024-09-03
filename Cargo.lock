@@ -918,12 +918,14 @@ name = "kush-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "async-trait",
  "clap",
  "futures",
  "kush-connect",
  "kush-resolve",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
 ]
