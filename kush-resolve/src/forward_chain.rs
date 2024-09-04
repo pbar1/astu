@@ -14,10 +14,7 @@ pub struct ForwardChainResolver {
 
 impl Resolve for ForwardChainResolver {
     fn resolve(&self, target: Target) -> ResolveResult {
-        match target {
-            Target::File(_) => self.file.resolve(target),
-            rest => self.resolve_inner(rest),
-        }
+        self.resolve_inner(target)
     }
 }
 
@@ -35,6 +32,7 @@ impl ForwardChainResolver {
             Target::SocketAddr(_) => bounce(target),
             Target::Ssh { .. } => bounce(target),
             Target::Cidr(_) => self.cidr.resolve(target),
+            Target::File(_) => self.file.resolve(target),
             unsupported => bail!("ForwardChainResolver: unsupported target: {unsupported}"),
         }
     }
