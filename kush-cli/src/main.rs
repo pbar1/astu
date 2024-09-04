@@ -1,5 +1,6 @@
 #![feature(async_closure)]
 
+mod argetype;
 mod cli;
 mod mapper;
 

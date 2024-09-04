@@ -20,14 +20,16 @@ use crate::mapper::ssh::SshMapper;
 /// Run commands on targets
 #[derive(Debug, Args)]
 pub struct ExecArgs {
-    /// Target to connect to.
+    /// Target query. Reads from stdin by default.
+    #[arg(default_value = "/dev/fd/0")]
     target: Target,
 
     /// Command to run.
-    command: String,
+    #[arg(trailing_var_arg = true)]
+    command: Vec<String>,
 
     /// Remote user to authenticate as.
-    #[arg(short = 'l', long, default_value = "root")]
+    #[arg(short = 'u', long, default_value = "root")]
     user: String,
 
     /// SSH agent socket to use.
@@ -50,9 +52,12 @@ pub struct ExecArgs {
 #[async_trait::async_trait]
 impl super::Run for ExecArgs {
     async fn run(&self) -> anyhow::Result<()> {
+        dbg!(&self);
         let resolvers = ForwardResolveChain::try_default()?;
         let targets = resolvers.resolve(self.target.clone());
         pin_mut!(targets);
+
+        let command = self.command.join(" ");
 
         // TODO: What to do about mapper being coded to SSH...
         let tcp: Arc<dyn TcpFactoryAsync + Send + Sync> = match self.reuseport {
@@ -77,7 +82,7 @@ impl super::Run for ExecArgs {
                 auths.push(AuthType::SshAgent { socket });
             }
 
-            let command = self.command.clone();
+            let command = command.clone();
             let connect_timeout = Duration::from_secs(self.connect_timeout);
 
             tasks.push(tokio::spawn(async move {

@@ -1,135 +1,48 @@
-mod dns;
-mod file;
-mod ip;
+// mod dns;
+// mod file;
+mod cidr;
 mod target;
-mod uri;
+// mod uri;
 
-use async_stream::stream;
-pub use dns::DnsResolver;
-pub use file::FileResolver;
+use std::pin::Pin;
+
+// pub use dns::DnsResolver;
+// pub use file::FileResolver;
 use futures::Stream;
-pub use ip::IpResolver;
+use futures::StreamExt;
+// pub use ip::IpResolver;
 pub use target::Target;
-pub use uri::UriResolver;
+// pub use uri::UriResolver;
+
+pub type TargetResult = anyhow::Result<Target>;
+pub type TargetResultStream = Pin<Box<dyn Stream<Item = TargetResult> + Send>>;
+pub type TargetStream = Pin<Box<dyn Stream<Item = Target>>>;
 
 pub trait Resolve {
-    fn resolve(&self, target: Target) -> impl Stream<Item = Target>;
+    /// Expands a [`Target`] into a stream of [`TargetResult`].
+    ///
+    /// Use the functions in [`ResolveExt`] for friendlier stream ergonomics.
+    fn resolve(&self, target: Target) -> anyhow::Result<TargetResultStream>;
 }
 
-pub struct ForwardResolveChain {
-    ip: IpResolver,
-    dns: DnsResolver,
-    uri: UriResolver,
-    file: FileResolver,
+pub trait ResolveExt: Resolve + Send + Sync {
+    /// Returns a stream of [`Target`] while ignoring all errors.
+    fn resolve_infallible(&self, target: Target) -> TargetStream;
 }
 
-impl ForwardResolveChain {
-    pub fn try_default() -> anyhow::Result<ForwardResolveChain> {
-        let ip = IpResolver;
-        let dns = DnsResolver::system()?;
-        let uri = UriResolver;
-        let file = FileResolver;
-        Ok(Self { ip, dns, uri, file })
-    }
-}
+impl<T> ResolveExt for T
+where
+    T: Resolve + Send + Sync,
+{
+    /// Returns a stream of [`Target`] while ignoring all errors.
+    fn resolve_infallible(&self, target: Target) -> TargetStream {
+        let resolved = self.resolve(target);
 
-impl Resolve for ForwardResolveChain {
-    fn resolve(&self, target: Target) -> impl Stream<Item = Target> {
-        stream! {
-            match target {
-                Target::Ipv4Addr(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Ipv6Addr(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::SocketAddrV4(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::SocketAddrV6(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Ipv4Net(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Ipv6Net(_) => {
-                    for await x in self.ip.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Domain(_) => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::DomainPort{ .. } => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Uri(_) => {
-                    for await x in self.uri.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::File(_) => {
-                    for await x in self.file.resolve(target) {
-                        yield x;
-                    }
-                },
-                _unsupported => return,
-            };
-        }
-    }
-}
-
-pub struct ReverseResolveChain {
-    dns: DnsResolver,
-}
-
-impl ReverseResolveChain {
-    pub fn try_default() -> anyhow::Result<ReverseResolveChain> {
-        let dns = DnsResolver::system()?;
-        Ok(Self { dns })
-    }
-}
-
-impl Resolve for ReverseResolveChain {
-    fn resolve(&self, target: Target) -> impl Stream<Item = Target> {
-        stream! {
-            match target {
-                Target::Ipv4Addr(_) => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::Ipv6Addr(_) => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::SocketAddrV4(_) => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                Target::SocketAddrV6(_) => {
-                    for await x in self.dns.resolve(target) {
-                        yield x;
-                    }
-                },
-                _unsupported => return,
-            };
-        }
+        // TODO: Log errors using `inspect` before flattening
+        futures::stream::iter(resolved)
+            .flatten()
+            .map(futures::stream::iter)
+            .flatten()
+            .boxed()
     }
 }
