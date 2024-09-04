@@ -2,13 +2,13 @@ use anyhow::bail;
 use futures::StreamExt;
 
 use crate::Resolve;
+use crate::ResolveResult;
 use crate::Target;
-use crate::TargetResultStream;
 
 pub struct CidrResolver;
 
 impl Resolve for CidrResolver {
-    fn resolve(&self, target: Target) -> anyhow::Result<TargetResultStream> {
+    fn resolve(&self, target: Target) -> ResolveResult {
         let cidr = match target {
             Target::Cidr(cidr) => cidr,
             unsupported => bail!("CidrResolver: unsupported target: {unsupported}"),
@@ -35,7 +35,7 @@ mod tests {
     #[case("::1/128", 1)]
     #[case("::1/112", 65536)]
     #[tokio::test]
-    async fn resolve2_works(#[case] query: &str, #[case] num: usize) {
+    async fn resolve_works(#[case] query: &str, #[case] num: usize) {
         let target = Target::from_str(query).unwrap();
         let resolver = CidrResolver;
         let targets: BTreeSet<Target> = resolver.resolve_infallible(target).collect().await;

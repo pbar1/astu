@@ -1,6 +1,6 @@
 // mod dns;
-// mod file;
 mod cidr;
+mod file;
 mod target;
 // mod uri;
 
@@ -15,6 +15,7 @@ pub use target::Target;
 // pub use uri::UriResolver;
 
 pub type TargetResult = anyhow::Result<Target>;
+pub type ResolveResult = anyhow::Result<TargetResultStream>;
 pub type TargetResultStream = Pin<Box<dyn Stream<Item = TargetResult> + Send>>;
 pub type TargetStream = Pin<Box<dyn Stream<Item = Target>>>;
 
@@ -22,7 +23,7 @@ pub trait Resolve {
     /// Expands a [`Target`] into a stream of [`TargetResult`].
     ///
     /// Use the functions in [`ResolveExt`] for friendlier stream ergonomics.
-    fn resolve(&self, target: Target) -> anyhow::Result<TargetResultStream>;
+    fn resolve(&self, target: Target) -> ResolveResult;
 }
 
 pub trait ResolveExt: Resolve + Send + Sync {
