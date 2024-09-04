@@ -1,10 +1,12 @@
 mod dns;
+mod file;
 mod ip;
 mod target;
 mod uri;
 
 use async_stream::stream;
 pub use dns::DnsResolver;
+pub use file::FileResolver;
 use futures::Stream;
 pub use ip::IpResolver;
 pub use target::Target;
@@ -18,6 +20,7 @@ pub struct ForwardResolveChain {
     ip: IpResolver,
     dns: DnsResolver,
     uri: UriResolver,
+    file: FileResolver,
 }
 
 impl ForwardResolveChain {
@@ -25,7 +28,8 @@ impl ForwardResolveChain {
         let ip = IpResolver;
         let dns = DnsResolver::system()?;
         let uri = UriResolver;
-        Ok(Self { ip, dns, uri })
+        let file = FileResolver;
+        Ok(Self { ip, dns, uri, file })
     }
 }
 
@@ -75,6 +79,11 @@ impl Resolve for ForwardResolveChain {
                 },
                 Target::Uri(_) => {
                     for await x in self.uri.resolve(target) {
+                        yield x;
+                    }
+                },
+                Target::File(_) => {
+                    for await x in self.file.resolve(target) {
                         yield x;
                     }
                 },

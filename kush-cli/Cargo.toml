@@ -11,6 +11,7 @@ clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.30"
 kush-connect = { path = "../kush-connect" }
 kush-resolve = { path = "../kush-resolve" }
+ssh2-config = "0.2.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1.15", features = ["io-util"] }
 tracing = "0.1"

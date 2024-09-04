@@ -16,6 +16,7 @@ pub enum Target {
         addr: std::net::SocketAddr,
         user: Option<String>,
     },
+    File(camino::Utf8PathBuf),
     Unknown(String),
 }
 
@@ -57,6 +58,9 @@ impl std::str::FromStr for Target {
             let name = hickory_resolver::Name::from_str(name)?;
             let port = u16::from_str(port)?;
             Self::DomainPort { name, port }
+        } else if camino::Utf8Path::new(s).exists() {
+            let path = camino::Utf8Path::new(s).to_owned();
+            Self::File(path)
         } else {
             Self::Unknown(input)
         };
@@ -78,6 +82,7 @@ impl std::fmt::Display for Target {
             Target::DomainPort { name, port } => format!("{name}:{port}"),
             Target::Uri(x) => x.to_string(),
             Target::Ssh { addr, user } => display_ssh(addr, user),
+            Target::File(x) => x.to_string(),
             Target::Unknown(x) => x.to_string(),
         };
         write!(f, "{s}")
