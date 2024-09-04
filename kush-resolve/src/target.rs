@@ -26,6 +26,12 @@ impl std::str::FromStr for Target {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let original = s.to_owned();
 
+        // Capture known stdin abbreviation of single dash
+        if s == "-" {
+            let path = camino::Utf8Path::new("/dev/fd/0").to_owned();
+            return Ok(path.into());
+        }
+
         // Assume surrounding brackets is IPv6, and remove them to allow correct parsing
         let s = if s.starts_with('[') && s.ends_with(']') {
             &s[1..s.len() - 1]

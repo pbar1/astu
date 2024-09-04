@@ -1,23 +1,22 @@
-// mod dns;
 mod cidr;
 mod file;
+mod forward_chain;
 mod target;
-// mod uri;
 
 use std::pin::Pin;
 
-// pub use dns::DnsResolver;
-// pub use file::FileResolver;
 use futures::Stream;
 use futures::StreamExt;
-// pub use ip::IpResolver;
-pub use target::Target;
-// pub use uri::UriResolver;
+
+pub use crate::cidr::CidrResolver;
+pub use crate::file::FileResolver;
+pub use crate::forward_chain::ForwardChainResolver;
+pub use crate::target::Target;
 
 pub type TargetResult = anyhow::Result<Target>;
 pub type ResolveResult = anyhow::Result<TargetResultStream>;
 pub type TargetResultStream = Pin<Box<dyn Stream<Item = TargetResult> + Send>>;
-pub type TargetStream = Pin<Box<dyn Stream<Item = Target>>>;
+pub type TargetStream = Pin<Box<dyn Stream<Item = Target> + Send>>;
 
 pub trait Resolve {
     /// Expands a [`Target`] into a stream of [`TargetResult`].
@@ -27,7 +26,8 @@ pub trait Resolve {
 }
 
 pub trait ResolveExt: Resolve + Send + Sync {
-    /// Returns a stream of [`Target`] while ignoring all errors.
+    /// Expands a [`Target`] into a stream of [`Target`] while dropping all
+    /// errors.
     fn resolve_infallible(&self, target: Target) -> TargetStream;
 }
 
@@ -35,7 +35,6 @@ impl<T> ResolveExt for T
 where
     T: Resolve + Send + Sync,
 {
-    /// Returns a stream of [`Target`] while ignoring all errors.
     fn resolve_infallible(&self, target: Target) -> TargetStream {
         let resolved = self.resolve(target);
 

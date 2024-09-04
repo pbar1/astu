@@ -1,4 +1,4 @@
-mod exec;
+// mod exec;
 mod resolve;
 
 use clap::Parser;
@@ -14,7 +14,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Exec(exec::ExecArgs),
+    // Exec(exec::ExecArgs),
     Resolve(resolve::ResolveArgs),
 }
 
@@ -27,7 +27,7 @@ pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let command: Box<dyn Run> = match cli.command {
-        Command::Exec(args) => Box::new(args),
+        // Command::Exec(args) => Box::new(args),
         Command::Resolve(args) => Box::new(args),
     };
     command.run().await?;
