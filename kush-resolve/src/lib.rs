@@ -2,6 +2,7 @@ mod cidr;
 mod dns;
 mod file;
 mod forward_chain;
+mod reverse_chain;
 mod target;
 
 use std::pin::Pin;
@@ -13,6 +14,7 @@ pub use crate::cidr::CidrResolver;
 pub use crate::dns::DnsResolver;
 pub use crate::file::FileResolver;
 pub use crate::forward_chain::ForwardChainResolver;
+pub use crate::reverse_chain::ReverseChainResolver;
 pub use crate::target::Target;
 
 pub type TargetResult = anyhow::Result<Target>;
@@ -27,7 +29,7 @@ pub trait Resolve {
     fn resolve(&self, target: Target) -> ResolveResult;
 }
 
-pub trait ResolveExt: Resolve + Send + Sync {
+pub trait ResolveExt: Resolve {
     /// Expands a [`Target`] into a stream of [`Target`] while dropping all
     /// errors.
     fn resolve_infallible(&self, target: Target) -> TargetStream;
@@ -35,7 +37,7 @@ pub trait ResolveExt: Resolve + Send + Sync {
 
 impl<T> ResolveExt for T
 where
-    T: Resolve + Send + Sync,
+    T: Resolve,
 {
     fn resolve_infallible(&self, target: Target) -> TargetStream {
         let resolved = self.resolve(target);

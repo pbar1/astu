@@ -1,6 +1,7 @@
 use clap::Args;
 use kush_resolve::ForwardChainResolver;
 use kush_resolve::ResolveExt;
+use kush_resolve::ReverseChainResolver;
 use kush_resolve::Target;
 use kush_resolve::TargetStream;
 
@@ -20,8 +21,10 @@ pub struct ResolutionArgs {
 
 impl ResolutionArgs {
     pub fn resolve(self) -> TargetStream {
-        let resolver = ForwardChainResolver::new();
         let target = self.target.clone();
-        resolver.resolve_infallible(target)
+        match self.reverse {
+            true => ReverseChainResolver::new().resolve_infallible(target),
+            false => ForwardChainResolver::new().resolve_infallible(target),
+        }
     }
 }
