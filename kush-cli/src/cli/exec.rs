@@ -13,6 +13,8 @@ use kush_connect::AuthType;
 use kush_connect::Connect;
 use kush_connect::Exec;
 use tracing::debug;
+use tracing::error;
+use tracing::info;
 
 use crate::argetype::ResolutionArgs;
 use crate::mapper::ssh::SshMapper;
@@ -70,9 +72,9 @@ impl super::Run for ExecArgs {
         let connect_timeout = Duration::from_secs(self.connect_timeout);
 
         let _stream = targets
-            .inspect(|target| debug!(?target, "exec"))
+            .inspect(|target| debug!(?target, "exec target"))
             .map(|target| mapper.get_client(target))
-            .try_for_each_concurrent(0, |client| {
+            .for_each_concurrent(0, |client| {
                 exec(client, auths.clone(), command.clone(), connect_timeout)
             })
             .await;
@@ -82,76 +84,35 @@ impl super::Run for ExecArgs {
 }
 
 async fn exec(
-    mut client: SshClient,
+    client: anyhow::Result<SshClient>,
     auths: Vec<AuthType>,
     command: String,
     timeout: Duration,
-) -> anyhow::Result<()> {
-    client.connect(timeout).await?;
+) {
+    let mut client = match client {
+        Ok(client) => client,
+        Err(error) => {
+            error!(?error, "failed to get client");
+            return;
+        }
+    };
+
+    if let Err(error) = client.connect(timeout).await {
+        error!(?error, "failed to connect");
+        return;
+    };
 
     for auth in auths {
-        if let Ok(_) = client.auth(&auth).await {
-            break;
-        };
+        client.auth(&auth).await;
     }
 
-    let output = client.exec(&command).await?;
-    let _stdout = String::from_utf8_lossy(&output.stdout);
-
-    Ok(())
+    let output = match client.exec(&command).await {
+        Ok(output) => output,
+        Err(error) => {
+            error!(?error, %command, "failed to exec");
+            return;
+        }
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    print!("{stdout}");
 }
-
-// async fn process_targets(targets: impl Stream<Item = Target>) {
-//     pin_mut!(targets);
-//     while let Some(target) = targets.next().await {
-//         println!("{target}");
-//     }
-//     let command = self.command.join(" ");
-
-//     // TODO: What to do about mapper being coded to SSH...
-//     let tcp: Arc<dyn TcpFactoryAsync + Send + Sync> = match self.reuseport {
-//         true => Arc::new(ReuseportTcpFactory::try_new()?),
-//         false => Arc::new(DefaultTcpFactory),
-//     };
-//     let mapper = SshMapper::new(tcp);
-
-//     let mut tasks = Vec::new();
-//     while let Some(target) = targets.next().await {
-//         if target.is_unknown() {
-//             continue;
-//         }
-//         let who = target.to_string();
-//         let Ok(mut client) = mapper.get_client(target) else {
-//             continue;
-//         };
-
-//         let mut auths = Vec::new();
-//         auths.push(AuthType::User(self.user.clone()));
-//         if let Some(socket) = self.ssh_agent.clone() {
-//             auths.push(AuthType::SshAgent { socket });
-//         }
-
-//         let command = command.clone();
-//         let connect_timeout = Duration::from_secs(self.connect_timeout);
-
-//         tasks.push(tokio::spawn(async move {
-//             let Ok(_) = client.connect(connect_timeout).await else {
-//                 return;
-//             };
-//             for auth in auths {
-//                 let Ok(_) = client.auth(&auth).await else {
-//                     return;
-//                 };
-//             }
-//             let Ok(output) = client.exec(&command).await else {
-//                 return;
-//             };
-//             let stdout = String::from_utf8_lossy(&output.stdout);
-//             println!("{who}: {}", stdout);
-//         }));
-//     }
-
-//     let _x = futures::future::join_all(tasks).await;
-
-//     Ok(())
-// }

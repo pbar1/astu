@@ -230,6 +230,7 @@ impl SshClient {
 
 // russh details --------------------------------------------------------------
 
+#[derive(Debug)]
 struct SshClientHandler {
     server_banner: Option<String>,
 }
