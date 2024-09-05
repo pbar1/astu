@@ -1,8 +1,5 @@
 use clap::Args;
-use futures::pin_mut;
-use futures::Stream;
 use futures::StreamExt;
-use kush_resolve::Target;
 
 use crate::argetype::ResolutionArgs;
 
@@ -16,15 +13,12 @@ pub struct ResolveArgs {
 #[async_trait::async_trait]
 impl super::Run for ResolveArgs {
     async fn run(&self) -> anyhow::Result<()> {
-        let targets = self.resolution_args.clone().resolve();
-        process_targets(targets).await;
-        Ok(())
-    }
-}
+        let mut targets = self.resolution_args.clone().resolve();
 
-async fn process_targets(targets: impl Stream<Item = Target>) {
-    pin_mut!(targets);
-    while let Some(target) = targets.next().await {
-        println!("{target}");
+        while let Some(target) = targets.next().await {
+            println!("{target}");
+        }
+
+        Ok(())
     }
 }

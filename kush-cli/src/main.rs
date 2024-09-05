@@ -2,7 +2,7 @@
 
 mod argetype;
 mod cli;
-// mod mapper;
+mod mapper;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

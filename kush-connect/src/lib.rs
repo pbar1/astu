@@ -25,6 +25,7 @@ pub trait Exec {
     async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput>;
 }
 
+#[derive(Debug, Clone)]
 pub enum AuthType {
     User(String),
     Password(String),
