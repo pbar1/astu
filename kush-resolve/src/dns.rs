@@ -1,9 +1,11 @@
 use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::bail;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use hickory_resolver::Name;
 use hickory_resolver::TokioAsyncResolver;
 
@@ -12,13 +14,12 @@ use crate::ResolveResult;
 use crate::Target;
 use crate::TargetStream;
 
-pub struct DnsResolver {
-    resolver: TokioAsyncResolver,
-}
+#[derive(Debug, Clone)]
+pub struct DnsResolver;
 
 impl Resolve for DnsResolver {
     fn resolve(&self, target: Target) -> ResolveResult {
-        let stream = match target {
+        match target {
             // Forward
             Target::Domain { name, port: None } => self.resolve_ip(name),
             Target::Domain {
@@ -32,77 +33,89 @@ impl Resolve for DnsResolver {
 
             // Unsupported
             unsupported => bail!("DnsResolver: unsupported target: {unsupported}"),
-        };
-
-        Ok(stream)
+        }
     }
 }
 
-impl DnsResolver {
-    pub fn system() -> anyhow::Result<Self> {
-        let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
-        let resolver = TokioAsyncResolver::tokio(config, options);
-        Ok(Self { resolver })
-    }
-}
+impl DnsResolver {}
 
 // Forward resolution
 impl DnsResolver {
-    // TODO: Default IP lookup strategy is `Ipv4thenIpv6`. Consider
-    // changing it to `Ipv4AndIpv6` to gather all possible IPs.
-
-    fn resolve_ip(&self, name: Name) -> TargetStream {
-        self.resolver
-            .lookup_ip(name.clone())
+    fn resolve_ip(&self, name: Name) -> ResolveResult {
+        let stream = lookup_ips(name)
             .into_stream()
             .map(futures::stream::iter)
             .flatten()
-            .map(futures::stream::iter)
-            .flatten()
-            .map(Target::from)
-            .boxed()
+            .map(|ip| Ok(Target::from(ip)))
+            .boxed();
+        Ok(stream)
     }
 
-    fn resolve_sock(&self, name: Name, port: u16) -> TargetStream {
-        let iter = self
-            .resolver
-            .lookup_ip(name)
-            .await
-            .into_iter()
+    fn resolve_sock(&self, name: Name, port: u16) -> ResolveResult {
+        let stream = lookup_ips(name)
+            .into_stream()
+            .map(futures::stream::iter)
             .flatten()
-            .map(move |ip| Target::SocketAddr(SocketAddr::new(ip, port)));
-        futures::stream::iter(iter).boxed()
+            .map(move |ip| Ok(Target::from(SocketAddr::new(ip, port))))
+            .boxed();
+        Ok(stream)
     }
 }
 
 /// Reverse resolution
 impl DnsResolver {
-    fn resolve_domain(&self, ip: IpAddr) -> TargetStream {
-        let iter = self
-            .resolver
-            .reverse_lookup(ip)
-            .await?
-            .into_iter()
-            .map(|record| Target::Domain {
-                name: record.0.clone(),
-                port: None,
-            });
-        futures::stream::iter(iter).boxed()
+    fn resolve_domain(&self, ip: IpAddr) -> ResolveResult {
+        let stream = lookup_domains(ip)
+            .into_stream()
+            .map(futures::stream::iter)
+            .flatten()
+            .map(|name| Ok(Target::from(name)))
+            .boxed();
+        Ok(stream)
     }
 
-    fn resolve_domain_port(&self, sock: SocketAddr) -> TargetStream {
-        let iter = self
-            .resolver
-            .reverse_lookup(sock.ip())
-            .await
-            .into_iter()
+    fn resolve_domain_port(&self, sock: SocketAddr) -> ResolveResult {
+        let stream = lookup_domains(sock.ip())
+            .into_stream()
+            .map(futures::stream::iter)
             .flatten()
-            .map(move |record| Target::Domain {
-                name: record.0.clone(),
-                port: Some(sock.port()),
-            });
-        futures::stream::iter(iter).boxed()
+            .map(move |name| {
+                Ok(Target::Domain {
+                    name,
+                    port: Some(sock.port()),
+                })
+            })
+            .boxed();
+        Ok(stream)
     }
+}
+
+fn get_dns_client() -> anyhow::Result<TokioAsyncResolver> {
+    let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
+    let dns = TokioAsyncResolver::tokio(config, options);
+    Ok(dns)
+}
+
+// TODO: Default IP lookup strategy is `Ipv4thenIpv6`. Consider changing it to
+// `Ipv4AndIpv6` to gather all possible IPs.
+async fn lookup_ips(name: Name) -> Vec<IpAddr> {
+    let Ok(dns) = get_dns_client() else {
+        return Vec::new();
+    };
+    let Ok(lookup) = dns.lookup_ip(name).await else {
+        return Vec::new();
+    };
+    lookup.into_iter().collect()
+}
+
+async fn lookup_domains(ip: IpAddr) -> Vec<Name> {
+    let Ok(dns) = get_dns_client() else {
+        return Vec::new();
+    };
+    let Ok(lookup) = dns.reverse_lookup(ip).await else {
+        return Vec::new();
+    };
+    lookup.into_iter().map(|x| x.0).collect()
 }
 
 #[cfg(test)]
@@ -114,7 +127,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::Resolve;
+    use crate::ResolveExt;
 
     #[rstest]
     #[case("localhost")]
@@ -123,8 +136,8 @@ mod tests {
     #[tokio::test]
     async fn dns_resolver_works(#[case] input: &str) {
         let target = Target::from_str(input).unwrap();
-        let resolver = DnsResolver::system().unwrap();
-        let targets: BTreeSet<Target> = resolver.resolve(target).collect().await;
+        let resolver = DnsResolver;
+        let targets: BTreeSet<Target> = resolver.resolve_infallible(target).collect().await;
         assert!(targets.len() > 0);
     }
 }
