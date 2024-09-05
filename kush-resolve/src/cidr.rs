@@ -5,6 +5,7 @@ use crate::Resolve;
 use crate::ResolveResult;
 use crate::Target;
 
+#[derive(Debug, Clone)]
 pub struct CidrResolver;
 
 impl Resolve for CidrResolver {

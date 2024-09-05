@@ -1,18 +1,15 @@
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use anyhow::bail;
 use futures::FutureExt;
 use futures::StreamExt;
-use futures::TryStreamExt;
 use hickory_resolver::Name;
 use hickory_resolver::TokioAsyncResolver;
 
 use crate::Resolve;
 use crate::ResolveResult;
 use crate::Target;
-use crate::TargetStream;
 
 #[derive(Debug, Clone)]
 pub struct DnsResolver;

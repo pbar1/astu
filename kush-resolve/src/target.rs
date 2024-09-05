@@ -2,6 +2,7 @@ use anyhow::bail;
 use anyhow::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum Target {
     // Atoms
     IpAddr(std::net::IpAddr),

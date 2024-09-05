@@ -14,6 +14,7 @@ use crate::Resolve;
 use crate::ResolveResult;
 use crate::Target;
 
+#[derive(Debug, Clone)]
 pub struct FileResolver;
 
 impl Resolve for FileResolver {
