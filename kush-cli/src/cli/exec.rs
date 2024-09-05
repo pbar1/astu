@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use clap::Args;
 use futures::StreamExt;
-use futures::TryStreamExt;
 use kush_connect::ssh::SshClient;
 use kush_connect::tcp::DefaultTcpFactory;
 use kush_connect::tcp::ReuseportTcpFactory;
@@ -14,7 +13,6 @@ use kush_connect::Connect;
 use kush_connect::Exec;
 use tracing::debug;
 use tracing::error;
-use tracing::info;
 
 use crate::argetype::ResolutionArgs;
 use crate::mapper::ssh::SshMapper;
