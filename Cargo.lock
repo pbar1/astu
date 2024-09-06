@@ -138,6 +138,64 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
 
 [[package]]
+name = "astu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "astu-action",
+ "astu-resolve",
+ "async-trait",
+ "clap",
+ "futures",
+ "ssh2-config",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-glog",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "astu-action"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "rstest",
+ "russh",
+ "socket2",
+ "ssh-key",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "astu-resolve"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "camino",
+ "fluent-uri",
+ "futures",
+ "hickory-resolver",
+ "ipnet",
+ "rstest",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+]
+
+[[package]]
+name = "astu-util"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "rstest",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1004,64 +1062,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1868808506b929d7b0cfa8f75951347aa71bb21144b7791bae35d9bccfcfe37a"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kush-action"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "rstest",
- "russh",
- "socket2",
- "ssh-key",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "kush-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "futures",
- "kush-action",
- "kush-resolve",
- "ssh2-config",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-glog",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "kush-resolve"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "camino",
- "fluent-uri",
- "futures",
- "hickory-resolver",
- "ipnet",
- "rstest",
- "tokio",
- "tokio-stream",
- "tracing",
-]
-
-[[package]]
-name = "kush-util"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "rstest",
 ]
 
 [[package]]

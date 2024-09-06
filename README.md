@@ -1,4 +1,4 @@
-# Kush
+# `astu`
 
 Remote execution Swiss Army knife.
 

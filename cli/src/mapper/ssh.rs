@@ -2,9 +2,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::bail;
-use kush_action::ssh::SshClient;
-use kush_action::tcp::TcpFactoryAsync;
-use kush_resolve::Target;
+use astu_action::ssh::SshClient;
+use astu_action::tcp::TcpFactoryAsync;
+use astu_resolve::Target;
 
 pub struct SshMapper {
     tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,

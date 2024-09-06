@@ -4,10 +4,10 @@ use futures::StreamExt;
 use futures::TryFuture;
 use futures::TryFutureExt;
 
-impl<T: ?Sized> KushTryFutureExt for T where T: TryFuture {}
+impl<T: ?Sized> AstuTryFutureExt for T where T: TryFuture {}
 
 /// Adapters specific to [`Result`]-returning futures.
-pub trait KushTryFutureExt: TryFuture {
+pub trait AstuTryFutureExt: TryFuture {
     /// Converts this future into a single element stream of the [`Result::Ok`]
     /// variant. The [`Result::Err`] variant will not be yielded, and in that
     /// case the stream will complete immediately.

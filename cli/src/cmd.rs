@@ -4,7 +4,7 @@ mod resolve;
 use clap::Parser;
 use clap::Subcommand;
 
-/// Remote execution swiss army knife
+/// Hello friend.
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {

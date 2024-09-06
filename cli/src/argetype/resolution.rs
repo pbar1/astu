@@ -1,9 +1,9 @@
 use clap::Args;
-use kush_resolve::ForwardChainResolver;
-use kush_resolve::ResolveExt;
-use kush_resolve::ReverseChainResolver;
-use kush_resolve::Target;
-use kush_resolve::TargetStream;
+use astu_resolve::ForwardChainResolver;
+use astu_resolve::ResolveExt;
+use astu_resolve::ReverseChainResolver;
+use astu_resolve::Target;
+use astu_resolve::TargetStream;
 
 const HEADING: Option<&str> = Some("Target Resolution Options");
 

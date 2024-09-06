@@ -1,5 +1,5 @@
 [package]
-name = "kush-cli"
+name = "astu"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,8 +8,8 @@ anyhow = "1"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.30"
-kush-action = { path = "../action" }
-kush-resolve = { path = "../resolve" }
+astu-action = { path = "../action" }
+astu-resolve = { path = "../resolve" }
 ssh2-config = "0.2.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1.15", features = ["io-util"] }

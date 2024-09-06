@@ -3,14 +3,14 @@ use std::time::Duration;
 
 use clap::Args;
 use futures::StreamExt;
-use kush_action::ssh::SshClient;
-use kush_action::tcp::DefaultTcpFactory;
-use kush_action::tcp::ReuseportTcpFactory;
-use kush_action::tcp::TcpFactoryAsync;
-use kush_action::Auth;
-use kush_action::AuthType;
-use kush_action::Connect;
-use kush_action::Exec;
+use astu_action::ssh::SshClient;
+use astu_action::tcp::DefaultTcpFactory;
+use astu_action::tcp::ReuseportTcpFactory;
+use astu_action::tcp::TcpFactoryAsync;
+use astu_action::Auth;
+use astu_action::AuthType;
+use astu_action::Connect;
+use astu_action::Exec;
 use tracing::debug;
 use tracing::error;
 
