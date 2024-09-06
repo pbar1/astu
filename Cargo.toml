@@ -1,3 +1,3 @@
 [workspace]
-members = ["kush-cli", "kush-connect", "kush-resolve"]
+members = ["cli", "action", "resolve", "util"]
 resolver = "2"

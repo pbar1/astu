@@ -1,13 +1,13 @@
 #![feature(async_closure)]
 
 mod argetype;
-mod cli;
+mod cmd;
 mod mapper;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_tracing();
-    cli::run().await
+    cmd::run().await
 }
 
 fn init_tracing() {

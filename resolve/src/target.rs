@@ -190,6 +190,7 @@ fn display_ssh(addr: &std::net::SocketAddr, user: &Option<String>) -> String {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atoms {
     Known(u128),
+    // OR: Could use 0 for this
     KnownMax,
     Unknown,
 }
