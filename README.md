@@ -50,4 +50,4 @@ Types of clients:
 
 <!-- Footnotes -->
 
-[^1]: [Hello friend.](.github/assets/mr_robot.jpg)
+[^1]: [Hello friend.](https://github.com/pbar1/astu/blob/main/.github/assets/mr_robot.jpg)
