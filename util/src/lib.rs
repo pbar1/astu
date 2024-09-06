@@ -1,14 +1,26 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+use futures::FutureExt;
+use futures::Stream;
+use futures::StreamExt;
+use futures::TryFuture;
+use futures::TryFutureExt;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl<T: ?Sized> KushTryFutureExt for T where T: TryFuture {}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+/// Adapters specific to [`Result`]-returning futures.
+pub trait KushTryFutureExt: TryFuture {
+    /// Converts this future into a single element stream of the [`Result::Ok`]
+    /// variant. The [`Result::Err`] variant will not be yielded, and in that
+    /// case the stream will complete immediately.
+    ///
+    /// Accepts an inspector to, for example, log the error.
+    fn into_stream_infallible<I>(self, inspector: I) -> impl Stream<Item = Self::Ok>
+    where
+        Self: Sized,
+        I: FnOnce(&Self::Error),
+    {
+        self.inspect_err(inspector)
+            .into_stream()
+            .map(futures::stream::iter)
+            .flatten()
     }
 }
