@@ -1,8 +1,6 @@
-# `astu`
+# `astu`[^1]
 
 Remote execution Swiss Army knife.
-
-![Mr. Robot terminal](.github/assets/mr_robot.jpg "astu")
 
 ## Project Map
 
@@ -49,3 +47,7 @@ Types of clients:
 - TCP
 - SSH
 - Kubernetes
+
+<!-- Footnotes -->
+
+[^1]: ![Mr. Robot terminal](.github/assets/mr_robot.jpg "astu")
