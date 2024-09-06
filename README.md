@@ -1,6 +1,6 @@
 # `astu`[^1]
 
-Remote execution Swiss Army knife.
+Remote execution multitool.
 
 ## Project Map
 
