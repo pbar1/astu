@@ -50,4 +50,4 @@ Types of clients:
 
 <!-- Footnotes -->
 
-[^1]: ![Mr. Robot terminal](.github/assets/mr_robot.jpg "astu")
+[^1]: [Hello friend.](.github/assets/mr_robot.jpg)
