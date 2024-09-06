@@ -1007,25 +1007,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kush-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "futures",
- "kush-connect",
- "kush-resolve",
- "ssh2-config",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-glog",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "kush-connect"
+name = "kush-action"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1036,6 +1018,24 @@ dependencies = [
  "ssh-key",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "kush-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "futures",
+ "kush-action",
+ "kush-resolve",
+ "ssh2-config",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-glog",
+ "tracing-subscriber",
 ]
 
 [[package]]

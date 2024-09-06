@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::bail;
-use kush_connect::ssh::SshClient;
-use kush_connect::tcp::TcpFactoryAsync;
+use kush_action::ssh::SshClient;
+use kush_action::tcp::TcpFactoryAsync;
 use kush_resolve::Target;
 
 pub struct SshMapper {
