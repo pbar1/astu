@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 mod cidr;
 mod dns;
 mod file;

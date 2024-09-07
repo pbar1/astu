@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;

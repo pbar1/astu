@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 mod exec;
 mod resolve;
 

@@ -1,9 +1,9 @@
-use clap::Args;
 use astu_resolve::ForwardChainResolver;
 use astu_resolve::ResolveExt;
 use astu_resolve::ReverseChainResolver;
 use astu_resolve::Target;
 use astu_resolve::TargetStream;
+use clap::Args;
 
 const HEADING: Option<&str> = Some("Target Resolution Options");
 
