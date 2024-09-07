@@ -1,3 +1,3 @@
 [workspace]
-members = ["cli", "action", "resolve", "util"]
+members = ["cli", "action", "resolve", "util", "db"]
 resolver = "2"
