@@ -179,6 +179,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "astu-resolve",
+ "astu-util",
  "async-trait",
  "rstest",
  "russh",
@@ -225,8 +226,11 @@ name = "astu-util"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "futures",
  "rstest",
+ "socket2",
+ "tokio",
 ]
 
 [[package]]

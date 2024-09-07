@@ -2,15 +2,10 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod ssh;
-pub mod tcp;
-
-use std::time::Duration;
-
-use ssh_key::Certificate;
 
 #[async_trait::async_trait]
 pub trait Connect {
-    async fn connect(&mut self, timeout: Duration) -> anyhow::Result<()>;
+    async fn connect(&mut self, timeout: std::time::Duration) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
@@ -33,8 +28,13 @@ pub enum AuthType {
     User(String),
     Password(String),
     SshKey(String),
-    SshCert { key: String, cert: Certificate },
-    SshAgent { socket: String },
+    SshCert {
+        key: String,
+        cert: ssh_key::Certificate,
+    },
+    SshAgent {
+        socket: String,
+    },
 }
 
 pub struct ExecOutput {

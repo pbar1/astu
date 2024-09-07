@@ -1,18 +1,15 @@
 mod default;
 mod reuseport;
 
-use std::net::SocketAddr;
-use std::time::Duration;
-
-pub use default::DefaultTcpFactory;
-pub use reuseport::ReuseportTcpFactory;
+pub use crate::tcp::default::DefaultTcpFactory;
+pub use crate::tcp::reuseport::ReuseportTcpFactory;
 
 /// Factory for creating standard library TCP streams.
 pub trait TcpFactory {
     fn connect_timeout(
         &self,
-        addr: &SocketAddr,
-        timeout: Duration,
+        addr: &std::net::SocketAddr,
+        timeout: std::time::Duration,
     ) -> anyhow::Result<std::net::TcpStream>;
 }
 
@@ -21,7 +18,7 @@ pub trait TcpFactory {
 pub trait TcpFactoryAsync {
     async fn connect_timeout_async(
         &self,
-        addr: &SocketAddr,
-        timeout: Duration,
+        addr: &std::net::SocketAddr,
+        timeout: std::time::Duration,
     ) -> anyhow::Result<tokio::net::TcpStream>;
 }

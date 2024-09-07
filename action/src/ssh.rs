@@ -6,14 +6,14 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
+use astu_util::tcp::DefaultTcpFactory;
+use astu_util::tcp::ReuseportTcpFactory;
+use astu_util::tcp::TcpFactoryAsync;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
-use crate::tcp::DefaultTcpFactory;
-use crate::tcp::ReuseportTcpFactory;
-use crate::tcp::TcpFactoryAsync;
 use crate::Auth;
 use crate::AuthType;
 use crate::Connect;
@@ -311,7 +311,6 @@ mod tests {
     use std::net::ToSocketAddrs;
 
     use super::*;
-    use crate::tcp::ReuseportTcpFactory;
 
     #[tokio::test]
     async fn works() {
