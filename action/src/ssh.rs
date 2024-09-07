@@ -4,17 +4,65 @@ use std::time::Duration;
 
 use anyhow::bail;
 use anyhow::Context;
+use anyhow::Result;
+use astu_resolve::Target;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
+use crate::tcp::DefaultTcpFactory;
+use crate::tcp::ReuseportTcpFactory;
 use crate::tcp::TcpFactoryAsync;
 use crate::Auth;
 use crate::AuthType;
 use crate::Connect;
 use crate::Exec;
 use crate::ExecOutput;
+
+// Factory --------------------------------------------------------------------
+
+pub struct SshFactory {
+    tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+    default_user: Option<String>,
+}
+
+impl SshFactory {
+    pub fn new(tcp: Arc<dyn TcpFactoryAsync + Send + Sync>) -> Self {
+        Self {
+            tcp,
+            default_user: None,
+        }
+    }
+
+    pub fn regular(default_user: Option<String>) -> Self {
+        let tcp = Arc::new(DefaultTcpFactory);
+        let default_user = default_user.clone();
+        Self { tcp, default_user }
+    }
+
+    pub fn reuseport(default_user: Option<String>) -> Result<Self> {
+        let tcp = ReuseportTcpFactory::try_new().map(Arc::new)?;
+        let default_user = default_user.clone();
+        Ok(Self { tcp, default_user })
+    }
+
+    pub fn get_client(&self, target: Target) -> Result<SshClient> {
+        let (addr, user) = match target {
+            Target::IpAddr(x) => (SocketAddr::new(x.into(), 22), None),
+            Target::SocketAddr(x) => (x.into(), None),
+            Target::Ssh { addr, user } => (addr, user),
+            unsupported => bail!("unsupported ssh target: {unsupported}"),
+        };
+        let user = match user {
+            Some(u) => Some(u),
+            None => self.default_user.clone(),
+        };
+        Ok(SshClient::new(addr, self.tcp.clone(), user))
+    }
+}
+
+// Client ---------------------------------------------------------------------
 
 pub struct SshClient {
     addr: SocketAddr,

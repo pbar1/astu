@@ -1,8 +1,5 @@
-#![feature(async_closure)]
-
 mod argetype;
 mod cmd;
-mod mapper;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

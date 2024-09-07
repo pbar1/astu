@@ -1,21 +1,17 @@
-use std::sync::Arc;
 use std::time::Duration;
 
-use clap::Args;
-use futures::StreamExt;
 use astu_action::ssh::SshClient;
-use astu_action::tcp::DefaultTcpFactory;
-use astu_action::tcp::ReuseportTcpFactory;
-use astu_action::tcp::TcpFactoryAsync;
+use astu_action::ssh::SshFactory;
 use astu_action::Auth;
 use astu_action::AuthType;
 use astu_action::Connect;
 use astu_action::Exec;
+use clap::Args;
+use futures::StreamExt;
 use tracing::debug;
 use tracing::error;
 
 use crate::argetype::ResolutionArgs;
-use crate::mapper::ssh::SshMapper;
 
 /// Run commands on targets
 #[derive(Debug, Args)]
@@ -55,15 +51,14 @@ impl super::Run for ExecArgs {
 
         // TODO: shlex join
         let command = self.command.join(" ");
+        let user = Some(self.user.clone());
 
         // TODO: This block is hardcoded to SSH
-        let tcp: Arc<dyn TcpFactoryAsync + Send + Sync> = match self.reuseport {
-            true => Arc::new(ReuseportTcpFactory::try_new()?),
-            false => Arc::new(DefaultTcpFactory),
+        let ssh = match self.reuseport {
+            true => SshFactory::reuseport(user.clone())?,
+            false => SshFactory::regular(user.clone()),
         };
-        let mapper = SshMapper::new(tcp);
         let mut auths = Vec::new();
-        auths.push(AuthType::User(self.user.clone()));
         if let Some(socket) = self.ssh_agent.clone() {
             auths.push(AuthType::SshAgent { socket });
         }
@@ -71,7 +66,7 @@ impl super::Run for ExecArgs {
 
         let _stream = targets
             .inspect(|target| debug!(?target, "exec target"))
-            .map(|target| mapper.get_client(target))
+            .map(|target| ssh.get_client(target))
             .for_each_concurrent(0, |client| {
                 exec(client, auths.clone(), command.clone(), connect_timeout)
             })
@@ -100,8 +95,17 @@ async fn exec(
         return;
     };
 
+    let mut authed = false;
     for auth in auths {
-        client.auth(&auth).await;
+        match (client.auth(&auth).await, auth) {
+            (Err(error), _) => error!(?error, "authentication failed"),
+            (_, AuthType::User(_)) => continue,
+            (Ok(_), _) => authed = true,
+        }
+    }
+    if !authed {
+        error!("all authentication attempts failed");
+        return;
     }
 
     let output = match client.exec(&command).await {

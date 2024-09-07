@@ -160,11 +160,13 @@ name = "astu-action"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "astu-resolve",
  "async-trait",
  "rstest",
  "russh",
  "socket2",
  "ssh-key",
+ "ssh_config",
  "tokio",
  "tracing",
 ]
@@ -2073,6 +2075,12 @@ dependencies = [
  "thiserror",
  "wildmatch",
 ]
+
+[[package]]
+name = "ssh_config"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08044686521f352c6d1f522ba349c3dd52813819fa8353b60bd3d2107f6dca0a"
 
 [[package]]
 name = "strsim"
