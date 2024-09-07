@@ -153,7 +153,7 @@ fn display_domain(name: &hickory_resolver::Name, port: &Option<u16>) -> String {
     let mut s = name.to_string();
     if let Some(port) = port {
         s.push(':');
-        s.push_str(&port.to_string())
+        s.push_str(&port.to_string());
     }
     s
 }
