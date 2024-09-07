@@ -8,6 +8,7 @@ Remote execution multitool.
 .
 ├── action   → Action performers
 ├── cli      → Main binary entrypoint
+├── db       → Result storage
 ├── resolve  → Target resolution
 └── util     → Miscellaneous utilities
 ```
