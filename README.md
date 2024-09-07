@@ -10,44 +10,38 @@ Remote execution multitool.
 ├── cli      → Main binary entrypoint
 ├── db       → Result storage
 ├── resolve  → Target resolution
-└── util     → Miscellaneous utilities
+└── util     → Convenience code
 ```
 
 ### Resolve
 
-Resolvers expand input queries into targets.
+Resolvers expand composite targets into more targets.
 
-Types of targets:
+For example:
 
-- IP address
-- Socket address
-- SSH address
-- CIDR block
-- Domain name
-- File path
+- CIDR block resolves to all IP addresses in the block
+- File resolves to targets parsed from lines in the file
 
-Types of resolvers:
+| Target \ Resolver | CIDR expand | DNS lookup | File lines |
+| ----------------- | ----------- | ---------- | ---------- |
+| IP address\*      |             |            |            |
+| Socket address\*  |             |            |            |
+| SSH address\*     |             |            |            |
+| CIDR block        | 🟢          |            |            |
+| Domain name       |             | 🟢         |            |
+| File              |             |            | 🟢         |
 
-- CIDR expansion
-- DNS lookup
-- File lines
+\* Target is already fully resolved
 
 ### Action
 
 Actions are behavior that clients can perform on targets.
 
-Types of actions:
-
-- Connect
-- Auth
-- Ping
-- Exec
-
-Types of clients:
-
-- TCP
-- SSH
-- Kubernetes
+| Client \ Action | Connect | Auth | Exec | Shell | Cp  |
+| --------------- | ------- | ---- | ---- | ----- | --- |
+| TCP             | 🟢      |      |      |       |     |
+| SSH             | 🟢      | 🟢   | 🟢   | 🟢    | 🟢  |
+| Kubernetes      |         |      | 🟢   | 🟢    | 🟢  |
 
 <!-- Footnotes -->
 

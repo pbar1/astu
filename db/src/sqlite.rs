@@ -26,7 +26,7 @@ impl SqliteDb {
 #[async_trait::async_trait]
 impl Db for SqliteDb {
     async fn migrate(&self) -> Result<()> {
-        migrate!()
+        migrate!("migrations/sqlite")
             .run(&self.pool)
             .await
             .map_err(anyhow::Error::from)
