@@ -2,6 +2,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod ssh;
+pub mod tcp;
 
 #[async_trait::async_trait]
 pub trait Connect {
@@ -15,7 +16,7 @@ pub trait Auth {
 
 #[async_trait::async_trait]
 pub trait Ping {
-    async fn ping(&self) -> anyhow::Result<String>;
+    async fn ping(self) -> anyhow::Result<String>;
 }
 
 #[async_trait::async_trait]
