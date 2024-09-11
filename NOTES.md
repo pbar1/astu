@@ -1,5 +1,29 @@
 # Notes
 
+## Diagrams
+
+### Action Stream
+
+```mermaid
+stateDiagram-v2
+    R : Resolve targets
+    B : Build action plan
+    P : Perform action
+    S : Store result
+
+    [*] --> R : initial target
+
+    R --> B : each target...
+
+    B --> P : ok
+    B --> [*] : err
+
+    P --> S : success
+    P --> S : failure
+
+    S --> [*]
+```
+
 ## Target Parsing
 
 Perform helpful speculation on what the given value may be. For example:

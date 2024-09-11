@@ -62,7 +62,10 @@ impl super::Run for PingArgs {
 async fn ping(mut client: TcpClient, connect_timeout: Duration) {
     match client.connect(connect_timeout).await {
         Ok(_empty) => debug!("connect succeeded"),
-        Err(error) => error!(?error, "connect error"),
+        Err(error) => {
+            error!(?error, "connect error");
+            return;
+        }
     }
 
     match client.ping().await {
