@@ -5,6 +5,9 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use astu_resolve::Target;
+use astu_util::tcp::DefaultTcpFactory;
+use astu_util::tcp::ReuseportTcpFactory;
 use astu_util::tcp::TcpFactoryAsync;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
@@ -12,6 +15,51 @@ use tokio::net::TcpStream;
 
 use crate::Connect;
 use crate::Ping;
+
+// Factory --------------------------------------------------------------------
+
+pub struct TcpClientFactory {
+    factory: Arc<dyn TcpFactoryAsync + Send + Sync>,
+    default_port: u16,
+}
+
+impl TcpClientFactory {
+    pub fn new(factory: Arc<dyn TcpFactoryAsync + Send + Sync>, default_port: u16) -> Self {
+        Self {
+            factory,
+            default_port,
+        }
+    }
+
+    pub fn regular(default_port: u16) -> Self {
+        let factory = Arc::new(DefaultTcpFactory);
+        Self {
+            factory,
+            default_port,
+        }
+    }
+
+    pub fn reuseport(default_port: u16) -> Result<Self> {
+        let factory = ReuseportTcpFactory::try_new().map(Arc::new)?;
+        Ok(Self {
+            factory,
+            default_port,
+        })
+    }
+
+    pub fn get_client(&self, target: Target) -> Result<TcpClient> {
+        let addr = match target {
+            Target::IpAddr(ip) => SocketAddr::new(ip, self.default_port),
+            Target::SocketAddr(addr) => addr,
+            Target::Ssh { addr, user: _user } => addr,
+            unsupported => bail!("unsupported target type for TcpClient: {unsupported}"),
+        };
+        let client = TcpClient::new(addr, self.factory.clone());
+        Ok(client)
+    }
+}
+
+// Client ---------------------------------------------------------------------
 
 pub struct TcpClient {
     factory: Arc<dyn TcpFactoryAsync + Send + Sync>,

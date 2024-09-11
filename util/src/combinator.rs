@@ -3,6 +3,8 @@ use futures::Stream;
 use futures::StreamExt;
 use futures::TryFuture;
 use futures::TryFutureExt;
+use futures::TryStream;
+use futures::TryStreamExt;
 
 impl<T: ?Sized> AstuTryFutureExt for T where T: TryFuture {}
 
@@ -20,6 +22,21 @@ pub trait AstuTryFutureExt: TryFuture {
     {
         self.inspect_err(inspector)
             .into_stream()
+            .map(futures::stream::iter)
+            .flatten()
+    }
+}
+
+impl<T: ?Sized> AstuTryStreamExt for T where T: TryStream {}
+
+/// Adapters specific to [`Result`]-returning streams.
+pub trait AstuTryStreamExt: TryStream {
+    fn infallible<I>(self, inspector: I) -> impl Stream<Item = Self::Ok>
+    where
+        Self: Sized,
+        I: FnMut(&Self::Error),
+    {
+        self.inspect_err(inspector)
             .map(futures::stream::iter)
             .flatten()
     }

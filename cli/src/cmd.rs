@@ -2,6 +2,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 mod exec;
+mod ping;
 mod resolve;
 
 use clap::Parser;
@@ -19,6 +20,7 @@ struct Cli {
 enum Command {
     Exec(exec::ExecArgs),
     Resolve(resolve::ResolveArgs),
+    Ping(ping::PingArgs),
 }
 
 #[async_trait::async_trait]
@@ -32,6 +34,7 @@ pub async fn run() -> anyhow::Result<()> {
     let command: Box<dyn Run> = match cli.command {
         Command::Exec(args) => Box::new(args),
         Command::Resolve(args) => Box::new(args),
+        Command::Ping(args) => Box::new(args),
     };
     command.run().await?;
 

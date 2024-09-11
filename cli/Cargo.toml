@@ -10,6 +10,7 @@ clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.30"
 astu-action = { path = "../action" }
 astu-resolve = { path = "../resolve" }
+astu-util = { path = "../util" }
 ssh2-config = "0.2.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1.15", features = ["io-util"] }
