@@ -1,48 +1,66 @@
+use std::fmt;
+
 use tracing::error;
 
-pub trait IdGenerator {
-    type Id;
+pub struct Id {
+    inner: IdInner,
+}
 
-    fn id_now(&self) -> Self::Id;
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes = match self.inner {
+            IdInner::Uuid(u) => u.as_bytes().to_vec(),
+            IdInner::Sonyflake(s) => s.to_be_bytes().to_vec(),
+        };
+        let s = base32::encode(base32::Alphabet::Crockford, &bytes);
+        write!(f, "{s}")
+    }
+}
+
+enum IdInner {
+    Uuid(uuid::Uuid),
+    Sonyflake(u64),
+}
+
+pub trait IdGenerator<T> {
+    fn id_now(&self) -> Id;
 }
 
 // UUIDv7 ---------------------------------------------------------------------
 
 pub struct UuidV7Generator;
 
-impl IdGenerator for UuidV7Generator {
-    type Id = uuid::Uuid;
-
-    fn id_now(&self) -> Self::Id {
-        uuid::Uuid::now_v7()
+impl IdGenerator<uuid::Uuid> for UuidV7Generator {
+    fn id_now(&self) -> Id {
+        let inner = IdInner::Uuid(uuid::Uuid::now_v7());
+        Id { inner }
     }
 }
 
 // Sonyflake ------------------------------------------------------------------
 
 pub struct SonyflakeGenerator {
-    inner: sonyflake::Sonyflake,
+    sonyflake: sonyflake::Sonyflake,
 }
 
 impl SonyflakeGenerator {
     /// Generates a [`SonyflakeGenerator`] using a hash of the machine's
     /// hostname as machine ID.
     pub fn from_hostname() -> anyhow::Result<Self> {
-        let inner = sonyflake::Sonyflake::builder()
+        let sonyflake = sonyflake::Sonyflake::builder()
             .machine_id(&machine_id_from_hostname)
             .finalize()?;
-        Ok(Self { inner })
+        Ok(Self { sonyflake })
     }
 }
 
-impl IdGenerator for SonyflakeGenerator {
-    type Id = u64;
-
-    fn id_now(&self) -> Self::Id {
-        self.inner.next_id().unwrap_or_else(|error| {
+impl IdGenerator<u64> for SonyflakeGenerator {
+    fn id_now(&self) -> Id {
+        let inner = IdInner::Sonyflake(self.sonyflake.next_id().unwrap_or_else(|error| {
             error!(?error, "sonyflake id error, falling back to 0");
             0
-        })
+        }));
+        Id { inner }
     }
 }
 

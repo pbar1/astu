@@ -1,3 +1,4 @@
+use astu_util::id::Id;
 use clap::Args;
 use futures::StreamExt;
 
@@ -12,7 +13,9 @@ pub struct ResolveArgs {
 
 #[async_trait::async_trait]
 impl super::Run for ResolveArgs {
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self, id: Id) -> anyhow::Result<()> {
+        eprintln!("Invocation ID: {id}");
+
         let mut targets = self.resolution_args.clone().resolve();
 
         while let Some(target) = targets.next().await {
