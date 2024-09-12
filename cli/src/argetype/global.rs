@@ -1,8 +1,5 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use clap::Args;
-use tracing::level_filters::LevelFilter;
 use tracing_glog::Glog;
 use tracing_glog::GlogFields;
 use tracing_glog::LocalTime;
