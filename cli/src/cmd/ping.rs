@@ -5,6 +5,8 @@ use astu_action::tcp::TcpClientFactory;
 use astu_action::Connect;
 use astu_action::Ping;
 use astu_util::combinator::AstuTryStreamExt;
+use astu_util::id::IdGenerator;
+use astu_util::id::SonyflakeGenerator;
 use clap::Args;
 use futures::StreamExt;
 use tracing::debug;
@@ -40,6 +42,9 @@ pub struct PingArgs {
 impl super::Run for PingArgs {
     async fn run(&self) -> anyhow::Result<()> {
         let targets = self.resolution_args.clone().resolve();
+
+        let id = SonyflakeGenerator::from_hostname()?.id_now();
+        eprintln!("Invocation ID: {id}");
 
         // TODO: This block is hardcoded to TCP
         let tcp = match self.reuseport {
