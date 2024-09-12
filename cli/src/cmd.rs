@@ -8,12 +8,17 @@ mod resolve;
 use clap::Parser;
 use clap::Subcommand;
 
+use crate::argetype::GlobalArgs;
+
 /// Hello friend.
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    #[command(flatten)]
+    global_args: GlobalArgs,
 }
 
 #[derive(Debug, Subcommand)]
@@ -30,6 +35,8 @@ pub trait Run {
 
 pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    cli.global_args.init_tracing()?;
 
     let command: Box<dyn Run> = match cli.command {
         Command::Exec(args) => Box::new(args),

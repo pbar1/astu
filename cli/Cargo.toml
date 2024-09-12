@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1"
+anyhow = { version = "1", features = ["backtrace"] }
 async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
-futures = "0.3.30"
+futures = "0.3"
 astu-action = { path = "../action" }
 astu-resolve = { path = "../resolve" }
 astu-util = { path = "../util" }
-ssh2-config = "0.2.3"
+ssh2-config = "0.2"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1.15", features = ["io-util"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
-tracing-glog = { version = "0.4.0", features = ["local-time"] }
+tracing-glog = { version = "0.4", features = ["local-time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

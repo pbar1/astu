@@ -154,6 +154,9 @@ name = "anyhow"
 version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "astu"
