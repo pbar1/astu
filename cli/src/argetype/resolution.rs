@@ -14,7 +14,7 @@ pub struct ResolutionArgs {
     pub target: Target,
 
     /// Perform reverse resolution instead of forward.
-    #[arg(short = 'r', long, help_heading = HEADING)]
+    #[arg(long, help_heading = HEADING)]
     pub reverse: bool,
 }
 
