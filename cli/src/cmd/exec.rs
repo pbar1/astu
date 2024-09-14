@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use astu_action::ssh::SshClient;
-use astu_action::ssh::SshFactory;
+use astu_action::ssh::SshClientFactory;
 use astu_action::Auth;
 use astu_action::AuthType;
 use astu_action::Connect;
@@ -58,8 +58,8 @@ impl super::Run for ExecArgs {
 
         // TODO: This block is hardcoded to SSH
         let ssh = match self.reuseport {
-            true => SshFactory::reuseport(user.clone())?,
-            false => SshFactory::regular(user.clone()),
+            true => SshClientFactory::reuseport(user.clone())?,
+            false => SshClientFactory::regular(user.clone()),
         };
         let mut auths = Vec::new();
         if let Some(socket) = self.ssh_agent.clone() {

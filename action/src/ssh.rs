@@ -22,12 +22,12 @@ use crate::ExecOutput;
 
 // Factory --------------------------------------------------------------------
 
-pub struct SshFactory {
+pub struct SshClientFactory {
     tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     default_user: Option<String>,
 }
 
-impl SshFactory {
+impl SshClientFactory {
     pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
         Self {
             tcp,

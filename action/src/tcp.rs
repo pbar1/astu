@@ -19,22 +19,19 @@ use crate::Ping;
 // Factory --------------------------------------------------------------------
 
 pub struct TcpClientFactory {
-    factory: Arc<dyn TcpStreamFactory + Send + Sync>,
+    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     default_port: u16,
 }
 
 impl TcpClientFactory {
-    pub fn new(factory: Arc<dyn TcpStreamFactory + Send + Sync>, default_port: u16) -> Self {
-        Self {
-            factory,
-            default_port,
-        }
+    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>, default_port: u16) -> Self {
+        Self { tcp, default_port }
     }
 
     pub fn regular(default_port: u16) -> Self {
         let factory = Arc::new(DefaultTcpStreamFactory);
         Self {
-            factory,
+            tcp: factory,
             default_port,
         }
     }
@@ -42,7 +39,7 @@ impl TcpClientFactory {
     pub fn reuseport(default_port: u16) -> Result<Self> {
         let factory = ReuseportTcpStreamFactory::try_new().map(Arc::new)?;
         Ok(Self {
-            factory,
+            tcp: factory,
             default_port,
         })
     }
@@ -54,7 +51,7 @@ impl TcpClientFactory {
             Target::Ssh { addr, user: _user } => addr,
             unsupported => bail!("unsupported target type for TcpClient: {unsupported}"),
         };
-        let client = TcpClient::new(addr, self.factory.clone());
+        let client = TcpClient::new(addr, self.tcp.clone());
         Ok(client)
     }
 }
@@ -62,16 +59,16 @@ impl TcpClientFactory {
 // Client ---------------------------------------------------------------------
 
 pub struct TcpClient {
-    factory: Arc<dyn TcpStreamFactory + Send + Sync>,
+    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     addr: SocketAddr,
     stream: Option<TcpStream>,
 }
 
 impl TcpClient {
-    pub fn new(addr: SocketAddr, factory: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
+    pub fn new(addr: SocketAddr, tcp: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
         Self {
             addr,
-            factory,
+            tcp,
             stream: None,
         }
     }
@@ -84,7 +81,7 @@ impl Connect for TcpClient {
             bail!("tcp stream is already connected");
         }
 
-        let stream = self.factory.connect_timeout(&self.addr, timeout).await?;
+        let stream = self.tcp.connect_timeout(&self.addr, timeout).await?;
         self.stream = Some(stream);
 
         Ok(())

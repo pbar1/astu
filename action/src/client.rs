@@ -3,7 +3,7 @@ use anyhow::Result;
 use astu_resolve::Target;
 
 use crate::ssh::SshClient;
-use crate::ssh::SshFactory;
+use crate::ssh::SshClientFactory;
 use crate::tcp::TcpClient;
 use crate::tcp::TcpClientFactory;
 
@@ -32,7 +32,18 @@ impl From<SshClient> for Client {
 /// Factory for mapping [`Target`] into [`Client`].
 pub struct ClientFactory {
     tcp_factory: TcpClientFactory,
-    ssh_factory: SshFactory,
+    ssh_factory: SshClientFactory,
+}
+
+/// Constructors
+impl ClientFactory {
+    /// Constructs a new [`ClientFactory`].
+    pub fn new(tcp_factory: TcpClientFactory, ssh_factory: SshClientFactory) -> Self {
+        Self {
+            tcp_factory,
+            ssh_factory,
+        }
+    }
 }
 
 impl ClientFactory {
