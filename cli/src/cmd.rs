@@ -2,11 +2,13 @@ mod exec;
 mod ping;
 mod resolve;
 
+use anyhow::Result;
 use astu_util::id::Id;
 use astu_util::id::IdGenerator;
 use astu_util::id::SonyflakeGenerator;
 use clap::Parser;
 use clap::Subcommand;
+use enum_dispatch::enum_dispatch;
 
 use crate::argetype::GlobalArgs;
 
@@ -22,15 +24,17 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+#[enum_dispatch]
 enum Command {
     Resolve(resolve::ResolveArgs),
     Ping(ping::PingArgs),
     Exec(exec::ExecArgs),
 }
 
-#[async_trait::async_trait]
+/// Subcommands should implement [`Run`] to be executed at runtime.
+#[enum_dispatch]
 pub trait Run {
-    async fn run(&self, id: Id) -> anyhow::Result<()>;
+    async fn run(&self, id: Id) -> Result<()>;
 }
 
 pub async fn run() -> anyhow::Result<()> {
@@ -39,12 +43,9 @@ pub async fn run() -> anyhow::Result<()> {
 
     let id = SonyflakeGenerator::from_hostname()?.id_now();
 
-    let command: Box<dyn Run> = match cli.command {
-        Command::Exec(args) => Box::new(args),
-        Command::Resolve(args) => Box::new(args),
-        Command::Ping(args) => Box::new(args),
-    };
-    command.run(id).await?;
-
-    Ok(())
+    match cli.command {
+        Command::Exec(args) => args.run(id).await,
+        Command::Resolve(args) => args.run(id).await,
+        Command::Ping(args) => args.run(id).await,
+    }
 }

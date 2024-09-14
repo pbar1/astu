@@ -11,7 +11,6 @@ pub struct ResolveArgs {
     resolution_args: ResolutionArgs,
 }
 
-#[async_trait::async_trait]
 impl super::Run for ResolveArgs {
     async fn run(&self, id: Id) -> anyhow::Result<()> {
         eprintln!("Invocation ID: {id}");

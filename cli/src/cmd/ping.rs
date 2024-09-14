@@ -22,7 +22,6 @@ pub struct PingArgs {
     connection_args: ConnectionArgs,
 }
 
-#[async_trait::async_trait]
 impl super::Run for PingArgs {
     async fn run(&self, id: Id) -> anyhow::Result<()> {
         eprintln!("Invocation ID: {id}");
