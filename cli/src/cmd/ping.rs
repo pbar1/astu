@@ -8,7 +8,7 @@ use crate::cmd::Run;
 
 /// Connect to targets
 #[derive(Debug, Args)]
-pub struct Ping {
+pub struct PingArgs {
     #[command(flatten)]
     resolution_args: ResolutionArgs,
 
@@ -16,7 +16,7 @@ pub struct Ping {
     connection_args: ConnectionArgs,
 }
 
-impl Run for Ping {
+impl Run for PingArgs {
     async fn run(&self, _id: Id) -> Result<()> {
         let _targets = self.resolution_args.clone().resolve();
 

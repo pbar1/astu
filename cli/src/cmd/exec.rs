@@ -8,7 +8,7 @@ use crate::cmd::Run;
 
 /// Run commands on targets
 #[derive(Debug, Args)]
-pub struct Exec {
+pub struct ExecArgs {
     #[command(flatten)]
     resolution_args: ResolutionArgs,
 
@@ -28,7 +28,7 @@ pub struct Exec {
     ssh_agent: Option<String>,
 }
 
-impl Run for Exec {
+impl Run for ExecArgs {
     async fn run(&self, _id: Id) -> Result<()> {
         let _targets = self.resolution_args.clone().resolve();
 

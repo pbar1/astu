@@ -11,9 +11,6 @@ use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 
 use crate::argetype::GlobalArgs;
-use crate::cmd::exec::Exec;
-use crate::cmd::ping::Ping;
-use crate::cmd::resolve::Resolve;
 
 /// Remote execution multitool
 #[derive(Debug, Parser)]
@@ -26,7 +23,7 @@ struct Cli {
     global_args: GlobalArgs,
 }
 
-/// Subcommands should implement [`Run`] to be executed at runtime.
+/// Subcommands must implement [`Run`] to be executed at runtime.
 #[enum_dispatch]
 pub trait Run {
     async fn run(&self, id: Id) -> Result<()>;
@@ -35,9 +32,9 @@ pub trait Run {
 #[enum_dispatch(Run)]
 #[derive(Debug, Subcommand)]
 enum Command {
-    Resolve,
-    Ping,
-    Exec,
+    Resolve(resolve::ResolveArgs),
+    Ping(ping::PingArgs),
+    Exec(exec::ExecArgs),
 }
 
 pub async fn run() -> anyhow::Result<()> {
