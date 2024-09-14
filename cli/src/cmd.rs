@@ -10,7 +10,7 @@ use clap::Subcommand;
 
 use crate::argetype::GlobalArgs;
 
-/// Hello friend.
+/// Remote execution multitool
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
