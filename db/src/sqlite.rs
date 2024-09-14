@@ -34,14 +34,14 @@ impl Db for SqliteDb {
 
     async fn save_exec(&self, entry: &ExecEntry) -> Result<()> {
         sqlx::query(
-            r#"INSERT INTO exec_entries (job_id, target, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?)"#,
-        ).bind(&entry.job_id).bind(&entry.target).bind(&entry.exit_status).bind(&entry.stdout).bind(&entry.stderr).execute(&self.pool).await?;
+            r"INSERT INTO exec_entries (job_id, target, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?)",
+        ).bind(&entry.job_id).bind(&entry.target).bind(entry.exit_status).bind(&entry.stdout).bind(&entry.stderr).execute(&self.pool).await?;
         Ok(())
     }
 
     async fn load_exec(&self, job_id: &[u8]) -> Result<Vec<ExecEntry>> {
         let mut stream =
-            sqlx::query_as::<_, ExecEntry>(r#"SELECT * FROM exec_entries WHERE job_id = ?"#)
+            sqlx::query_as::<_, ExecEntry>(r"SELECT * FROM exec_entries WHERE job_id = ?")
                 .bind(job_id)
                 .fetch(&self.pool);
 

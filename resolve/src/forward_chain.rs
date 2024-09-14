@@ -31,8 +31,14 @@ impl Resolve for ForwardChainResolver {
     }
 }
 
+impl Default for ForwardChainResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ForwardChainResolver {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             cidr: CidrResolver,
             file: FileResolver,

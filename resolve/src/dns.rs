@@ -135,6 +135,6 @@ mod tests {
         let target = Target::from_str(input).unwrap();
         let resolver = DnsResolver;
         let targets: BTreeSet<Target> = resolver.resolve_infallible(target).collect().await;
-        assert!(targets.len() > 0);
+        assert!(!targets.is_empty());
     }
 }

@@ -28,7 +28,7 @@ impl TcpStreamFactory for ReuseportTcpStreamFactory {
         addr: &SocketAddr,
         timeout: Duration,
     ) -> anyhow::Result<tokio::net::TcpStream> {
-        let socket = self.get_reuseport_socket(&addr)?;
+        let socket = self.get_reuseport_socket(addr)?;
         let connect = socket.connect(*addr);
         let stream = tokio::time::timeout(timeout, connect).await??;
         Ok(stream)

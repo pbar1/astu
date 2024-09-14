@@ -35,7 +35,7 @@ impl SshClientFactory {
         }
     }
 
-    pub fn regular(default_user: Option<String>) -> Self {
+    #[must_use] pub fn regular(default_user: Option<String>) -> Self {
         let tcp = Arc::new(DefaultTcpStreamFactory);
         let default_user = default_user.clone();
         Self { tcp, default_user }
@@ -49,8 +49,8 @@ impl SshClientFactory {
 
     pub fn get_client(&self, target: Target) -> Result<SshClient> {
         let (addr, user) = match target {
-            Target::IpAddr(x) => (SocketAddr::new(x.into(), 22), None),
-            Target::SocketAddr(x) => (x.into(), None),
+            Target::IpAddr(x) => (SocketAddr::new(x, 22), None),
+            Target::SocketAddr(x) => (x, None),
             Target::Ssh { addr, user } => (addr, user),
             unsupported => bail!("unsupported ssh target: {unsupported}"),
         };

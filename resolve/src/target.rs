@@ -112,7 +112,7 @@ impl TryFrom<fluent_uri::UriRef<String>> for Target {
     type Error = anyhow::Error;
 
     fn try_from(uri: fluent_uri::UriRef<String>) -> Result<Self, Self::Error> {
-        let scheme = uri.scheme().map(|s| s.as_str()).unwrap_or_default();
+        let scheme = uri.scheme().map(fluent_uri::component::Scheme::as_str).unwrap_or_default();
 
         if scheme == "ssh" {
             let authority = uri.authority().context("ssh uri had no authority")?;
@@ -199,7 +199,7 @@ impl Target {
     /// Returns the total number of individual atomic targets that this target
     /// can further resolve into. If that is not possible to determine, returns
     /// [`None`].
-    pub fn atoms(&self) -> Atoms {
+    #[must_use] pub fn atoms(&self) -> Atoms {
         match self {
             Target::IpAddr(_) => Atoms::Known(1),
             Target::SocketAddr(_) => Atoms::Known(1),
@@ -256,7 +256,7 @@ mod tests {
     #[case("127.0.0.1:22", Atoms::Known(1))]
     #[case("[::1]:22", Atoms::Known(1))]
     #[case("0.0.0.0/0", Atoms::Known(u32::MAX as u128 + 1))]
-    #[case("::/1", Atoms::Known(170141183460469231731687303715884105728))]
+    #[case("::/1", Atoms::Known(170_141_183_460_469_231_731_687_303_715_884_105_728))]
     #[case("::/0", Atoms::KnownMax)]
     fn target_atoms(#[case] input: &str, #[case] should: Atoms) {
         let target = Target::from_str(input).unwrap();

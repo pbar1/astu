@@ -65,7 +65,7 @@ async fn _exec(
         match (client.auth(&auth).await, auth) {
             (Err(error), _) => error!(?error, "authentication failed"),
             (_, AuthType::User(_)) => continue,
-            (Ok(_), _) => authed = true,
+            (Ok(()), _) => authed = true,
         }
     }
     if !authed {
