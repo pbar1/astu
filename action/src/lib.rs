@@ -1,27 +1,33 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod client;
 pub mod ssh;
 pub mod tcp;
 
-#[async_trait::async_trait]
+use std::time::Duration;
+
+use anyhow::Result;
+use async_trait::async_trait;
+
+#[async_trait]
 pub trait Connect {
-    async fn connect(&mut self, timeout: std::time::Duration) -> anyhow::Result<()>;
+    async fn connect(&mut self, timeout: Duration) -> Result<()>;
 }
 
-#[async_trait::async_trait]
-pub trait Auth {
-    async fn auth(&mut self, auth_type: &AuthType) -> anyhow::Result<()>;
-}
-
-#[async_trait::async_trait]
+#[async_trait]
 pub trait Ping {
-    async fn ping(self) -> anyhow::Result<String>;
+    async fn ping(self) -> Result<String>;
 }
 
-#[async_trait::async_trait]
+#[async_trait]
+pub trait Auth {
+    async fn auth(&mut self, auth_type: &AuthType) -> Result<()>;
+}
+
+#[async_trait]
 pub trait Exec {
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput>;
+    async fn exec(&mut self, command: &str) -> Result<ExecOutput>;
 }
 
 #[derive(Debug, Clone)]
