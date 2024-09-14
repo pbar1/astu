@@ -1,23 +1,14 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use crate::tcp_stream::TcpStreamFactory;
+
 /// Simply calls `connect` without doing anything special
 pub struct DefaultTcpFactory;
 
-impl super::TcpFactory for DefaultTcpFactory {
-    fn connect_timeout(
-        &self,
-        addr: &SocketAddr,
-        timeout: Duration,
-    ) -> anyhow::Result<std::net::TcpStream> {
-        let stream = std::net::TcpStream::connect_timeout(addr.into(), timeout)?;
-        Ok(stream)
-    }
-}
-
 #[async_trait::async_trait]
-impl super::TcpFactoryAsync for DefaultTcpFactory {
-    async fn connect_timeout_async(
+impl TcpStreamFactory for DefaultTcpFactory {
+    async fn connect_timeout(
         &self,
         addr: &SocketAddr,
         timeout: Duration,

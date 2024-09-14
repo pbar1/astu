@@ -12,6 +12,8 @@ use socket2::SockAddr;
 use socket2::Socket;
 use socket2::Type;
 
+use crate::tcp_stream::TcpStreamFactory;
+
 pub struct ReuseportTcpFactory {
     _reserved_v4: Socket,
     _reserved_v6: Socket,
@@ -19,22 +21,9 @@ pub struct ReuseportTcpFactory {
     addr_v6: SockAddr,
 }
 
-impl super::TcpFactory for ReuseportTcpFactory {
-    fn connect_timeout(
-        &self,
-        addr: &SocketAddr,
-        timeout: Duration,
-    ) -> anyhow::Result<std::net::TcpStream> {
-        let socket = self.get_reuseport_socket(addr)?;
-        let remote_addr = SockAddr::from(addr.to_owned());
-        socket.connect_timeout(&remote_addr, timeout)?;
-        Ok(std::net::TcpStream::from(socket))
-    }
-}
-
 #[async_trait::async_trait]
-impl super::TcpFactoryAsync for ReuseportTcpFactory {
-    async fn connect_timeout_async(
+impl TcpStreamFactory for ReuseportTcpFactory {
+    async fn connect_timeout(
         &self,
         addr: &SocketAddr,
         timeout: Duration,
@@ -138,27 +127,29 @@ fn new_reuseport_socket_v6(ip: Ipv6Addr, port: u16) -> anyhow::Result<Socket> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufRead;
-    use std::io::BufReader;
     use std::net::ToSocketAddrs;
 
     use rstest::rstest;
+    use tokio::io::AsyncBufReadExt;
+    use tokio::io::BufReader;
 
     use super::*;
-    use crate::tcp::TcpFactory;
+    use crate::tcp_stream::TcpStreamFactory;
 
     #[rstest]
     #[case("127.0.0.1:2222")]
     #[case("[::1]:2222")]
-    fn works(#[case] input: &str) {
+    #[tokio::test]
+    async fn works(#[case] input: &str) {
         let factory = ReuseportTcpFactory::try_new().unwrap();
         let remote = input.to_socket_addrs().unwrap().next().unwrap();
         let stream = factory
             .connect_timeout(&remote, Duration::from_secs(5))
+            .await
             .unwrap();
         let mut reader = BufReader::new(stream);
         let mut output = String::new();
-        reader.read_line(&mut output).unwrap();
+        reader.read_line(&mut output).await.unwrap();
         assert!(output.contains("SSH-2"));
     }
 }

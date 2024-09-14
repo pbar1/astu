@@ -6,9 +6,9 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
-use astu_util::tcp::DefaultTcpFactory;
-use astu_util::tcp::ReuseportTcpFactory;
-use astu_util::tcp::TcpFactoryAsync;
+use astu_util::tcp_stream::DefaultTcpFactory;
+use astu_util::tcp_stream::ReuseportTcpFactory;
+use astu_util::tcp_stream::TcpStreamFactory;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
@@ -23,12 +23,12 @@ use crate::ExecOutput;
 // Factory --------------------------------------------------------------------
 
 pub struct SshFactory {
-    tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     default_user: Option<String>,
 }
 
 impl SshFactory {
-    pub fn new(tcp: Arc<dyn TcpFactoryAsync + Send + Sync>) -> Self {
+    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
         Self {
             tcp,
             default_user: None,
@@ -66,7 +66,7 @@ impl SshFactory {
 
 pub struct SshClient {
     addr: SocketAddr,
-    tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     session: Option<russh::client::Handle<SshClientHandler>>,
     user: Option<String>,
 }
@@ -74,7 +74,7 @@ pub struct SshClient {
 impl SshClient {
     pub fn new(
         addr: SocketAddr,
-        tcp: Arc<dyn TcpFactoryAsync + Send + Sync>,
+        tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
         user: Option<String>,
     ) -> Self {
         Self {
@@ -104,7 +104,7 @@ impl Connect for SshClient {
             ..Default::default()
         });
 
-        let stream = self.tcp.connect_timeout_async(&self.addr, timeout).await?;
+        let stream = self.tcp.connect_timeout(&self.addr, timeout).await?;
 
         let handler = SshClientHandler {
             server_banner: None,

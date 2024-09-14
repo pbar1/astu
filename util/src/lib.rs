@@ -4,4 +4,4 @@
 pub mod combinator;
 pub mod id;
 pub mod secret;
-pub mod tcp;
+pub mod tcp_stream;
