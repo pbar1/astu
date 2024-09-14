@@ -6,8 +6,8 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
-use astu_util::tcp_stream::DefaultTcpFactory;
-use astu_util::tcp_stream::ReuseportTcpFactory;
+use astu_util::tcp_stream::DefaultTcpStreamFactory;
+use astu_util::tcp_stream::ReuseportTcpStreamFactory;
 use astu_util::tcp_stream::TcpStreamFactory;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
@@ -32,7 +32,7 @@ impl TcpClientFactory {
     }
 
     pub fn regular(default_port: u16) -> Self {
-        let factory = Arc::new(DefaultTcpFactory);
+        let factory = Arc::new(DefaultTcpStreamFactory);
         Self {
             factory,
             default_port,
@@ -40,7 +40,7 @@ impl TcpClientFactory {
     }
 
     pub fn reuseport(default_port: u16) -> Result<Self> {
-        let factory = ReuseportTcpFactory::try_new().map(Arc::new)?;
+        let factory = ReuseportTcpStreamFactory::try_new().map(Arc::new)?;
         Ok(Self {
             factory,
             default_port,
@@ -109,7 +109,7 @@ impl Ping for TcpClient {
 mod tests {
     use std::str::FromStr;
 
-    use astu_util::tcp_stream::DefaultTcpFactory;
+    use astu_util::tcp_stream::DefaultTcpStreamFactory;
     use rstest::rstest;
 
     use super::*;
@@ -120,7 +120,7 @@ mod tests {
     async fn ping_works(#[case] input: &str, #[case] should_contain: &str) {
         let addr = SocketAddr::from_str(input).unwrap();
         let timeout = Duration::from_secs(2);
-        let factory: Arc<dyn TcpStreamFactory + Send + Sync> = Arc::new(DefaultTcpFactory);
+        let factory: Arc<dyn TcpStreamFactory + Send + Sync> = Arc::new(DefaultTcpStreamFactory);
 
         let mut client = TcpClient::new(addr, factory);
         client.connect(timeout).await.unwrap();

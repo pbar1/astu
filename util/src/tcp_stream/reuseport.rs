@@ -14,7 +14,7 @@ use socket2::Type;
 
 use crate::tcp_stream::TcpStreamFactory;
 
-pub struct ReuseportTcpFactory {
+pub struct ReuseportTcpStreamFactory {
     _reserved_v4: Socket,
     _reserved_v6: Socket,
     addr_v4: SockAddr,
@@ -22,20 +22,20 @@ pub struct ReuseportTcpFactory {
 }
 
 #[async_trait::async_trait]
-impl TcpStreamFactory for ReuseportTcpFactory {
+impl TcpStreamFactory for ReuseportTcpStreamFactory {
     async fn connect_timeout(
         &self,
         addr: &SocketAddr,
         timeout: Duration,
     ) -> anyhow::Result<tokio::net::TcpStream> {
-        let socket = self.get_reuseport_socket_tokio(&addr)?;
+        let socket = self.get_reuseport_socket(&addr)?;
         let connect = socket.connect(*addr);
         let stream = tokio::time::timeout(timeout, connect).await??;
         Ok(stream)
     }
 }
 
-impl ReuseportTcpFactory {
+impl ReuseportTcpStreamFactory {
     pub fn try_new() -> anyhow::Result<Self> {
         let reserved_v4 = reserve_v4()?;
         let reserved_v6 = reserve_v6()?;
@@ -51,27 +51,7 @@ impl ReuseportTcpFactory {
         })
     }
 
-    fn get_reuseport_socket(&self, remote_adr: &SocketAddr) -> anyhow::Result<Socket> {
-        let socket = match remote_adr {
-            SocketAddr::V4(_) => {
-                let local_addr = self
-                    .addr_v4
-                    .as_socket_ipv4()
-                    .context("unable to convert to std socketaddr")?;
-                new_reuseport_socket_v4(*local_addr.ip(), local_addr.port())?
-            }
-            SocketAddr::V6(_) => {
-                let local_addr = self
-                    .addr_v6
-                    .as_socket_ipv6()
-                    .context("unable to convert to std socketaddr")?;
-                new_reuseport_socket_v6(*local_addr.ip(), local_addr.port())?
-            }
-        };
-        Ok(socket)
-    }
-
-    fn get_reuseport_socket_tokio(
+    fn get_reuseport_socket(
         &self,
         remote_adr: &SocketAddr,
     ) -> anyhow::Result<tokio::net::TcpSocket> {
@@ -141,7 +121,7 @@ mod tests {
     #[case("[::1]:2222")]
     #[tokio::test]
     async fn works(#[case] input: &str) {
-        let factory = ReuseportTcpFactory::try_new().unwrap();
+        let factory = ReuseportTcpStreamFactory::try_new().unwrap();
         let remote = input.to_socket_addrs().unwrap().next().unwrap();
         let stream = factory
             .connect_timeout(&remote, Duration::from_secs(5))

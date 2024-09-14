@@ -6,8 +6,8 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
-use astu_util::tcp_stream::DefaultTcpFactory;
-use astu_util::tcp_stream::ReuseportTcpFactory;
+use astu_util::tcp_stream::DefaultTcpStreamFactory;
+use astu_util::tcp_stream::ReuseportTcpStreamFactory;
 use astu_util::tcp_stream::TcpStreamFactory;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
@@ -36,13 +36,13 @@ impl SshFactory {
     }
 
     pub fn regular(default_user: Option<String>) -> Self {
-        let tcp = Arc::new(DefaultTcpFactory);
+        let tcp = Arc::new(DefaultTcpStreamFactory);
         let default_user = default_user.clone();
         Self { tcp, default_user }
     }
 
     pub fn reuseport(default_user: Option<String>) -> Result<Self> {
-        let tcp = ReuseportTcpFactory::try_new().map(Arc::new)?;
+        let tcp = ReuseportTcpStreamFactory::try_new().map(Arc::new)?;
         let default_user = default_user.clone();
         Ok(Self { tcp, default_user })
     }
@@ -315,7 +315,7 @@ mod tests {
     #[tokio::test]
     async fn works() {
         let addr = "tec.lan:22".to_socket_addrs().unwrap().next().unwrap();
-        let tcp = Arc::new(ReuseportTcpFactory::try_new().unwrap());
+        let tcp = Arc::new(ReuseportTcpStreamFactory::try_new().unwrap());
         let user = Some("nixos".to_string());
 
         let mut client = SshClient::new(addr, tcp, user);

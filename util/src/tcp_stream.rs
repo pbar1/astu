@@ -8,8 +8,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::net::TcpStream;
 
-pub use crate::tcp_stream::default::DefaultTcpFactory;
-pub use crate::tcp_stream::reuseport::ReuseportTcpFactory;
+pub use crate::tcp_stream::default::DefaultTcpStreamFactory;
+pub use crate::tcp_stream::reuseport::ReuseportTcpStreamFactory;
 
 /// Factory for creating Tokio TCP streams.
 #[async_trait]

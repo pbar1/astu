@@ -4,10 +4,10 @@ use std::time::Duration;
 use crate::tcp_stream::TcpStreamFactory;
 
 /// Simply calls `connect` without doing anything special
-pub struct DefaultTcpFactory;
+pub struct DefaultTcpStreamFactory;
 
 #[async_trait::async_trait]
-impl TcpStreamFactory for DefaultTcpFactory {
+impl TcpStreamFactory for DefaultTcpStreamFactory {
     async fn connect_timeout(
         &self,
         addr: &SocketAddr,
