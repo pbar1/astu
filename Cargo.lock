@@ -233,6 +233,7 @@ dependencies = [
  "async-trait",
  "base32",
  "futures",
+ "redact",
  "rstest",
  "socket2",
  "sonyflake",
@@ -240,6 +241,7 @@ dependencies = [
  "tracing",
  "uuid",
  "whoami",
+ "zeroize",
 ]
 
 [[package]]
@@ -1937,6 +1939,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "redact"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0020ec469b096d56edb1ed0f0f141d957863302170f8d9c4bfda1a12969e5969"
+dependencies = [
+ "zeroize",
 ]
 
 [[package]]

@@ -5,15 +5,17 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-async-trait = "0.1.82"
-base32 = "0.5.1"
+async-trait = "0.1"
+base32 = "0.5"
 futures = "0.3"
-socket2 = "0.5.7"
-sonyflake = "0.2.0"
-tokio = { version = "1.40.0", features = ["full"] }
-tracing = "0.1.40"
-uuid = { version = "1.10.0", features = ["v7"] }
-whoami = "1.5.2"
+redact = { version = "0.1", features = ["zeroize"] }
+socket2 = "0.5"
+sonyflake = "0.2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v7"] }
+whoami = "1"
+zeroize = { version = "1", features = ["aarch64"] }
 
 [dev-dependencies]
 rstest = "0.22"
