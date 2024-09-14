@@ -1,21 +1,19 @@
-use std::time::Duration;
-
-use astu_action::ssh::SshClient;
-use astu_action::Auth;
-use astu_action::AuthType;
-use astu_action::Connect;
-use astu_action::Exec;
+use anyhow::Result;
 use astu_util::id::Id;
 use clap::Args;
-use tracing::error;
 
+use crate::argetype::ConnectionArgs;
 use crate::argetype::ResolutionArgs;
+use crate::cmd::Run;
 
 /// Run commands on targets
 #[derive(Debug, Args)]
-pub struct ExecArgs {
+pub struct Exec {
     #[command(flatten)]
     resolution_args: ResolutionArgs,
+
+    #[command(flatten)]
+    connection_args: ConnectionArgs,
 
     /// Command to run.
     #[arg(trailing_var_arg = true)]
@@ -30,55 +28,10 @@ pub struct ExecArgs {
     ssh_agent: Option<String>,
 }
 
-impl super::Run for ExecArgs {
-    async fn run(&self, id: Id) -> anyhow::Result<()> {
-        eprintln!("Invocation ID: {id}");
-
+impl Run for Exec {
+    async fn run(&self, _id: Id) -> Result<()> {
         let _targets = self.resolution_args.clone().resolve();
 
         Ok(())
     }
-}
-
-async fn _exec(
-    client: anyhow::Result<SshClient>,
-    auths: Vec<AuthType>,
-    command: String,
-    timeout: Duration,
-) {
-    let mut client = match client {
-        Ok(client) => client,
-        Err(error) => {
-            error!(?error, "failed to get client");
-            return;
-        }
-    };
-
-    if let Err(error) = client.connect(timeout).await {
-        error!(?error, "failed to connect");
-        return;
-    };
-
-    let mut authed = false;
-    for auth in auths {
-        match (client.auth(&auth).await, auth) {
-            (Err(error), _) => error!(?error, "authentication failed"),
-            (_, AuthType::User(_)) => continue,
-            (Ok(()), _) => authed = true,
-        }
-    }
-    if !authed {
-        error!("all authentication attempts failed");
-        return;
-    }
-
-    let output = match client.exec(&command).await {
-        Ok(output) => output,
-        Err(error) => {
-            error!(?error, %command, "failed to exec");
-            return;
-        }
-    };
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    print!("{stdout}");
 }

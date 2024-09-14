@@ -11,6 +11,9 @@ use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 
 use crate::argetype::GlobalArgs;
+use crate::cmd::exec::Exec;
+use crate::cmd::ping::Ping;
+use crate::cmd::resolve::Resolve;
 
 /// Remote execution multitool
 #[derive(Debug, Parser)]
@@ -23,18 +26,18 @@ struct Cli {
     global_args: GlobalArgs,
 }
 
-#[derive(Debug, Subcommand)]
-#[enum_dispatch]
-enum Command {
-    Resolve(resolve::ResolveArgs),
-    Ping(ping::PingArgs),
-    Exec(exec::ExecArgs),
-}
-
 /// Subcommands should implement [`Run`] to be executed at runtime.
 #[enum_dispatch]
 pub trait Run {
     async fn run(&self, id: Id) -> Result<()>;
+}
+
+#[enum_dispatch(Run)]
+#[derive(Debug, Subcommand)]
+enum Command {
+    Resolve,
+    Ping,
+    Exec,
 }
 
 pub async fn run() -> anyhow::Result<()> {
@@ -42,10 +45,7 @@ pub async fn run() -> anyhow::Result<()> {
     cli.global_args.init_tracing()?;
 
     let id = SonyflakeGenerator::from_hostname()?.id_now();
+    eprintln!("Run ID: {id}");
 
-    match cli.command {
-        Command::Exec(args) => args.run(id).await,
-        Command::Resolve(args) => args.run(id).await,
-        Command::Ping(args) => args.run(id).await,
-    }
+    cli.command.run(id).await
 }
