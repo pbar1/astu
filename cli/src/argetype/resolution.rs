@@ -11,7 +11,6 @@ const HEADING: Option<&str> = Some("Target Resolution Options");
 #[derive(Debug, Args, Clone)]
 pub struct ResolutionArgs {
     /// Target query. Pass `-` to read from stdin.
-    #[arg(help_heading = HEADING)]
     pub target: Target,
 
     /// Perform reverse resolution instead of forward.
