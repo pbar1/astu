@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
-async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
+enum_dispatch = "0.3"
 futures = "0.3"
 astu-action = { path = "../action" }
 astu-resolve = { path = "../resolve" }
@@ -16,4 +16,3 @@ tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
 tracing-glog = { version = "0.4", features = ["local-time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-enum_dispatch = "0.3.13"

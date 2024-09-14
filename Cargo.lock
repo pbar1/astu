@@ -166,7 +166,6 @@ dependencies = [
  "astu-action",
  "astu-resolve",
  "astu-util",
- "async-trait",
  "clap",
  "enum_dispatch",
  "futures",
