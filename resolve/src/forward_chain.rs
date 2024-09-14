@@ -38,7 +38,8 @@ impl Default for ForwardChainResolver {
 }
 
 impl ForwardChainResolver {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             cidr: CidrResolver,
             file: FileResolver,

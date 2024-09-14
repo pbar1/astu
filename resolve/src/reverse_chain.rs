@@ -27,7 +27,8 @@ impl Default for ReverseChainResolver {
 }
 
 impl ReverseChainResolver {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self { dns: DnsResolver }
     }
 }

@@ -35,7 +35,8 @@ impl SshClientFactory {
         }
     }
 
-    #[must_use] pub fn regular(default_user: Option<String>) -> Self {
+    #[must_use]
+    pub fn regular(default_user: Option<String>) -> Self {
         let tcp = Arc::new(DefaultTcpStreamFactory);
         let default_user = default_user.clone();
         Self { tcp, default_user }

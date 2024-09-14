@@ -28,7 +28,8 @@ impl TcpClientFactory {
         Self { tcp, default_port }
     }
 
-    #[must_use] pub fn regular(default_port: u16) -> Self {
+    #[must_use]
+    pub fn regular(default_port: u16) -> Self {
         let factory = Arc::new(DefaultTcpStreamFactory);
         Self {
             tcp: factory,

@@ -38,7 +38,8 @@ pub struct ClientFactory {
 /// Constructors
 impl ClientFactory {
     /// Constructs a new [`ClientFactory`].
-    #[must_use] pub fn new(tcp_factory: TcpClientFactory, ssh_factory: SshClientFactory) -> Self {
+    #[must_use]
+    pub fn new(tcp_factory: TcpClientFactory, ssh_factory: SshClientFactory) -> Self {
         Self {
             tcp_factory,
             ssh_factory,
