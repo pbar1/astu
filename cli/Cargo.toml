@@ -10,6 +10,7 @@ enum_dispatch = "0.3"
 futures = "0.3"
 astu-action = { path = "../action" }
 astu-resolve = { path = "../resolve" }
+astu-db = { path = "../db" }
 astu-util = { path = "../util" }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }

@@ -1,10 +1,12 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+mod file;
 mod sqlite;
 
 use anyhow::Result;
 
+pub use crate::file::FileStore;
 pub use crate::sqlite::SqliteDb;
 
 #[async_trait::async_trait]
