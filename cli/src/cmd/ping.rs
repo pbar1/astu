@@ -10,7 +10,6 @@ use astu_util::id::Id;
 use clap::Args;
 use futures::StreamExt;
 use tracing::debug;
-use tracing::error;
 
 use crate::argetype::ConnectionArgs;
 use crate::argetype::ResolutionArgs;
@@ -42,7 +41,7 @@ impl Run for PingArgs {
                 match client_factory.get_tcp_client(target) {
                     Ok(client) => Some(client),
                     Err(error) => {
-                        error!(?error, "unable to get client");
+                        debug!(?error, "unable to get client");
                         None
                     }
                 }
@@ -51,13 +50,13 @@ impl Run for PingArgs {
                 match client.connect(connect_timeout.clone()).await {
                     Ok(_) => debug!("connect succeeded"),
                     Err(error) => {
-                        error!(?error, "connect failed");
+                        debug!(?error, "connect failed");
                         return;
                     }
                 }
                 match client.ping().await {
                     Ok(output) => println!("{output}"),
-                    Err(error) => error!(?error, "ping failed"),
+                    Err(error) => debug!(?error, "ping failed"),
                 }
             })
             .await;
