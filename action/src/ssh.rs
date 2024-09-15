@@ -6,8 +6,6 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
-use astu_util::tcp_stream::DefaultTcpStreamFactory;
-use astu_util::tcp_stream::ReuseportTcpStreamFactory;
 use astu_util::tcp_stream::TcpStreamFactory;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
@@ -33,19 +31,6 @@ impl SshClientFactory {
             tcp,
             default_user: None,
         }
-    }
-
-    #[must_use]
-    pub fn regular(default_user: Option<String>) -> Self {
-        let tcp = Arc::new(DefaultTcpStreamFactory);
-        let default_user = default_user.clone();
-        Self { tcp, default_user }
-    }
-
-    pub fn reuseport(default_user: Option<String>) -> Result<Self> {
-        let tcp = ReuseportTcpStreamFactory::try_new().map(Arc::new)?;
-        let default_user = default_user.clone();
-        Ok(Self { tcp, default_user })
     }
 
     pub fn get_client(&self, target: Target) -> Result<SshClient> {
@@ -310,6 +295,8 @@ impl russh::client::Handler for SshClientHandler {
 #[cfg(test)]
 mod tests {
     use std::net::ToSocketAddrs;
+
+    use astu_util::tcp_stream::ReuseportTcpStreamFactory;
 
     use super::*;
 

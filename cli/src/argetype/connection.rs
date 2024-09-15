@@ -1,3 +1,9 @@
+use std::sync::Arc;
+
+use anyhow::Result;
+use astu_util::tcp_stream::DefaultTcpStreamFactory;
+use astu_util::tcp_stream::ReuseportTcpStreamFactory;
+use astu_util::tcp_stream::TcpStreamFactory;
 use clap::Args;
 
 const HEADING: Option<&str> = Some("Connection Options");
@@ -21,4 +27,15 @@ pub struct ConnectionArgs {
     /// Port to connect to if not provided by target
     #[arg(long, default_value_t = 22, help_heading = HEADING)]
     pub port: u16,
+}
+
+impl ConnectionArgs {
+    pub fn tcp_stream_factory(&self) -> Result<Arc<dyn TcpStreamFactory + Send + Sync>> {
+        let factory: Arc<dyn TcpStreamFactory + Send + Sync> = if self.reuseport {
+            Arc::new(ReuseportTcpStreamFactory::try_new()?)
+        } else {
+            Arc::new(DefaultTcpStreamFactory)
+        };
+        Ok(factory)
+    }
 }
