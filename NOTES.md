@@ -35,5 +35,4 @@ Perform helpful speculation on what the given value may be. For example:
 
 ## TODO
 
-- Extract SSH factory from action into util
-- Create a better concept for mapping targets to clients based on actions
+- Implement no-op-ok or no-op-err for action clients, to help with enum dispatch
