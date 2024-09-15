@@ -23,13 +23,15 @@ use crate::ExecOutput;
 pub struct SshClientFactory {
     tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     default_user: Option<String>,
+    connect_timeout: Duration,
 }
 
 impl SshClientFactory {
-    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
+    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>, connect_timeout: Duration) -> Self {
         Self {
             tcp,
             default_user: None,
+            connect_timeout,
         }
     }
 
@@ -44,7 +46,12 @@ impl SshClientFactory {
             Some(u) => Some(u),
             None => self.default_user.clone(),
         };
-        Ok(SshClient::new(addr, self.tcp.clone(), user))
+        Ok(SshClient::new(
+            addr,
+            self.tcp.clone(),
+            user,
+            self.connect_timeout,
+        ))
     }
 }
 
@@ -55,6 +62,7 @@ pub struct SshClient {
     tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     session: Option<russh::client::Handle<SshClientHandler>>,
     user: Option<String>,
+    connect_timeout: Duration,
 }
 
 impl SshClient {
@@ -62,12 +70,14 @@ impl SshClient {
         addr: SocketAddr,
         tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
         user: Option<String>,
+        connect_timeout: Duration,
     ) -> Self {
         Self {
             addr,
             tcp,
             session: None,
             user,
+            connect_timeout,
         }
     }
 
@@ -84,13 +94,16 @@ impl SshClient {
 
 #[async_trait::async_trait]
 impl Connect for SshClient {
-    async fn connect(&mut self, timeout: Duration) -> anyhow::Result<()> {
+    async fn connect(&mut self) -> anyhow::Result<()> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
             ..Default::default()
         });
 
-        let stream = self.tcp.connect_timeout(&self.addr, timeout).await?;
+        let stream = self
+            .tcp
+            .connect_timeout(&self.addr, self.connect_timeout)
+            .await?;
 
         let handler = SshClientHandler {
             server_banner: None,
@@ -305,10 +318,11 @@ mod tests {
         let addr = "tec.lan:22".to_socket_addrs().unwrap().next().unwrap();
         let tcp = Arc::new(ReuseportTcpStreamFactory::try_new().unwrap());
         let user = Some("nixos".to_string());
+        let timeout = Duration::from_secs(2);
 
-        let mut client = SshClient::new(addr, tcp, user);
+        let mut client = SshClient::new(addr, tcp, user, timeout);
 
-        client.connect(Duration::from_secs(2)).await.unwrap();
+        client.connect().await.unwrap();
 
         let socket = std::env::var("SSH_AUTH_SOCK").unwrap();
         client.auth_ssh_agent(&socket).await.unwrap();

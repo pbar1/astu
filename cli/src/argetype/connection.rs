@@ -24,9 +24,13 @@ pub struct ConnectionArgs {
     pub reuseport: bool,
 
     // TODO: Remove if we get IP connection (ie, ICMP)
-    /// Port to connect to if not provided by target
+    /// Port to connect to if not provided by target.
     #[arg(long, default_value_t = 22, help_heading = HEADING)]
     pub port: u16,
+
+    /// Number of concurrent connections to process.
+    #[arg(short = 'c', long, default_value_t = 50000, help_heading = HEADING)]
+    pub concurrency: usize,
 }
 
 impl ConnectionArgs {

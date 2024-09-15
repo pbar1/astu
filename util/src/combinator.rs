@@ -31,7 +31,8 @@ impl<T: ?Sized> AstuTryStreamExt for T where T: TryStream {}
 
 /// Adapters specific to [`Result`]-returning streams.
 pub trait AstuTryStreamExt: TryStream {
-    fn infallible<I>(self, inspector: I) -> impl Stream<Item = Self::Ok>
+    /// Inspects and drops the `Error` variant, returning only the `Ok` variant.
+    fn dropspect_err<I>(self, inspector: I) -> impl Stream<Item = Self::Ok>
     where
         Self: Sized,
         I: FnMut(&Self::Error),

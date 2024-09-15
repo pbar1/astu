@@ -5,14 +5,12 @@ pub mod client;
 pub mod ssh;
 pub mod tcp;
 
-use std::time::Duration;
-
 use anyhow::Result;
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait Connect {
-    async fn connect(&mut self, timeout: Duration) -> Result<()>;
+    async fn connect(&mut self) -> Result<()>;
 }
 
 #[async_trait]

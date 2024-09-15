@@ -19,11 +19,20 @@ use crate::Ping;
 pub struct TcpClientFactory {
     tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     default_port: u16,
+    connect_timeout: Duration,
 }
 
 impl TcpClientFactory {
-    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>, default_port: u16) -> Self {
-        Self { tcp, default_port }
+    pub fn new(
+        tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
+        default_port: u16,
+        connect_timeout: Duration,
+    ) -> Self {
+        Self {
+            tcp,
+            default_port,
+            connect_timeout,
+        }
     }
 
     pub fn get_client(&self, target: Target) -> Result<TcpClient> {
@@ -33,7 +42,7 @@ impl TcpClientFactory {
             Target::Ssh { addr, user: _user } => addr,
             unsupported => bail!("unsupported target type for TcpClient: {unsupported}"),
         };
-        let client = TcpClient::new(addr, self.tcp.clone());
+        let client = TcpClient::new(addr, self.tcp.clone(), self.connect_timeout);
         Ok(client)
     }
 }
@@ -44,26 +53,35 @@ pub struct TcpClient {
     tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
     addr: SocketAddr,
     stream: Option<TcpStream>,
+    connect_timeout: Duration,
 }
 
 impl TcpClient {
-    pub fn new(addr: SocketAddr, tcp: Arc<dyn TcpStreamFactory + Send + Sync>) -> Self {
+    pub fn new(
+        addr: SocketAddr,
+        tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
+        connect_timeout: Duration,
+    ) -> Self {
         Self {
             addr,
             tcp,
             stream: None,
+            connect_timeout,
         }
     }
 }
 
 #[async_trait::async_trait]
 impl Connect for TcpClient {
-    async fn connect(&mut self, timeout: Duration) -> Result<()> {
+    async fn connect(&mut self) -> Result<()> {
         if self.stream.is_some() {
             bail!("tcp stream is already connected");
         }
 
-        let stream = self.tcp.connect_timeout(&self.addr, timeout).await?;
+        let stream = self
+            .tcp
+            .connect_timeout(&self.addr, self.connect_timeout)
+            .await?;
         self.stream = Some(stream);
 
         Ok(())
@@ -101,8 +119,8 @@ mod tests {
         let timeout = Duration::from_secs(2);
         let factory: Arc<dyn TcpStreamFactory + Send + Sync> = Arc::new(DefaultTcpStreamFactory);
 
-        let mut client = TcpClient::new(addr, factory);
-        client.connect(timeout).await.unwrap();
+        let mut client = TcpClient::new(addr, factory, timeout);
+        client.connect().await.unwrap();
         let output = client.ping().await.unwrap();
 
         assert!(output.contains(should_contain));
