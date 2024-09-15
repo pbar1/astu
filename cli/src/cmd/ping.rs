@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use anyhow::bail;
@@ -52,7 +52,22 @@ impl Run for PingArgs {
             .fold(PingOutcome::default(), process_outcome)
             .await;
 
-        dbg!(outcome);
+        let (ok_count, err_count) = outcome.get_totals();
+        let total = ok_count + err_count;
+        let ok_pct = ok_count as f64 / total as f64 * 100f64;
+        let err_pct = err_count as f64 / total as f64 * 100f64;
+        println!("Success: {ok_count}/{total} ({ok_pct:.0}%)");
+        println!("Failure: {err_count}/{total} ({err_pct:.0}%)");
+        println!();
+        println!("Success Frequency:");
+        for (val, hits) in outcome.ok_freq {
+            println!("{hits}: {val}");
+        }
+        println!();
+        println!("Failure Frequency:");
+        for (val, hits) in outcome.err_freq {
+            println!("{hits}: {val}");
+        }
 
         Ok(())
     }
@@ -71,21 +86,28 @@ async fn ping(client: Client) -> Result<String> {
 
 #[derive(Debug, Default)]
 struct PingOutcome {
-    ok_count: u128,
-    err_count: u128,
-    ok_freq: BTreeSet<String>,
-    err_freq: BTreeSet<String>,
+    ok_freq: BTreeMap<String, u128>,
+    err_freq: BTreeMap<String, u128>,
+}
+
+impl PingOutcome {
+    fn get_totals(&self) -> (u128, u128) {
+        let ok_count = self.ok_freq.values().sum();
+        let err_count = self.err_freq.values().sum();
+        (ok_count, err_count)
+    }
 }
 
 async fn process_outcome(mut acc: PingOutcome, result: Result<String>) -> PingOutcome {
     match result {
         Ok(ok) => {
-            acc.ok_count += 1;
-            acc.ok_freq.insert(ok);
+            acc.ok_freq.entry(ok).and_modify(|e| *e += 1).or_insert(1);
         }
         Err(err) => {
-            acc.err_count += 1;
-            acc.err_freq.insert(err.to_string());
+            acc.err_freq
+                .entry(err.to_string())
+                .and_modify(|e| *e += 1)
+                .or_insert(1);
         }
     }
     acc
