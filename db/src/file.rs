@@ -1,13 +1,12 @@
+use std::borrow::BorrowMut;
 use std::path::Path;
-use std::str::FromStr;
+use std::pin::Pin;
 
 use anyhow::Result;
-use astu_resolve::Target;
+use futures::task::Context;
+use futures::task::Poll;
 use futures::Sink;
-use futures::SinkExt;
 use futures::Stream;
-use futures::StreamExt;
-use futures::TryStreamExt;
 use tokio::fs::File;
 use tokio_util::codec::Framed;
 use tokio_util::codec::LinesCodec;
@@ -38,26 +37,63 @@ impl FileStore {
     }
 }
 
-impl FileStore {
-    pub fn get_stream(self) -> impl Stream<Item = Result<Target>> {
-        self.framed
-            .map_ok(|x| Target::from_str(&x))
-            .map(futures::stream::iter)
-            .flatten()
-            .map_err(anyhow::Error::from)
+impl Stream for FileStore {
+    type Item = Result<String>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let framed = self.get_mut().framed.borrow_mut();
+        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+        <Framed<tokio::fs::File, LinesCodec> as futures::Stream>::poll_next(framed, cx)
+            .map_err(From::from)
+    }
+}
+
+impl<T> Sink<T> for FileStore
+where
+    T: AsRef<str>,
+{
+    type Error = anyhow::Error;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let framed = self.get_mut().framed.borrow_mut();
+        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+        <Framed<tokio::fs::File, LinesCodec> as futures::Sink<String>>::poll_ready(framed, cx)
+            .map_err(From::from)
     }
 
-    pub fn get_sink(self) -> impl Sink<Result<Target>> {
-        async fn inner(res: Result<Target>) -> Result<String> {
-            res.map(|target| target.to_string())
-        }
-        self.framed.with(inner).sink_map_err(anyhow::Error::from)
+    fn start_send(self: Pin<&mut Self>, item: T) -> Result<()> {
+        let framed = self.get_mut().framed.borrow_mut();
+        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+        <Framed<tokio::fs::File, LinesCodec> as futures::Sink<T>>::start_send(framed, item)
+            .map_err(From::from)
     }
 
-    pub fn get_sink_2(self) -> impl Sink<Target> {
-        async fn inner(t: Target) -> Result<String> {
-            Ok(t.to_string())
-        }
-        self.framed.with(inner).sink_map_err(anyhow::Error::from)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        let framed = self.get_mut().framed.borrow_mut();
+        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+        <Framed<tokio::fs::File, LinesCodec> as futures::Sink<String>>::poll_flush(framed, cx)
+            .map_err(From::from)
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        let framed = self.get_mut().framed.borrow_mut();
+        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+        <Framed<tokio::fs::File, LinesCodec> as futures::Sink<String>>::poll_close(framed, cx)
+            .map_err(From::from)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use futures::SinkExt;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn sink_works() {
+        let mut store = FileStore::stdout().await.unwrap();
+        store.send("hello").await.unwrap();
+        store.send("world").await.unwrap();
     }
 }
