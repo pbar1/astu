@@ -1,6 +1,8 @@
 use std::borrow::BorrowMut;
+use std::fmt::Debug;
 use std::path::Path;
 use std::pin::Pin;
+use std::str::FromStr;
 
 use anyhow::Result;
 use futures::task::Context;
@@ -11,6 +13,7 @@ use tokio::fs::File;
 use tokio_util::codec::Framed;
 use tokio_util::codec::LinesCodec;
 
+#[derive(Debug)]
 pub struct FileStore {
     framed: Framed<File, LinesCodec>,
 }
@@ -37,13 +40,18 @@ impl FileStore {
     }
 }
 
-impl Stream for FileStore {
-    type Item = Result<String>;
+impl<T> Stream for FileStore
+where
+    T: FromStr,
+    T::Err: Debug,
+{
+    type Item = Result<T>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let framed = self.get_mut().framed.borrow_mut();
         let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
         <Framed<tokio::fs::File, LinesCodec> as futures::Stream>::poll_next(framed, cx)
+            .map_ok(|x| T::from_str(&x).unwrap())
             .map_err(From::from)
     }
 }
