@@ -16,4 +16,4 @@ tokio-stream = { version = "0.1.15", features = ["io-util"] }
 tracing = "0.1"
 
 [dev-dependencies]
-rstest = "0.22"
+rstest = "0.23"
