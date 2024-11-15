@@ -1,6 +1,15 @@
-# `astu`[^1]
+<h1 align="center" style="border-bottom: none;"><code>astu</code></h1>
 
-Remote execution multitool.
+<p align="center"><b>Remote execution multitool</b></p>
+
+<p align="center">
+  <a href="https://github.com/pbar1/astu/actions/workflows/build.yml">
+    <img alt="Build Status" src="https://github.com/pbar1/astu/actions/workflows/build.yml/badge.svg">
+  </a>
+  <a href="https://github.com/pbar1/astu/releases/latest">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/pbar1/astu.svg">
+  </a>
+</p>
 
 ## Project Map
 
@@ -42,7 +51,3 @@ Actions are behavior that clients can perform on targets.
 | TCP             | 🟢      |      |      |       |     |
 | SSH             | 🟢      | 🟢   | 🟢   | 🟢    | 🟢  |
 | Kubernetes      |         |      | 🟢   | 🟢    | 🟢  |
-
-<!-- Footnotes -->
-
-[^1]: [Hello friend.](https://github.com/pbar1/astu/blob/main/.github/assets/mr_robot.jpg)
