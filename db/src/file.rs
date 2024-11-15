@@ -40,21 +40,22 @@ impl FileStore {
     }
 }
 
-impl<T> Stream for FileStore
-where
-    T: FromStr,
-    T::Err: Debug,
-{
-    type Item = Result<T>;
+// impl<T> Stream for FileStore
+// where
+//     T: FromStr,
+//     T::Err: Debug,
+// {
+//     type Item = Result<T>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let framed = self.get_mut().framed.borrow_mut();
-        let framed: Pin<&mut Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
-        <Framed<tokio::fs::File, LinesCodec> as futures::Stream>::poll_next(framed, cx)
-            .map_ok(|x| T::from_str(&x).unwrap())
-            .map_err(From::from)
-    }
-}
+//     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) ->
+// Poll<Option<Self::Item>> {         let framed =
+// self.get_mut().framed.borrow_mut();         let framed: Pin<&mut
+// Framed<tokio::fs::File, LinesCodec>> = Pin::new(framed);
+//         <Framed<tokio::fs::File, LinesCodec> as
+// futures::Stream>::poll_next(framed, cx)             .map_ok(|x|
+// T::from_str(&x).unwrap())             .map_err(From::from)
+//     }
+// }
 
 impl<T> Sink<T> for FileStore
 where
