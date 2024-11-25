@@ -879,9 +879,9 @@ dependencies = [
 
 [[package]]
 name = "fluent-uri"
-version = "0.2.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d77395429e0ce700a8378be6625660a4aa00ca5dc5cd1527193ebd0946cc9b3"
+checksum = "1918b65d96df47d3591bed19c5cca17e3fa5d0707318e4b5ef2eae01764df7e5"
 dependencies = [
  "borrow-or-share",
  "ref-cast",
