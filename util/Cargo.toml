@@ -10,7 +10,7 @@ base32 = "0.5"
 futures = "0.3"
 redact = { version = "0.1", features = ["zeroize"] }
 socket2 = "0.5"
-sonyflake = "0.2"
+sonyflake = "0.3"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
