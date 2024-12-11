@@ -12,7 +12,7 @@ futures = "0.3"
 hickory-resolver = "0.24"
 ipnet = "2"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1.15", features = ["io-util"] }
+tokio-stream = { version = "0.1.17", features = ["io-util"] }
 tracing = "0.1"
 
 [dev-dependencies]
