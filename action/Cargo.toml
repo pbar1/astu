@@ -8,7 +8,7 @@ anyhow = "1"
 async-trait = "0.1"
 astu-resolve = { path = "../resolve" }
 astu-util = { path = "../util" }
-russh = "0.46"
+russh = "0.49"
 socket2 = "0.5"
 ssh-key = { version = "0.6.7", features = ["ed25519"] }
 tokio = { version = "1", features = ["full"] }
