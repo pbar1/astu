@@ -15,6 +15,6 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["full"] }
 
 [dev-dependencies]
-rstest = "0.23"
+rstest = "0.24"
 tempfile = "3.14.0"
 tokio = { version = "1", features = ["full"] }
