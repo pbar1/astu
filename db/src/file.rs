@@ -2,13 +2,11 @@ use std::borrow::BorrowMut;
 use std::fmt::Debug;
 use std::path::Path;
 use std::pin::Pin;
-use std::str::FromStr;
 
 use anyhow::Result;
 use futures::task::Context;
 use futures::task::Poll;
 use futures::Sink;
-use futures::Stream;
 use tokio::fs::File;
 use tokio_util::codec::Framed;
 use tokio_util::codec::LinesCodec;

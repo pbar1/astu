@@ -7,6 +7,7 @@ use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
 use astu_util::tcp_stream::TcpStreamFactory;
+use russh::keys::key::PrivateKeyWithHashAlg;
 use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
@@ -164,8 +165,13 @@ impl SshClient {
         };
 
         let key = russh::keys::decode_secret_key(private_key, None)?;
+        let hash_alg = match key.algorithm() {
+            ssh_key::Algorithm::Rsa { hash } => hash,
+            _else => None,
+        };
+        let key = PrivateKeyWithHashAlg::new(Arc::new(key), hash_alg)?;
 
-        let authenticated = session.authenticate_publickey(user, Arc::new(key)).await?;
+        let authenticated = session.authenticate_publickey(user, key).await?;
         if !authenticated {
             bail!("ssh authentication failed");
         }
@@ -204,12 +210,13 @@ impl SshClient {
         };
 
         let mut agent = russh::keys::agent::client::AgentClient::connect_uds(socket).await?;
-        let mut result: Result<bool, _>;
         let identities = agent.request_identities().await?;
 
         for key in identities {
-            let fingerprint = key.fingerprint();
-            (agent, result) = session.authenticate_future(user, key, agent).await;
+            let fingerprint = key.fingerprint(Default::default());
+            let result = session
+                .authenticate_publickey_with(user, key, &mut agent)
+                .await;
             match result {
                 Ok(true) => return Ok(()),
                 Ok(false) => debug!(%user, key = %fingerprint, "ssh agent auth denied"),
@@ -288,7 +295,7 @@ impl russh::client::Handler for SshClientHandler {
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::key::PublicKey,
+        _server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
         Ok(true)
     }
