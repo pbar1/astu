@@ -6,13 +6,13 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-camino = "1.1.9"
+camino = "1"
 fluent-uri = { version = "0.3", features = ["net"] }
 futures = "0.3"
 hickory-resolver = "0.24"
 ipnet = "2"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1.17", features = ["io-util"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
 
 [dev-dependencies]
