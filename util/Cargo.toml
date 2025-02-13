@@ -2,6 +2,8 @@
 name = "astu-util"
 version = "0.1.0"
 edition = "2021"
+description = "astu utils"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"

@@ -2,6 +2,8 @@
 name = "astu-db"
 version = "0.1.0"
 edition = "2021"
+description = "astu persistence"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 astu-action = { path = "../action" }
