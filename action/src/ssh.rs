@@ -8,7 +8,6 @@ use anyhow::Result;
 use astu_resolve::Target;
 use astu_util::tcp_stream::TcpStreamFactory;
 use russh::keys::key::PrivateKeyWithHashAlg;
-use ssh_key::Certificate;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
@@ -124,7 +123,7 @@ impl Auth for SshClient {
             AuthType::User(x) => self.auth_user(x).await,
             AuthType::Password(x) => self.auth_password(x).await,
             AuthType::SshKey(x) => self.auth_ssh_key(x).await,
-            AuthType::SshCert { key, cert } => self.auth_ssh_cert(key, cert.clone()).await,
+            AuthType::SshCert { key, cert } => self.auth_ssh_cert(key, cert).await,
             AuthType::SshAgent { socket } => self.auth_ssh_agent(socket).await,
         }
     }
@@ -149,7 +148,7 @@ impl SshClient {
         };
 
         let authenticated = session.authenticate_password(user, password).await?;
-        if !authenticated {
+        if !authenticated.success() {
             bail!("ssh authentication failed");
         }
 
@@ -166,20 +165,20 @@ impl SshClient {
 
         let key = russh::keys::decode_secret_key(private_key, None)?;
         let hash_alg = match key.algorithm() {
-            ssh_key::Algorithm::Rsa { hash } => hash,
+            russh::keys::Algorithm::Rsa { hash } => hash,
             _else => None,
         };
-        let key = PrivateKeyWithHashAlg::new(Arc::new(key), hash_alg)?;
+        let key = PrivateKeyWithHashAlg::new(Arc::new(key), hash_alg);
 
         let authenticated = session.authenticate_publickey(user, key).await?;
-        if !authenticated {
+        if !authenticated.success() {
             bail!("ssh authentication failed");
         }
 
         Ok(())
     }
 
-    async fn auth_ssh_cert(&mut self, private_key: &str, cert: Certificate) -> anyhow::Result<()> {
+    async fn auth_ssh_cert(&mut self, private_key: &str, cert: &str) -> anyhow::Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -188,11 +187,12 @@ impl SshClient {
         };
 
         let key = russh::keys::decode_secret_key(private_key, None)?;
+        let cert = russh::keys::Certificate::from_openssh(cert)?;
 
         let authenticated = session
             .authenticate_openssh_cert(user, Arc::new(key), cert)
             .await?;
-        if !authenticated {
+        if !authenticated.success() {
             bail!("ssh authentication failed");
         }
 
@@ -214,12 +214,21 @@ impl SshClient {
 
         for key in identities {
             let fingerprint = key.fingerprint(Default::default());
+            let hash_alg = match key.algorithm() {
+                russh::keys::Algorithm::Rsa { hash } => hash,
+                _else => None,
+            };
             let result = session
-                .authenticate_publickey_with(user, key, &mut agent)
+                .authenticate_publickey_with(user, key, hash_alg, &mut agent)
                 .await;
             match result {
-                Ok(true) => return Ok(()),
-                Ok(false) => debug!(%user, key = %fingerprint, "ssh agent auth denied"),
+                Ok(auth_result) => {
+                    if auth_result.success() {
+                        return Ok(());
+                    } else {
+                        debug!(%user, key = %fingerprint, "ssh agent auth denied");
+                    }
+                }
                 Err(error) => error!(?error, "ssh agent auth failed"),
             }
         }
@@ -289,7 +298,6 @@ struct SshClientHandler {
     server_banner: Option<String>,
 }
 
-#[async_trait::async_trait]
 impl russh::client::Handler for SshClientHandler {
     type Error = russh::Error;
 

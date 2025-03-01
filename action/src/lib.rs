@@ -33,13 +33,8 @@ pub enum AuthType {
     User(String),
     Password(String),
     SshKey(String),
-    SshCert {
-        key: String,
-        cert: ssh_key::Certificate,
-    },
-    SshAgent {
-        socket: String,
-    },
+    SshCert { key: String, cert: String },
+    SshAgent { socket: String },
 }
 
 pub struct ExecOutput {
