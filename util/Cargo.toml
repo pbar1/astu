@@ -20,4 +20,4 @@ whoami = "1"
 zeroize = { version = "1", features = ["aarch64"] }
 
 [dev-dependencies]
-rstest = "0.24"
+rstest = "0.25"
