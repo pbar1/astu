@@ -104,13 +104,15 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("authed with password");
 
+    let (col, row) = crossterm::terminal::size()?;
+
     let mut channel = session.channel_open_session().await?;
     channel
         .request_pty(
             false,
             &std::env::var("TERM").unwrap_or("xterm".into()),
-            100, // source using termion, might want to be resized
-            100, // "
+            col as u32,
+            row as u32,
             0,
             0,
             &[], // ideally you want to pass the actual terminal modes here
@@ -170,7 +172,8 @@ async fn main() -> anyhow::Result<()> {
     println!("broke out of interactive loop, exit code = {code}");
 
     crossterm::terminal::disable_raw_mode()?;
-    // TODO: gets printed far to the right
+    // TODO: gets printed far to the right - may be because println is being used in
+    // raw
     println!("disabled raw mode");
 
     Ok(())
