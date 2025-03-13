@@ -1,6 +1,5 @@
-use std::io::BufRead;
+use std::io;
 use std::io::Read;
-use std::io::{self};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
@@ -14,7 +13,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::ReadBuf;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
-use tokio::sync::mpsc::Sender;
 
 // ssh stuff ------------------------------------------------------------------
 
@@ -122,17 +120,16 @@ async fn main() -> anyhow::Result<()> {
     channel.request_shell(true).await?;
     println!("requested channel shell");
 
+    crossterm::terminal::enable_raw_mode()?;
+    println!("raw mode enabled");
+
     let code;
-    // let mut stdin = tokio::io::stdin();
     let mut stdin = AsyncStdin::new();
     let mut stdout = tokio::io::stdout();
     let mut _stderr = tokio::io::stderr();
     let mut buf = vec![0; 1024];
     let mut stdin_closed = false;
 
-    // TODO: Does not seem to handle control codes well:
-    // - `nano` ctrl-x literally prints "^X" to the screen, but works
-    // - ctrl-d sometimes does not work to exit the session
     loop {
         // Handle one of the possible events:
         tokio::select! {
@@ -171,6 +168,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     println!("broke out of interactive loop, exit code = {code}");
+
+    crossterm::terminal::disable_raw_mode()?;
+    // TODO: gets printed far to the right
+    println!("disabled raw mode");
 
     Ok(())
 }
