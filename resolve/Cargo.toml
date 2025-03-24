@@ -11,7 +11,7 @@ async-trait = "0.1"
 camino = "1"
 fluent-uri = { version = "0.3", features = ["net"] }
 futures = "0.3"
-hickory-resolver = "0.24"
+hickory-resolver = "0.25"
 ipnet = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
