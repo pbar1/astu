@@ -13,9 +13,21 @@ pub use crate::sqlite::SqliteDb;
 pub trait Db {
     async fn migrate(&self) -> Result<()>;
 
+    async fn save_ping(&self, entry: &PingEntry) -> Result<()>;
+
+    async fn load_ping(&self, job_id: &[u8]) -> Result<Vec<PingEntry>>;
+
     async fn save_exec(&self, entry: &ExecEntry) -> Result<()>;
 
     async fn load_exec(&self, job_id: &[u8]) -> Result<Vec<ExecEntry>>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, sqlx::FromRow)]
+pub struct PingEntry {
+    pub job_id: Vec<u8>,
+    pub target: String,
+    pub error: Option<String>,
+    pub message: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, sqlx::FromRow)]

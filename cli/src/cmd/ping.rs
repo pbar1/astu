@@ -9,11 +9,17 @@ use astu_action::ssh::SshClientFactory;
 use astu_action::tcp::TcpClientFactory;
 use astu_action::Connect;
 use astu_action::Ping;
+use astu_db::Db;
+use astu_db::PingEntry;
+use astu_db::SqliteDb;
+use astu_resolve::Target;
 use astu_util::combinator::AstuTryStreamExt;
 use astu_util::id::Id;
 use clap::Args;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use tracing::debug;
+use tracing::warn;
 
 use crate::argetype::ConnectionArgs;
 use crate::argetype::ResolutionArgs;
@@ -31,6 +37,10 @@ pub struct PingArgs {
 
 impl Run for PingArgs {
     async fn run(&self, _id: Id) -> Result<()> {
+        // FIXME: clowntown
+        let db = SqliteDb::try_new("astu.db").await?;
+        db.migrate().await?;
+
         let targets = self.resolution_args.clone().resolve();
 
         let connect_timeout = Duration::from_secs(self.connection_args.connect_timeout);
@@ -44,30 +54,13 @@ impl Run for PingArgs {
         let ssh_factory = SshClientFactory::new(stream_factory.clone(), connect_timeout);
         let client_factory = ClientFactory::new(tcp_factory, ssh_factory);
 
-        let outcome = targets
+        let db = targets
             .map(|t| client_factory.get_client(t))
-            .dropspect_err(|error| debug!(?error, "unable to get client"))
+            .flatten_err(|error| debug!(?error, "unable to get client"))
             .map(|c| ping(c))
             .buffer_unordered(self.connection_args.concurrency)
-            .fold(PingOutcome::default(), process_outcome)
+            .fold(db, save)
             .await;
-
-        let (ok_count, err_count) = outcome.get_totals();
-        let total = ok_count + err_count;
-        let ok_pct = ok_count as f64 / total as f64 * 100f64;
-        let err_pct = err_count as f64 / total as f64 * 100f64;
-        println!("Success: {ok_count}/{total} ({ok_pct:.0}%)");
-        println!("Failure: {err_count}/{total} ({err_pct:.0}%)");
-        println!();
-        println!("Success Frequency:");
-        for (val, hits) in outcome.ok_freq {
-            println!("{hits}: {val}");
-        }
-        println!();
-        println!("Failure Frequency:");
-        for (val, hits) in outcome.err_freq {
-            println!("{hits}: {val}");
-        }
 
         Ok(())
     }
@@ -84,31 +77,23 @@ async fn ping(client: Client) -> Result<String> {
     }
 }
 
-#[derive(Debug, Default)]
-struct PingOutcome {
-    ok_freq: BTreeMap<String, u128>,
-    err_freq: BTreeMap<String, u128>,
-}
-
-impl PingOutcome {
-    fn get_totals(&self) -> (u128, u128) {
-        let ok_count = self.ok_freq.values().sum();
-        let err_count = self.err_freq.values().sum();
-        (ok_count, err_count)
+async fn save(db: SqliteDb, result: Result<String>) -> SqliteDb {
+    let entry = match result {
+        Ok(message) => PingEntry {
+            job_id: Vec::new(),
+            target: "".into(),
+            error: None,
+            message: message.as_bytes().to_vec(),
+        },
+        Err(error) => PingEntry {
+            job_id: Vec::new(),
+            target: "".into(),
+            error: Some(error.to_string()),
+            message: "".into(),
+        },
+    };
+    if let Err(error) = db.save_ping(&entry).await {
+        warn!(?error, "unable to save ping entry");
     }
-}
-
-async fn process_outcome(mut acc: PingOutcome, result: Result<String>) -> PingOutcome {
-    match result {
-        Ok(ok) => {
-            acc.ok_freq.entry(ok).and_modify(|e| *e += 1).or_insert(1);
-        }
-        Err(err) => {
-            acc.err_freq
-                .entry(err.to_string())
-                .and_modify(|e| *e += 1)
-                .or_insert(1);
-        }
-    }
-    acc
+    db
 }

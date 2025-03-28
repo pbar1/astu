@@ -10,6 +10,7 @@ use tracing::error;
 
 use crate::Db;
 use crate::ExecEntry;
+use crate::PingEntry;
 
 pub struct SqliteDb {
     pool: SqlitePool,
@@ -30,6 +31,36 @@ impl Db for SqliteDb {
             .run(&self.pool)
             .await
             .map_err(anyhow::Error::from)
+    }
+
+    async fn save_ping(&self, entry: &PingEntry) -> Result<()> {
+        sqlx::query(
+            r"INSERT INTO ping_entries (job_id, target, error, message) VALUES (?, ?, ?, ?)",
+        )
+        .bind(&entry.job_id)
+        .bind(&entry.target)
+        .bind(&entry.error)
+        .bind(&entry.message)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn load_ping(&self, job_id: &[u8]) -> Result<Vec<PingEntry>> {
+        let mut stream =
+            sqlx::query_as::<_, PingEntry>(r"SELECT * FROM ping_entries WHERE job_id = ?")
+                .bind(job_id)
+                .fetch(&self.pool);
+
+        let mut entries = Vec::new();
+        while let Some(entry) = stream.next().await {
+            match entry {
+                Ok(e) => entries.push(e),
+                Err(error) => error!(?error, "row error in load_ping"),
+            }
+        }
+
+        Ok(entries)
     }
 
     async fn save_exec(&self, entry: &ExecEntry) -> Result<()> {
