@@ -5,7 +5,7 @@ use anyhow::bail;
 use futures::FutureExt;
 use futures::StreamExt;
 use hickory_resolver::Name;
-use hickory_resolver::TokioAsyncResolver;
+use hickory_resolver::TokioResolver;
 
 use crate::Resolve;
 use crate::ResolveResult;
@@ -87,9 +87,8 @@ impl DnsResolver {
     }
 }
 
-fn get_dns_client() -> anyhow::Result<TokioAsyncResolver> {
-    let (config, options) = hickory_resolver::system_conf::read_system_conf()?;
-    let dns = TokioAsyncResolver::tokio(config, options);
+fn get_dns_client() -> anyhow::Result<TokioResolver> {
+    let dns = TokioResolver::builder_tokio()?.build();
     Ok(dns)
 }
 
