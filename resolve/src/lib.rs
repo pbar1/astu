@@ -5,6 +5,7 @@ mod cidr;
 mod dns;
 mod file;
 mod forward_chain;
+mod graph;
 mod reverse_chain;
 mod target;
 
@@ -17,6 +18,7 @@ pub use crate::cidr::CidrResolver;
 pub use crate::dns::DnsResolver;
 pub use crate::file::FileResolver;
 pub use crate::forward_chain::ForwardChainResolver;
+pub use crate::graph::TargetGraph;
 pub use crate::reverse_chain::ReverseChainResolver;
 pub use crate::target::Target;
 

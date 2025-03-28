@@ -1,7 +1,8 @@
 use anyhow::bail;
 use anyhow::Context;
+use internment::Intern;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub enum Target {
     // Atoms
@@ -210,6 +211,12 @@ impl Target {
             Target::Cidr(cidr) => ip_atoms(cidr),
             _unknown => Atoms::Unknown,
         }
+    }
+
+    /// Interns the target. This is so it can implement [`Copy`] for use with
+    /// [`crate::TargetGraph`].
+    pub fn intern(self) -> Intern<Self> {
+        self.into()
     }
 }
 

@@ -12,7 +12,9 @@ camino = "1"
 fluent-uri = { version = "0.3", features = ["net"] }
 futures = "0.3"
 hickory-resolver = "0.25"
+internment = "0.8.6"
 ipnet = "2"
+petgraph = "0.7"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
