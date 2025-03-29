@@ -11,9 +11,7 @@ async fn main() -> anyhow::Result<()> {
     let target = Target::from_str("salesforce.com").unwrap();
     let mut graph = TargetGraph::new();
 
-    resolver
-        .resolve_infallible_into_graph(target, &mut graph)
-        .await;
+    resolver.resolve_into_graph(target, &mut graph).await;
 
     let dot = graph.graphviz();
     println!("{dot}");

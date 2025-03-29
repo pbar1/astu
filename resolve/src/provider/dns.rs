@@ -14,24 +14,46 @@ use crate::Target;
 #[derive(Debug, Clone)]
 pub struct DnsResolver {
     dns: TokioResolver,
+    forward: bool,
+    reverse: bool,
 }
 
 impl Resolve for DnsResolver {
-    fn resolve(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
+        let fwd = self.forward;
+        let rev = self.reverse;
         match target {
-            Target::Domain { name, port } => self.resolve_domain(name, port),
-            Target::IpAddr(ip) => self.resolve_ip(ip, None),
-            Target::SocketAddr(sock) => self.resolve_ip(sock.ip(), Some(sock.port())),
+            Target::Domain { name, port } if fwd => self.resolve_domain(name, port),
+            Target::IpAddr(ip) if rev => self.resolve_ip(ip, None),
+            Target::SocketAddr(sock) if rev => self.resolve_ip(sock.ip(), Some(sock.port())),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
 }
 
 impl DnsResolver {
+    /// Creates a DNS resolver using the system DNS config. Forward resolution
+    /// is enabled by default, while reverse resolution is disabled.
     pub fn try_new() -> Result<Self> {
         // TODO: Use `Ipv4AndIpv6` strategy instead of the default `Ipv4thenIpv6`
         let dns = TokioResolver::builder_tokio()?.build();
-        Ok(Self { dns })
+        Ok(Self {
+            dns,
+            forward: true,
+            reverse: false,
+        })
+    }
+
+    /// Set forward lookup.
+    pub fn with_forward(mut self, enable: bool) -> Self {
+        self.forward = enable;
+        self
+    }
+
+    /// Set reverse lookup.
+    pub fn with_reverse(mut self, enable: bool) -> Self {
+        self.reverse = enable;
+        self
     }
 
     /// Forward DNS resolution
@@ -78,8 +100,8 @@ mod tests {
     #[tokio::test]
     async fn resolve_works(#[case] query: &str) {
         let target = Target::from_str(query).unwrap();
-        let resolver = DnsResolver::try_new().unwrap();
-        let targets = resolver.resolve_infallible_set(target).await;
+        let resolver = DnsResolver::try_new().unwrap().with_reverse(true);
+        let targets = resolver.resolve_set(target).await;
         assert!(!targets.is_empty());
     }
 }

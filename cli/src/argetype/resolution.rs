@@ -1,8 +1,10 @@
-use astu_resolve::ForwardChainResolver;
+use astu_resolve::ChainResolver;
+use astu_resolve::CidrResolver;
+use astu_resolve::DnsResolver;
+use astu_resolve::FileResolver;
 use astu_resolve::ResolveExt;
-use astu_resolve::ReverseChainResolver;
 use astu_resolve::Target;
-use astu_resolve::TargetStream;
+use astu_resolve::TargetGraph;
 use clap::Args;
 
 const HEADING: Option<&str> = Some("Target Resolution Options");
@@ -11,19 +13,22 @@ const HEADING: Option<&str> = Some("Target Resolution Options");
 #[derive(Debug, Args, Clone)]
 pub struct ResolutionArgs {
     /// Target query. Pass `-` to read from stdin.
-    pub target: Target,
-
-    /// Perform reverse resolution instead of forward.
-    #[arg(long, help_heading = HEADING)]
-    pub reverse: bool,
+    #[clap(short = 'T', long = "targets", help_heading = HEADING)]
+    pub targets: Vec<Target>,
 }
 
 impl ResolutionArgs {
-    pub fn resolve(self) -> TargetStream {
-        let target = self.target.clone();
-        match self.reverse {
-            true => ReverseChainResolver::new().resolve_infallible(target),
-            false => ForwardChainResolver::new().resolve_infallible(target),
+    pub async fn resolve(self) -> TargetGraph {
+        let chain = ChainResolver::new()
+            .with(FileResolver::new())
+            .with(CidrResolver::new())
+            .with(DnsResolver::try_new().unwrap());
+
+        let mut graph = TargetGraph::new();
+        for target in self.targets {
+            chain.resolve_into_graph(target, &mut graph).await;
         }
+
+        graph
     }
 }

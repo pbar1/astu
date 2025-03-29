@@ -19,7 +19,7 @@ pub struct FileResolver {
 }
 
 impl Resolve for FileResolver {
-    fn resolve(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         match target {
             Target::File(path) => self.resolve_path(path),
             _unsupported => futures::stream::empty().boxed(),
@@ -72,7 +72,7 @@ mod tests {
     async fn resolve_works(#[case] query: String, #[case] num: usize) {
         let target = Target::from_str(&query).unwrap();
         let resolver = FileResolver::new();
-        let targets = resolver.resolve_infallible_set(target).await;
+        let targets = resolver.resolve_set(target).await;
         assert_eq!(targets.len(), num);
     }
 }

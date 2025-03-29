@@ -8,6 +8,7 @@ mod resolve;
 mod target;
 
 pub use graph::TargetGraph;
+pub use provider::chain::ChainResolver;
 pub use provider::cidr::CidrResolver;
 pub use provider::dns::DnsResolver;
 pub use provider::file::FileResolver;

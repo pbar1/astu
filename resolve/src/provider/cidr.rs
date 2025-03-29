@@ -12,7 +12,7 @@ pub struct CidrResolver {
 }
 
 impl Resolve for CidrResolver {
-    fn resolve(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         match target {
             Target::Cidr(cidr) => self.resolve_cidr(cidr),
             _unsupported => futures::stream::empty().boxed(),
@@ -49,7 +49,7 @@ mod tests {
     async fn resolve_works(#[case] query: &str, #[case] num: usize) {
         let target = Target::from_str(query).unwrap();
         let resolver = CidrResolver::new();
-        let targets = resolver.resolve_infallible_set(target).await;
+        let targets = resolver.resolve_set(target).await;
         assert_eq!(targets.len(), num);
     }
 }

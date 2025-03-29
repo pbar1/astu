@@ -16,10 +16,10 @@ use crate::argetype::GlobalArgs;
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
-    #[command(subcommand)]
+    #[clap(subcommand)]
     command: Command,
 
-    #[command(flatten)]
+    #[clap(flatten)]
     global_args: GlobalArgs,
 }
 
@@ -32,6 +32,7 @@ pub trait Run {
 #[enum_dispatch(Run)]
 #[derive(Debug, Subcommand)]
 enum Command {
+    #[clap(visible_alias = "hosts")]
     Resolve(resolve::ResolveArgs),
     Ping(ping::PingArgs),
     Exec(exec::ExecArgs),

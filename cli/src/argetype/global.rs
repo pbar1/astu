@@ -14,7 +14,7 @@ const HEADING: Option<&str> = Some("Global Options");
 #[derive(Debug, Args, Clone)]
 pub struct GlobalArgs {
     /// Log level
-    #[arg(long, env = "RUST_LOG", default_value = "error", help_heading = HEADING, global = true)]
+    #[clap(long, env = "RUST_LOG", default_value = "error", help_heading = HEADING, global = true)]
     pub log_level: String,
 }
 

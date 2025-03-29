@@ -54,13 +54,13 @@ impl Run for PingArgs {
         let ssh_factory = SshClientFactory::new(stream_factory.clone(), connect_timeout);
         let client_factory = ClientFactory::new(tcp_factory, ssh_factory);
 
-        let db = targets
-            .map(|t| client_factory.get_client(t))
-            .flatten_err(|error| debug!(?error, "unable to get client"))
-            .map(|c| ping(c))
-            .buffer_unordered(self.connection_args.concurrency)
-            .fold(db, save)
-            .await;
+        // let db = targets
+        //     .map(|t| client_factory.get_client(t))
+        //     .flatten_err(|error| debug!(?error, "unable to get client"))
+        //     .map(|c| ping(c))
+        //     .buffer_unordered(self.connection_args.concurrency)
+        //     .fold(db, save)
+        //     .await;
 
         Ok(())
     }

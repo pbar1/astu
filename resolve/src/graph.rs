@@ -24,10 +24,15 @@ impl TargetGraph {
         &self.graph
     }
 
+    /// Add target to the graph with no relation.
+    pub fn add_node(&mut self, node: Intern<Target>) {
+        self.graph.add_node(node);
+    }
+
     /// Add target relations to the graph. Nodes will be created if they don't
     /// exist yet.
-    pub fn add_edge(&mut self, parent: Intern<Target>, child: Intern<Target>) -> Option<()> {
-        self.graph.add_edge(parent, child, ())
+    pub fn add_edge(&mut self, parent: Intern<Target>, child: Intern<Target>) {
+        self.graph.add_edge(parent, child, ());
     }
 
     /// Get all of the targets that are leaf nodes (ie, targets that have no
