@@ -7,8 +7,7 @@ use futures::StreamExt;
 use crate::Target;
 use crate::TargetGraph;
 
-/// Given initial targets as queries, [`Resolve`] expands them into more
-/// targets if possible.
+/// Map targets to targets.
 ///
 /// Unsupported target types should just return empty streams instead of
 /// erroring.

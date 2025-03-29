@@ -6,6 +6,7 @@ use ipnet::IpNet;
 use crate::Resolve;
 use crate::Target;
 
+/// Expands CIDR blocks into targets.
 #[derive(Debug, Clone, Copy)]
 pub struct CidrResolver {
     // FIXME: Use PhantomData to force usage of constructors

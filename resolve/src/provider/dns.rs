@@ -11,6 +11,7 @@ use hickory_resolver::TokioResolver;
 use crate::Resolve;
 use crate::Target;
 
+/// Resolves DNS queries - both forward and reverse - into targets.
 #[derive(Debug, Clone)]
 pub struct DnsResolver {
     dns: TokioResolver,

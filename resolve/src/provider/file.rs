@@ -13,6 +13,7 @@ use tracing::debug;
 use crate::Resolve;
 use crate::Target;
 
+/// Reads targets from lines in a file.
 #[derive(Debug, Clone, Copy)]
 pub struct FileResolver {
     // FIXME: Use PhantomData to force usage of constructors

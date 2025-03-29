@@ -2,6 +2,7 @@ use anyhow::bail;
 use anyhow::Context;
 use internment::Intern;
 
+/// A generic address that may be targeted by actions (ie, connect).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub enum Target {

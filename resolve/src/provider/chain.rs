@@ -9,8 +9,7 @@ use futures::StreamExt;
 use crate::Resolve;
 use crate::Target;
 
-/// Composite resolver that iterates a chain of provided resolvers, flattening
-/// all results into one stream.
+/// Composite resolver that flattens the streams of a set of resolvers into one.
 #[derive(Clone)]
 pub struct ChainResolver {
     resolvers: Vec<Arc<dyn Resolve + Send + Sync>>,

@@ -6,8 +6,7 @@ use petgraph::visit::IntoNodeReferences;
 
 use crate::target::Target;
 
-/// Directed graph of parent->child relationships between unique [`Target`]
-/// instances.
+/// Directed graph of unique targets.
 pub struct TargetGraph {
     graph: DiGraphMap<Intern<Target>, ()>,
 }
