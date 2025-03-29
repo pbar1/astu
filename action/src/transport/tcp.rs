@@ -8,24 +8,21 @@ use async_trait::async_trait;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-use super::Transport;
-use super::TransportFactory;
-
 /// Factory that builds TCP connections.
 #[derive(Debug, Clone, Copy)]
-pub struct TcpTransportFactory {
+pub struct TransportFactory {
     connect_timeout: Duration,
 }
 
-impl TcpTransportFactory {
+impl TransportFactory {
     pub fn new(connect_timeout: Duration) -> Self {
         Self { connect_timeout }
     }
 }
 
 #[async_trait]
-impl TransportFactory for TcpTransportFactory {
-    async fn connect(&self, target: &Target) -> Result<Transport> {
+impl super::TransportFactory for TransportFactory {
+    async fn setup(&self, target: &Target) -> Result<super::Transport> {
         let addr = match target {
             Target::SocketAddr(addr) => *addr,
             unsupported => bail!("TcpTransportFactory: unsupported target: {unsupported}"),
@@ -34,6 +31,6 @@ impl TransportFactory for TcpTransportFactory {
             .await
             .context("TCP connect timed out")?
             .context("TCP connect failed")?;
-        Ok(Transport::Tcp(tcp))
+        Ok(super::Transport::Tcp(tcp))
     }
 }

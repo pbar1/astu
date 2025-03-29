@@ -17,6 +17,7 @@ tracing = "0.1"
 ssh_config = "0.1"
 bstr = { version = "1.11.3", default-features = false }
 bon = "3.5.1"
+enum_dispatch = "0.3.13"
 
 [dev-dependencies]
 crossterm = "0.28.1"

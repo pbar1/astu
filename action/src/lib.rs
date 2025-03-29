@@ -5,41 +5,47 @@ pub mod client;
 pub mod transport;
 
 use std::fmt;
-use std::sync::Arc;
 
 use anyhow::Result;
+use astu_resolve::Target;
 use async_trait::async_trait;
 use bstr::ByteSlice;
-use client::ClientFactory;
-use transport::TransportFactory;
+use enum_dispatch::enum_dispatch;
 
-// Trait ----------------------------------------------------------------------
-
-/// Connect to a target.
+/// Actions that a client can perform.
 #[async_trait]
-pub trait Connect {
+#[enum_dispatch]
+pub trait Client {
+    /// Connect to a target
     async fn connect(&mut self) -> Result<()>;
-}
 
-/// Ping a target.
-#[async_trait]
-pub trait Ping {
-    async fn ping(self) -> Result<String>;
-}
-
-/// Authenticate with a target.
-#[async_trait]
-pub trait Auth {
+    /// Authenticate with a target.
     async fn auth(&mut self, auth_type: &AuthType) -> Result<()>;
-}
 
-/// Execute commands on a target.
-#[async_trait]
-pub trait Exec {
+    /// Execute commands on a target.
     async fn exec(&mut self, command: &str) -> Result<ExecOutput>;
 }
 
-// Data types -----------------------------------------------------------------
+/// All types of action clients.
+#[enum_dispatch(Client)]
+pub enum ClientImpl {
+    Tcp(client::TcpClient),
+    Ssh(client::SshClient),
+}
+
+/// Factory for building clients.
+#[enum_dispatch]
+pub trait ClientFactory {
+    fn client(&self, target: &Target) -> Option<ClientImpl>;
+}
+
+/// All types of action client factories.
+#[enum_dispatch(ClientFactory)]
+#[derive(Debug, Clone)]
+pub enum ClientFactoryImpl {
+    Tcp(client::TcpClientFactory),
+    Ssh(client::SshClientFactory),
+}
 
 /// Assortment of auth payloads that can be used with [`Auth`].
 #[derive(Debug, Clone)]

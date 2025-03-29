@@ -3,14 +3,11 @@
 use anyhow::Result;
 use astu_resolve::Target;
 use async_trait::async_trait;
+use enum_dispatch::enum_dispatch;
 
-mod opaque;
-mod tcp;
-mod tcp_reuse;
-
-pub use opaque::OpaqueTransportFactory;
-pub use tcp::TcpTransportFactory;
-pub use tcp_reuse::TcpReuseTransportFactory;
+pub mod opaque;
+pub mod tcp;
+pub mod tcp_reuse;
 
 /// Bytestream transports that will be used by clients to connect to targets.
 #[derive(Debug)]
@@ -23,7 +20,17 @@ pub enum Transport {
 
 /// Factory for creating transports.
 #[async_trait]
+#[enum_dispatch]
 pub trait TransportFactory {
-    /// Connect to a target and return the transport stream.
-    async fn connect(&self, target: &Target) -> Result<Transport>;
+    /// Sets up a transport to the target.
+    async fn setup(&self, target: &Target) -> Result<Transport>;
+}
+
+/// All transport factory implementations.
+#[enum_dispatch(TransportFactory)]
+#[derive(Debug, Clone)]
+pub enum TransportFactoryImpl {
+    Opaque(opaque::TransportFactory),
+    Tcp(tcp::TransportFactory),
+    TcpReuse(tcp_reuse::TransportFactory),
 }

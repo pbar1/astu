@@ -1,16 +1,14 @@
-use std::sync::Arc;
-
 use astu_resolve::Target;
 
-use super::Client;
-use super::ClientFactory;
+use crate::ClientFactoryImpl;
+use crate::ClientImpl;
 
 /// Composite factory for mapping targets to clients at runtime.
 ///
 /// Constituent factories will be iterated until one can build a client.
 #[derive(Clone)]
 pub struct DynamicClientFactory {
-    factories: Vec<Arc<dyn ClientFactory + Send + Sync>>,
+    factories: Vec<ClientFactoryImpl>,
 }
 
 impl DynamicClientFactory {
@@ -20,14 +18,14 @@ impl DynamicClientFactory {
         }
     }
 
-    pub fn with(mut self, factory: impl ClientFactory + Send + Sync + 'static) -> Self {
-        self.factories.push(Arc::new(factory));
+    pub fn with(mut self, factory: impl Into<ClientFactoryImpl>) -> Self {
+        self.factories.push(factory.into());
         self
     }
 }
 
-impl ClientFactory for DynamicClientFactory {
-    fn client(&self, target: &Target) -> Option<Client> {
+impl crate::ClientFactory for DynamicClientFactory {
+    fn client(&self, target: &Target) -> Option<ClientImpl> {
         for factory in &self.factories {
             if let Some(client) = factory.client(target) {
                 return Some(client);

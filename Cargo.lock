@@ -189,6 +189,7 @@ dependencies = [
  "bon",
  "bstr",
  "crossterm",
+ "enum_dispatch",
  "rstest",
  "russh",
  "ssh-key",

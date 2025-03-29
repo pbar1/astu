@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::bail;
@@ -9,9 +10,6 @@ use async_trait::async_trait;
 use tokio::net::TcpSocket;
 use tokio::time::timeout;
 
-use super::Transport;
-use super::TransportFactory;
-
 /// Factory that builds TCP connections all sharing a local address.
 ///
 /// This gets around the default behavior of allocating a new port for each
@@ -19,14 +17,14 @@ use super::TransportFactory;
 /// only by the remote address. In other words, each remote target can only be
 /// conncted to by at most one transport created by each instance of this
 /// factory.
-#[derive(Debug)]
-pub struct TcpReuseTransportFactory {
+#[derive(Debug, Clone)]
+pub struct TransportFactory {
     connect_timeout: Duration,
-    reserved_v4: TcpSocket,
-    reserved_v6: TcpSocket,
+    reserved_v4: Arc<TcpSocket>,
+    reserved_v6: Arc<TcpSocket>,
 }
 
-impl TcpReuseTransportFactory {
+impl TransportFactory {
     pub fn try_new(connect_timeout: Duration) -> Result<Self> {
         let reserved_v4 =
             reserve_socket_v4().context("failed reserving local v4 socket address")?;
@@ -34,15 +32,15 @@ impl TcpReuseTransportFactory {
             reserve_socket_v6().context("failed reserving local v6 socket address")?;
         Ok(Self {
             connect_timeout,
-            reserved_v4,
-            reserved_v6,
+            reserved_v4: reserved_v4.into(),
+            reserved_v6: reserved_v6.into(),
         })
     }
 }
 
 #[async_trait]
-impl TransportFactory for TcpReuseTransportFactory {
-    async fn connect(&self, target: &Target) -> Result<Transport> {
+impl super::TransportFactory for TransportFactory {
+    async fn setup(&self, target: &Target) -> Result<super::Transport> {
         let addr = match target {
             Target::SocketAddr(addr) => *addr,
             unsupported => bail!("TcpTransportFactory: unsupported target: {unsupported}"),
@@ -66,7 +64,7 @@ impl TransportFactory for TcpReuseTransportFactory {
             .await
             .context("TCP connect timed out")?
             .context("TCP connect failed")?;
-        Ok(Transport::Tcp(tcp))
+        Ok(super::Transport::Tcp(tcp))
     }
 }
 

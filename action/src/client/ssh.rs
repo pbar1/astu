@@ -6,39 +6,38 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
+use async_trait::async_trait;
 use russh::client::Handle;
 use russh::keys::key::PrivateKeyWithHashAlg;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
-use super::Client;
-use super::ClientFactory;
 use crate::transport::Transport;
 use crate::transport::TransportFactory;
-use crate::Auth;
+use crate::transport::TransportFactoryImpl;
 use crate::AuthType;
-use crate::Connect;
-use crate::Exec;
+use crate::Client;
+use crate::ClientFactory;
+use crate::ClientImpl;
 use crate::ExecOutput;
 
 // Factory --------------------------------------------------------------------
 
 /// Factory for building SSH clients.
+#[derive(Debug, Clone)]
 pub struct SshClientFactory {
-    transport: Arc<dyn TransportFactory + Send + Sync>,
+    transport: TransportFactoryImpl,
 }
 
 impl SshClientFactory {
-    pub fn new(transport: Arc<dyn TransportFactory + Send + Sync>) -> Self {
+    pub fn new(transport: TransportFactoryImpl) -> Self {
         Self { transport }
     }
 }
 
-// Client ---------------------------------------------------------------------
-
 impl ClientFactory for SshClientFactory {
-    fn client(&self, target: &Target) -> Option<Client> {
+    fn client(&self, target: &Target) -> Option<ClientImpl> {
         let client = match target {
             Target::IpAddr(ip) => {
                 let target = Target::from(SocketAddr::new(*ip, 22));
@@ -51,16 +50,18 @@ impl ClientFactory for SshClientFactory {
     }
 }
 
+// Client ---------------------------------------------------------------------
+
 /// SSH client.
 pub struct SshClient {
-    transport: Arc<dyn TransportFactory + Send + Sync>,
+    transport: TransportFactoryImpl,
     target: Target,
     session: Option<Handle<SshClientHandler>>,
     user: Option<String>,
 }
 
 impl SshClient {
-    pub fn new(transport: Arc<dyn TransportFactory + Send + Sync>, target: &Target) -> Self {
+    pub fn new(transport: TransportFactoryImpl, target: &Target) -> Self {
         Self {
             transport,
             target: target.to_owned(),
@@ -80,8 +81,8 @@ impl SshClient {
     }
 }
 
-#[async_trait::async_trait]
-impl Connect for SshClient {
+#[async_trait]
+impl Client for SshClient {
     async fn connect(&mut self) -> anyhow::Result<()> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
@@ -92,7 +93,7 @@ impl Connect for SshClient {
 
         let transport = self
             .transport
-            .connect(&self.target)
+            .setup(&self.target)
             .await
             .context("failed connecting target transport")?;
 
@@ -106,10 +107,7 @@ impl Connect for SshClient {
 
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl Auth for SshClient {
     async fn auth(&mut self, auth_type: &AuthType) -> anyhow::Result<()> {
         match auth_type {
             AuthType::User(x) => self.auth_user(x).await,
@@ -118,6 +116,10 @@ impl Auth for SshClient {
             AuthType::SshCert { key, cert } => self.auth_ssh_cert(key, cert).await,
             AuthType::SshAgent { socket } => self.auth_ssh_agent(socket).await,
         }
+    }
+
+    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+        self.exec_inner(command).await
     }
 }
 
@@ -229,13 +231,6 @@ impl SshClient {
     }
 }
 
-#[async_trait::async_trait]
-impl Exec for SshClient {
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
-        self.exec_inner(command).await
-    }
-}
-
 /// Helpers for [`Exec`]
 impl SshClient {
     async fn exec_inner(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
@@ -320,7 +315,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::transport::TcpTransportFactory;
+    use crate::transport;
 
     #[rstest]
     #[case("10.0.0.54:22", "nixos")]
@@ -329,10 +324,9 @@ mod tests {
         let target = Target::from_str(input).unwrap();
 
         let timeout = Duration::from_secs(2);
-        let factory: Arc<dyn TransportFactory + Send + Sync> =
-            Arc::new(TcpTransportFactory::new(timeout));
+        let transport = transport::tcp::TransportFactory::new(timeout).into();
 
-        let mut client = SshClient::new(factory, &target);
+        let mut client = SshClient::new(transport, &target);
         client.connect().await.unwrap();
 
         // TODO: Use AuthType instead of direct functions

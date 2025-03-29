@@ -2,12 +2,15 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use anyhow::bail;
+use anyhow::Context;
 use anyhow::Result;
 use astu_action::client::Client;
 use astu_action::client::ClientFactory;
+use astu_action::client::DynamicClientFactory;
 use astu_action::Connect;
 use astu_action::Ping;
 use astu_db::Db;
+use astu_db::DbImpl;
 use astu_db::PingEntry;
 use astu_db::SqliteDb;
 use astu_resolve::Target;
@@ -26,18 +29,22 @@ use crate::cmd::Run;
 /// Connect to targets
 #[derive(Debug, Args)]
 pub struct PingArgs {
-    #[command(flatten)]
+    #[clap(flatten)]
     resolution_args: ResolutionArgs,
 
-    #[command(flatten)]
+    #[clap(flatten)]
     connection_args: ConnectionArgs,
+
+    /// Database to use.
+    #[clap(long)]
+    db: String,
 }
 
 impl Run for PingArgs {
-    async fn run(&self, _id: Id) -> Result<()> {
-        // FIXME: clowntown
-        let db = SqliteDb::try_new("astu.db").await?;
-        db.migrate().await?;
+    async fn run(&self, id: Id) -> Result<()> {
+        let db = DbImpl::try_new(&self.db)
+            .await
+            .context("unable to connect to a db")?;
 
         let targets = self.resolution_args.set().await?;
         let client_factory = self.connection_args.client_factory()?;
@@ -49,11 +56,27 @@ impl Run for PingArgs {
             })
             .map(|c| ping(c))
             .buffer_unordered(self.connection_args.concurrency)
-            .fold(db, save)
+            .fold(
+                db,
+                |db, res| async move { save(db, res, &id.to_string()).await },
+            )
             .await;
 
         Ok(())
     }
+}
+
+async fn ping2(
+    target: Target,
+    client_factory: DynamicClientFactory,
+    job_id: &str,
+    db: DbImpl,
+) -> Option<()> {
+    let client = client_factory.client(&target)?;
+
+    // FIXME:
+
+    Some(())
 }
 
 // TODO: Consider moving this into the Ping trait behavior
@@ -67,17 +90,17 @@ async fn ping(client: Client) -> Result<String> {
     }
 }
 
-async fn save(db: SqliteDb, result: Result<String>) -> SqliteDb {
+async fn save(db: DbImpl, result: Result<String>, job_id: &str) -> DbImpl {
     let entry = match result {
         Ok(message) => PingEntry {
-            job_id: Vec::new(),
-            target: "".into(),
+            job_id: job_id.into(),
+            target: "<todo>".into(),
             error: None,
             message: message.as_bytes().to_vec(),
         },
         Err(error) => PingEntry {
-            job_id: Vec::new(),
-            target: "".into(),
+            job_id: job_id.into(),
+            target: "<todo>".into(),
             error: Some(error.to_string()),
             message: "".into(),
         },

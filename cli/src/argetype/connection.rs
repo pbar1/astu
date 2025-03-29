@@ -23,9 +23,9 @@ pub struct ConnectionArgs {
 impl ConnectionArgs {
     pub fn client_factory(&self) -> Result<client::DynamicClientFactory> {
         // Transports
-        let t_tcp = transport::TcpReuseTransportFactory::try_new(self.connect_timeout.into())?;
+        let t_tcp = transport::TransportFactory::try_new(self.connect_timeout.into())?;
         let t_tcp = Arc::new(t_tcp);
-        let _t_opaque = transport::OpaqueTransportFactory::new();
+        let _t_opaque = transport::TransportFactory::new();
 
         // Clients
         let c_ssh = client::SshClientFactory::new(t_tcp.clone());

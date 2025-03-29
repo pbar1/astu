@@ -14,7 +14,7 @@ use crate::ExecEntry;
 use crate::PingEntry;
 
 /// SQLite persistence layer.
-#[derive(Debug, Builder)]
+#[derive(Debug, Clone, Builder)]
 pub struct SqliteDb {
     #[builder(into)]
     url: String,
@@ -67,7 +67,7 @@ impl Db for SqliteDb {
         Ok(())
     }
 
-    async fn load_ping(&self, job_id: &[u8]) -> Result<Vec<PingEntry>> {
+    async fn load_ping(&self, job_id: &str) -> Result<Vec<PingEntry>> {
         let pool = self.pool();
 
         let mut stream =
@@ -93,7 +93,7 @@ impl Db for SqliteDb {
         Ok(())
     }
 
-    async fn load_exec(&self, job_id: &[u8]) -> Result<Vec<ExecEntry>> {
+    async fn load_exec(&self, job_id: &str) -> Result<Vec<ExecEntry>> {
         let pool = self.pool();
 
         let mut stream =
@@ -122,21 +122,21 @@ mod tests {
         let db = SqliteDb::try_new("sqlite::memory:").await.unwrap();
 
         let entry_foo = ExecEntry {
-            job_id: b"0".into(),
+            job_id: "0".into(),
             target: "foo".into(),
             exit_status: 0,
             stdout: b"foo_stdout".into(),
             stderr: b"foo_stderr".into(),
         };
         let entry_bar = ExecEntry {
-            job_id: b"0".into(),
+            job_id: "0".into(),
             target: "bar".into(),
             exit_status: 1,
             stdout: b"bar_stdout".into(),
             stderr: b"bar_stderr".into(),
         };
         let entry_baz = ExecEntry {
-            job_id: b"1".into(),
+            job_id: "1".into(),
             target: "baz".into(),
             exit_status: 2,
             stdout: b"baz_stdout".into(),
@@ -147,7 +147,7 @@ mod tests {
         db.save_exec(&entry_bar).await.unwrap();
         db.save_exec(&entry_baz).await.unwrap();
 
-        let entries = db.load_exec(b"0").await.unwrap();
+        let entries = db.load_exec("0").await.unwrap();
 
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0], entry_foo);
