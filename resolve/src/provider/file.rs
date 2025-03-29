@@ -13,6 +13,7 @@ use tracing::debug;
 use crate::Resolve;
 use crate::Target;
 
+// FIXME: Possibly treat FileResolver specially by injecting a chain
 /// Reads targets from lines in a file.
 #[derive(Debug, Clone, Copy)]
 pub struct FileResolver {
