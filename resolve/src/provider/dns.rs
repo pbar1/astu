@@ -1,10 +1,13 @@
 use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::str::FromStr;
 
+use anyhow::Context;
 use anyhow::Result;
 use async_stream::try_stream;
 use futures::stream::BoxStream;
 use futures::StreamExt;
+use hickory_resolver::proto::rr::rdata::PTR;
 use hickory_resolver::Name;
 use hickory_resolver::TokioResolver;
 
@@ -75,12 +78,22 @@ impl DnsResolver {
     fn resolve_ip(&self, ip: IpAddr, port: Option<u16>) -> BoxStream<Result<Target>> {
         try_stream! {
             let names = self.dns.reverse_lookup(ip).await?;
-            for name in names {
-                yield Target::Domain { name: name.0, port }
+            for ptr in names {
+                let name = remove_trailing_dot(ptr)?;
+                yield Target::Domain { name, port }
             }
         }
         .boxed()
     }
+}
+
+fn remove_trailing_dot(ptr: PTR) -> Result<Name> {
+    let name = ptr.0.to_string();
+    let name = name
+        .strip_suffix('.')
+        .context("unable to strip trailing dot")?;
+    let name = Name::from_str(name)?;
+    Ok(name)
 }
 
 #[cfg(test)]

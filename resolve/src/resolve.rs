@@ -55,14 +55,20 @@ pub trait Resolve {
 /// This is especially useful for holding the `async` functions would otherwise
 /// make the main trait dyn-incompatible.
 pub trait ResolveExt: Resolve {
-    /// Collects all targets into a new set.
+    /// Resolve targets to a new set.
     async fn resolve_set(&self, target: Target) -> BTreeSet<Target>;
 
-    /// Collects all targets into an existing set.
+    /// Resolve targets into an existing set.
     async fn resolve_into_set(&self, target: Target, set: &mut BTreeSet<Target>);
 
-    /// Collects all targets into an existing graph.
+    /// Resolve targets into an existing graph.
     async fn resolve_into_graph(&self, target: Target, graph: &mut TargetGraph);
+
+    /// Resolve targets into an existing graph, with the parent->child
+    /// relationship reversed.
+    ///
+    /// This is useful when called by reverse resolvers.
+    async fn resolve_into_graph_reverse(&self, target: Target, graph: &mut TargetGraph);
 
     /// Like [`ResolveExt::resolve_set`] but for bulk targets.
     async fn bulk_resolve_set(&self, targets: Vec<Target>) -> BTreeSet<Target>
@@ -95,10 +101,23 @@ where
         graph.add_node(parent);
 
         let mut targets = self.resolve(target);
-        while let Some(target) = targets.next().await {
+        while let Some(child) = targets.next().await {
             // Avoid having targets refer to themselves
-            if target != *parent {
-                graph.add_edge(parent, target.intern());
+            if child != *parent {
+                graph.add_edge(parent, child.intern());
+            }
+        }
+    }
+
+    async fn resolve_into_graph_reverse(&self, target: Target, graph: &mut TargetGraph) {
+        let child = target.clone().intern();
+        graph.add_node(child);
+
+        let mut targets = self.resolve(target);
+        while let Some(parent) = targets.next().await {
+            // Avoid having targets refer to themselves
+            if parent != *child {
+                graph.add_edge(parent.intern(), child);
             }
         }
     }

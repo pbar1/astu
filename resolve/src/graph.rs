@@ -1,6 +1,7 @@
 use internment::Intern;
 use petgraph::dot::Config;
 use petgraph::dot::Dot;
+use petgraph::graphmap::Nodes;
 use petgraph::prelude::DiGraphMap;
 use petgraph::visit::IntoNodeReferences;
 
@@ -24,6 +25,11 @@ impl TargetGraph {
         &self.graph
     }
 
+    /// Access the inner graph mutably.
+    pub fn inner_mut(&mut self) -> &mut DiGraphMap<Intern<Target>, ()> {
+        &mut self.graph
+    }
+
     /// Add target to the graph with no relation.
     pub fn add_node(&mut self, node: Intern<Target>) {
         self.graph.add_node(node);
@@ -33,6 +39,10 @@ impl TargetGraph {
     /// exist yet.
     pub fn add_edge(&mut self, parent: Intern<Target>, child: Intern<Target>) {
         self.graph.add_edge(parent, child, ());
+    }
+
+    pub fn nodes(&self) -> Vec<Intern<Target>> {
+        self.graph.nodes().collect()
     }
 
     /// Get all of the targets that are leaf nodes (ie, targets that have no

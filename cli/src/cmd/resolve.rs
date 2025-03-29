@@ -19,7 +19,7 @@ pub struct ResolveArgs {
 impl Run for ResolveArgs {
     async fn run(&self, _id: Id) -> Result<()> {
         if self.graph {
-            let targets = self.resolution_args.clone().graph().await?;
+            let targets = self.resolution_args.clone().graph_full().await?;
             let dot = targets.graphviz();
             println!("{dot}");
         } else {
