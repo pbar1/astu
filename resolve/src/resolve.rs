@@ -61,14 +61,16 @@ pub trait ResolveExt: Resolve {
     /// Collects all targets into an existing set.
     async fn resolve_into_set(&self, target: Target, set: &mut BTreeSet<Target>);
 
-    /// Collects all targets into an existing vec.
-    async fn resolve_into_vec(&self, target: Target, vec: &mut Vec<Target>);
-
     /// Collects all targets into an existing graph.
     async fn resolve_into_graph(&self, target: Target, graph: &mut TargetGraph);
 
     /// Like [`ResolveExt::resolve_set`] but for bulk targets.
     async fn bulk_resolve_set(&self, targets: Vec<Target>) -> BTreeSet<Target>
+    where
+        Self: Sync;
+
+    /// Like [`ResolveExt::resolve_into_set`] but for bulk targets.
+    async fn bulk_resolve_into_set(&self, targets: Vec<Target>, set: &mut BTreeSet<Target>)
     where
         Self: Sync;
 }
@@ -85,13 +87,6 @@ where
         let mut targets = self.resolve(target);
         while let Some(target) = targets.next().await {
             set.insert(target);
-        }
-    }
-
-    async fn resolve_into_vec(&self, target: Target, vec: &mut Vec<Target>) {
-        let mut targets = self.resolve(target);
-        while let Some(target) = targets.next().await {
-            vec.push(target);
         }
     }
 
@@ -113,5 +108,15 @@ where
         Self: Sync,
     {
         self.bulk_resolve(targets).collect().await
+    }
+
+    async fn bulk_resolve_into_set(&self, targets: Vec<Target>, set: &mut BTreeSet<Target>)
+    where
+        Self: Sync,
+    {
+        let mut targets = self.bulk_resolve(targets);
+        while let Some(target) = targets.next().await {
+            set.insert(target);
+        }
     }
 }

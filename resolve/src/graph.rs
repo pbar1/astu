@@ -6,6 +6,7 @@ use petgraph::visit::IntoNodeReferences;
 
 use crate::target::Target;
 
+// TODO: Consider using ArenaIntern to release targets on drop
 /// Directed graph of unique targets.
 pub struct TargetGraph {
     graph: DiGraphMap<Intern<Target>, ()>,
