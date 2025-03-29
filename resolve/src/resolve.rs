@@ -101,7 +101,10 @@ where
 
         let mut targets = self.resolve(target);
         while let Some(target) = targets.next().await {
-            graph.add_edge(parent, target.intern());
+            // Avoid having targets refer to themselves
+            if target != *parent {
+                graph.add_edge(parent, target.intern());
+            }
         }
     }
 
