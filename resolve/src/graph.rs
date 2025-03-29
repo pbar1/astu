@@ -1,7 +1,6 @@
 use internment::Intern;
 use petgraph::dot::Config;
 use petgraph::dot::Dot;
-use petgraph::graphmap::Nodes;
 use petgraph::prelude::DiGraphMap;
 use petgraph::visit::IntoNodeReferences;
 

@@ -4,6 +4,7 @@
 pub mod client;
 pub mod ssh;
 pub mod tcp;
+pub mod transport;
 
 use anyhow::Result;
 use async_trait::async_trait;
