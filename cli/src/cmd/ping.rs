@@ -5,8 +5,6 @@ use anyhow::bail;
 use anyhow::Result;
 use astu_action::client::Client;
 use astu_action::client::ClientFactory;
-use astu_action::ssh::SshClientFactory;
-use astu_action::tcp::TcpClientFactory;
 use astu_action::Connect;
 use astu_action::Ping;
 use astu_db::Db;
@@ -41,26 +39,18 @@ impl Run for PingArgs {
         let db = SqliteDb::try_new("astu.db").await?;
         db.migrate().await?;
 
-        let targets = self.resolution_args.clone().graph();
+        let targets = self.resolution_args.set().await?;
+        let client_factory = self.connection_args.client_factory()?;
 
-        let connect_timeout = Duration::from_secs(self.connection_args.connect_timeout);
-
-        let stream_factory = self.connection_args.tcp_stream_factory()?;
-        let tcp_factory = TcpClientFactory::new(
-            stream_factory.clone(),
-            self.connection_args.port,
-            connect_timeout,
-        );
-        let ssh_factory = SshClientFactory::new(stream_factory.clone(), connect_timeout);
-        let client_factory = ClientFactory::new(tcp_factory, ssh_factory);
-
-        // let db = targets
-        //     .map(|t| client_factory.get_client(t))
-        //     .flatten_err(|error| debug!(?error, "unable to get client"))
-        //     .map(|c| ping(c))
-        //     .buffer_unordered(self.connection_args.concurrency)
-        //     .fold(db, save)
-        //     .await;
+        let db = futures::stream::iter(targets)
+            .filter_map(|t| {
+                let client_factory = client_factory.clone();
+                async move { client_factory.client(&t) }
+            })
+            .map(|c| ping(c))
+            .buffer_unordered(self.connection_args.concurrency)
+            .fold(db, save)
+            .await;
 
         Ok(())
     }

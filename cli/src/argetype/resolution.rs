@@ -18,9 +18,9 @@ pub struct ResolutionArgs {
 }
 
 impl ResolutionArgs {
-    pub async fn set(self) -> anyhow::Result<BTreeSet<Target>> {
+    pub async fn set(&self) -> anyhow::Result<BTreeSet<Target>> {
         let chain = forward_chain()?;
-        let set = chain.bulk_resolve_set(self.targets).await;
+        let set = chain.bulk_resolve_set(self.targets.clone()).await;
         Ok(set)
     }
 
