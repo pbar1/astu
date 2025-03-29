@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -6,82 +5,42 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
-use astu_util::tcp_stream::TcpStreamFactory;
+use russh::client::Handle;
 use russh::keys::key::PrivateKeyWithHashAlg;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
+use crate::transport::Transport;
+use crate::transport::TransportFactory;
 use crate::Auth;
 use crate::AuthType;
 use crate::Connect;
 use crate::Exec;
 use crate::ExecOutput;
 
-// Factory --------------------------------------------------------------------
-
-pub struct SshClientFactory {
-    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
-    default_user: Option<String>,
-    connect_timeout: Duration,
-}
-
-impl SshClientFactory {
-    pub fn new(tcp: Arc<dyn TcpStreamFactory + Send + Sync>, connect_timeout: Duration) -> Self {
-        Self {
-            tcp,
-            default_user: None,
-            connect_timeout,
-        }
-    }
-
-    pub fn get_client(&self, target: Target) -> Result<SshClient> {
-        let (addr, user) = match target {
-            Target::IpAddr(x) => (SocketAddr::new(x, 22), None),
-            Target::SocketAddr(x) => (x, None),
-            Target::Ssh { addr, user } => (addr, user),
-            unsupported => bail!("unsupported ssh target: {unsupported}"),
-        };
-        let user = match user {
-            Some(u) => Some(u),
-            None => self.default_user.clone(),
-        };
-        Ok(SshClient::new(
-            addr,
-            self.tcp.clone(),
-            user,
-            self.connect_timeout,
-        ))
-    }
-}
-
-// Client ---------------------------------------------------------------------
-
 pub struct SshClient {
-    addr: SocketAddr,
-    tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
-    session: Option<russh::client::Handle<SshClientHandler>>,
+    transport: Arc<dyn TransportFactory + Send + Sync>,
+    target: Target,
+    session: Option<Handle<SshClientHandler>>,
     user: Option<String>,
-    connect_timeout: Duration,
 }
 
 impl SshClient {
     pub fn new(
-        addr: SocketAddr,
-        tcp: Arc<dyn TcpStreamFactory + Send + Sync>,
+        transport: Arc<dyn TransportFactory + Send + Sync>,
+        target: &Target,
         user: Option<String>,
-        connect_timeout: Duration,
     ) -> Self {
         Self {
-            addr,
-            tcp,
+            transport,
+            target: target.to_owned(),
             session: None,
             user,
-            connect_timeout,
         }
     }
 
-    pub async fn close(&mut self) -> anyhow::Result<()> {
+    pub async fn close(&mut self) -> Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -100,16 +59,20 @@ impl Connect for SshClient {
             ..Default::default()
         });
 
-        let stream = self
-            .tcp
-            .connect_timeout(&self.addr, self.connect_timeout)
-            .await?;
+        let handler = SshClientHandler::default();
 
-        let handler = SshClientHandler {
-            server_banner: None,
+        let transport = self
+            .transport
+            .connect(&self.target)
+            .await
+            .context("failed connecting target transport")?;
+
+        let session = match transport {
+            Transport::Tcp(stream) => {
+                russh::client::connect_stream(config, stream, handler).await?
+            }
+            unsupported => bail!("unsupported TcpClient stream: {unsupported:?}"),
         };
-
-        let session = russh::client::connect_stream(config, stream, handler).await?;
         self.session = Some(session);
 
         Ok(())
@@ -293,7 +256,7 @@ impl SshClient {
 
 // russh details --------------------------------------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SshClientHandler {
     server_banner: Option<String>,
 }
@@ -322,25 +285,30 @@ impl russh::client::Handler for SshClientHandler {
 
 #[cfg(test)]
 mod tests {
-    use std::net::ToSocketAddrs;
+    use std::str::FromStr;
+    use std::time::Duration;
 
-    use astu_util::tcp_stream::ReuseportTcpStreamFactory;
+    use rstest::rstest;
 
     use super::*;
+    use crate::transport::TcpTransportFactory;
 
+    #[rstest]
+    #[case("10.0.0.54:22", "nixos")]
     #[tokio::test]
-    async fn works() {
-        let addr = "tec.lan:22".to_socket_addrs().unwrap().next().unwrap();
-        let tcp = Arc::new(ReuseportTcpStreamFactory::try_new().unwrap());
-        let user = Some("nixos".to_string());
+    async fn works(#[case] input: &str, #[case] user: &str) {
+        let target = Target::from_str(input).unwrap();
+
         let timeout = Duration::from_secs(2);
+        let factory: Arc<dyn TransportFactory + Send + Sync> =
+            Arc::new(TcpTransportFactory::new(timeout));
 
-        let mut client = SshClient::new(addr, tcp, user, timeout);
-
+        let user = Some(user.to_owned());
+        let mut client = SshClient::new(factory, &target, user);
         client.connect().await.unwrap();
 
-        let socket = std::env::var("SSH_AUTH_SOCK").unwrap();
-        client.auth_ssh_agent(&socket).await.unwrap();
+        let sshagent = std::env::var("SSH_AUTH_SOCK").unwrap();
+        client.auth_ssh_agent(&sshagent).await.unwrap();
 
         let output = client.exec("uname -a").await.unwrap();
         assert_eq!(output.exit_status, 0);

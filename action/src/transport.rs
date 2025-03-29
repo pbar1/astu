@@ -11,6 +11,7 @@ pub use tcp::TcpTransportFactory;
 pub use tcp_reuse::TcpReuseTransportFactory;
 
 /// Bytestream transports that will be used by clients to connect to targets.
+#[derive(Debug)]
 pub enum Transport {
     /// No stream, will be handled by the client.
     Opaque,
