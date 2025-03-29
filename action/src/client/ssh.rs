@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +12,8 @@ use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
+use super::Client;
+use super::ClientFactory;
 use crate::transport::Transport;
 use crate::transport::TransportFactory;
 use crate::Auth;
@@ -19,6 +22,36 @@ use crate::Connect;
 use crate::Exec;
 use crate::ExecOutput;
 
+// Factory --------------------------------------------------------------------
+
+/// Factory for building SSH clients.
+pub struct SshClientFactory {
+    transport: Arc<dyn TransportFactory + Send + Sync>,
+}
+
+impl SshClientFactory {
+    pub fn new(transport: Arc<dyn TransportFactory + Send + Sync>) -> Self {
+        Self { transport }
+    }
+}
+
+// Client ---------------------------------------------------------------------
+
+impl ClientFactory for SshClientFactory {
+    fn client(&self, target: &Target) -> Option<Client> {
+        let client = match target {
+            Target::IpAddr(ip) => {
+                let target = Target::from(SocketAddr::new(*ip, 22));
+                SshClient::new(self.transport.clone(), &target)
+            }
+            Target::SocketAddr(_) => SshClient::new(self.transport.clone(), target),
+            _other => None,
+        };
+        Some(client.into())
+    }
+}
+
+/// SSH client.
 pub struct SshClient {
     transport: Arc<dyn TransportFactory + Send + Sync>,
     target: Target,
@@ -27,16 +60,12 @@ pub struct SshClient {
 }
 
 impl SshClient {
-    pub fn new(
-        transport: Arc<dyn TransportFactory + Send + Sync>,
-        target: &Target,
-        user: Option<String>,
-    ) -> Self {
+    pub fn new(transport: Arc<dyn TransportFactory + Send + Sync>, target: &Target) -> Self {
         Self {
             transport,
             target: target.to_owned(),
             session: None,
-            user,
+            user: None,
         }
     }
 
@@ -303,11 +332,12 @@ mod tests {
         let factory: Arc<dyn TransportFactory + Send + Sync> =
             Arc::new(TcpTransportFactory::new(timeout));
 
-        let user = Some(user.to_owned());
-        let mut client = SshClient::new(factory, &target, user);
+        let mut client = SshClient::new(factory, &target);
         client.connect().await.unwrap();
 
+        // TODO: Use AuthType instead of direct functions
         let sshagent = std::env::var("SSH_AUTH_SOCK").unwrap();
+        client.auth_user(user).await.unwrap();
         client.auth_ssh_agent(&sshagent).await.unwrap();
 
         let output = client.exec("uname -a").await.unwrap();

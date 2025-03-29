@@ -9,11 +9,39 @@ use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
 
+use super::Client;
+use super::ClientFactory;
 use crate::transport::Transport;
 use crate::transport::TransportFactory;
 use crate::Connect;
 use crate::Ping;
 
+// Factory --------------------------------------------------------------------
+
+/// Factory for building TCP clients.
+pub struct TcpClientFactory {
+    transport: Arc<dyn TransportFactory + Send + Sync>,
+}
+
+impl TcpClientFactory {
+    pub fn new(transport: Arc<dyn TransportFactory + Send + Sync>) -> Self {
+        Self { transport }
+    }
+}
+
+impl ClientFactory for TcpClientFactory {
+    fn client(&self, target: &Target) -> Option<Client> {
+        let client = match target {
+            Target::SocketAddr(_) => TcpClient::new(self.transport.clone(), target),
+            _other => None,
+        };
+        Some(client.into())
+    }
+}
+
+// Client ---------------------------------------------------------------------
+
+/// TCP client.
 pub struct TcpClient {
     transport: Arc<dyn TransportFactory + Send + Sync>,
     target: Target,

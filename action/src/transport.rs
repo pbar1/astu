@@ -1,3 +1,5 @@
+//! Underlying transport used by clients.
+
 use anyhow::Result;
 use astu_resolve::Target;
 use async_trait::async_trait;
