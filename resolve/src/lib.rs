@@ -15,7 +15,6 @@ pub use provider::file::FileResolver;
 pub use resolve::Resolve;
 pub use resolve::ResolveExt;
 pub use target::Target;
-pub use target::TargetType;
 
 /// Create the default chain of forward resolvers.
 pub fn forward_chain() -> anyhow::Result<ChainResolver> {
