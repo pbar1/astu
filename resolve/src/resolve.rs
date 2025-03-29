@@ -58,7 +58,10 @@ pub trait ResolveExt: Resolve {
     /// Collects all targets into a new set.
     async fn resolve_set(&self, target: Target) -> BTreeSet<Target>;
 
-    /// Collects all targets into a vec.
+    /// Collects all targets into an existing set.
+    async fn resolve_into_set(&self, target: Target, set: &mut BTreeSet<Target>);
+
+    /// Collects all targets into an existing vec.
     async fn resolve_into_vec(&self, target: Target, vec: &mut Vec<Target>);
 
     /// Collects all targets into an existing graph.
@@ -71,6 +74,13 @@ where
 {
     async fn resolve_set(&self, target: Target) -> BTreeSet<Target> {
         self.resolve(target).collect().await
+    }
+
+    async fn resolve_into_set(&self, target: Target, set: &mut BTreeSet<Target>) {
+        let mut targets = self.resolve(target);
+        while let Some(target) = targets.next().await {
+            set.insert(target);
+        }
     }
 
     async fn resolve_into_vec(&self, target: Target, vec: &mut Vec<Target>) {
