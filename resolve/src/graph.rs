@@ -4,7 +4,7 @@ use petgraph::dot::Dot;
 use petgraph::prelude::DiGraphMap;
 use petgraph::visit::IntoNodeReferences;
 
-use crate::Target;
+use crate::target::Target;
 
 /// Directed graph of parent->child relationships between unique [`Target`]
 /// instances.
