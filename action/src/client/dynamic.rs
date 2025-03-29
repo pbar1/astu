@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use astu_resolve::Target;
+
+use super::Client;
 use super::ClientFactory;
 
 /// Composite factory for mapping targets to clients at runtime.
@@ -17,15 +20,15 @@ impl DynamicClientFactory {
         }
     }
 
-    pub fn with(mut self, factory: impl ClientFactory + Send + Sync) -> Self {
+    pub fn with(mut self, factory: impl ClientFactory + Send + Sync + 'static) -> Self {
         self.factories.push(Arc::new(factory));
         self
     }
 }
 
-impl ClientFactory for TcpClientFactory {
+impl ClientFactory for DynamicClientFactory {
     fn client(&self, target: &Target) -> Option<Client> {
-        for factory in self.factories {
+        for factory in &self.factories {
             if let Some(client) = factory.client(target) {
                 return Some(client);
             }

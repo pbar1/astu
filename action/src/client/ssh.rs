@@ -45,7 +45,7 @@ impl ClientFactory for SshClientFactory {
                 SshClient::new(self.transport.clone(), &target)
             }
             Target::SocketAddr(_) => SshClient::new(self.transport.clone(), target),
-            _other => None,
+            _other => return None,
         };
         Some(client.into())
     }
