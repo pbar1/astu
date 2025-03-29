@@ -15,6 +15,8 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "der
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["full"] }
+bon = "3.5.1"
+enum_dispatch = "0.3.13"
 
 [dev-dependencies]
 rstest = "0.25"

@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use bon::Builder;
 use futures::StreamExt;
 use sqlx::migrate;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -12,15 +13,35 @@ use crate::Db;
 use crate::ExecEntry;
 use crate::PingEntry;
 
+/// SQLite persistence layer.
+#[derive(Debug, Builder)]
 pub struct SqliteDb {
-    pool: SqlitePool,
+    #[builder(into)]
+    url: String,
+
+    #[builder(skip)]
+    pool: Option<SqlitePool>,
 }
 
 impl SqliteDb {
+    /// Returns a connection to the database with migrations having been run.
     pub async fn try_new(url: &str) -> Result<Self> {
-        let opts = SqliteConnectOptions::from_str(url)?.create_if_missing(true);
+        let db = Self::builder().url(url).build().connect().await?;
+        db.migrate().await?;
+        Ok(db)
+    }
+
+    /// Connect to the database.
+    pub async fn connect(mut self) -> Result<Self> {
+        let opts = SqliteConnectOptions::from_str(&self.url)?.create_if_missing(true);
         let pool = SqlitePoolOptions::new().connect_with(opts).await?;
-        Ok(Self { pool })
+        self.pool = Some(pool);
+        Ok(self)
+    }
+
+    /// Gets the pool. Panics [`SqliteDb::connect`] has not yet been called!
+    fn pool(&self) -> SqlitePool {
+        self.pool.clone().expect("SqlitePool not yet connected")
     }
 }
 
@@ -28,7 +49,7 @@ impl SqliteDb {
 impl Db for SqliteDb {
     async fn migrate(&self) -> Result<()> {
         migrate!("migrations/sqlite")
-            .run(&self.pool)
+            .run(&self.pool())
             .await
             .map_err(anyhow::Error::from)
     }
@@ -41,16 +62,18 @@ impl Db for SqliteDb {
         .bind(&entry.target)
         .bind(&entry.error)
         .bind(&entry.message)
-        .execute(&self.pool)
+        .execute(&self.pool())
         .await?;
         Ok(())
     }
 
     async fn load_ping(&self, job_id: &[u8]) -> Result<Vec<PingEntry>> {
+        let pool = self.pool();
+
         let mut stream =
             sqlx::query_as::<_, PingEntry>(r"SELECT * FROM ping_entries WHERE job_id = ?")
                 .bind(job_id)
-                .fetch(&self.pool);
+                .fetch(&pool);
 
         let mut entries = Vec::new();
         while let Some(entry) = stream.next().await {
@@ -66,15 +89,17 @@ impl Db for SqliteDb {
     async fn save_exec(&self, entry: &ExecEntry) -> Result<()> {
         sqlx::query(
             r"INSERT INTO exec_entries (job_id, target, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?)",
-        ).bind(&entry.job_id).bind(&entry.target).bind(entry.exit_status).bind(&entry.stdout).bind(&entry.stderr).execute(&self.pool).await?;
+        ).bind(&entry.job_id).bind(&entry.target).bind(entry.exit_status).bind(&entry.stdout).bind(&entry.stderr).execute(&self.pool()).await?;
         Ok(())
     }
 
     async fn load_exec(&self, job_id: &[u8]) -> Result<Vec<ExecEntry>> {
+        let pool = self.pool();
+
         let mut stream =
             sqlx::query_as::<_, ExecEntry>(r"SELECT * FROM exec_entries WHERE job_id = ?")
                 .bind(job_id)
-                .fetch(&self.pool);
+                .fetch(&pool);
 
         let mut entries = Vec::new();
         while let Some(entry) = stream.next().await {
@@ -95,7 +120,6 @@ mod tests {
     #[tokio::test]
     async fn save_load_works() {
         let db = SqliteDb::try_new("sqlite::memory:").await.unwrap();
-        db.migrate().await.unwrap();
 
         let entry_foo = ExecEntry {
             job_id: b"0".into(),

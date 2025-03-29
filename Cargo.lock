@@ -205,6 +205,8 @@ dependencies = [
  "astu-action",
  "astu-resolve",
  "async-trait",
+ "bon",
+ "enum_dispatch",
  "futures",
  "rstest",
  "sqlx",
