@@ -30,7 +30,7 @@ pub struct ExecArgs {
 
 impl Run for ExecArgs {
     async fn run(&self, _id: Id) -> Result<()> {
-        let _targets = self.resolution_args.clone().resolve();
+        let _targets = self.resolution_args.clone().graph();
 
         Ok(())
     }

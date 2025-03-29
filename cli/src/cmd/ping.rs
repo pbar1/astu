@@ -41,7 +41,7 @@ impl Run for PingArgs {
         let db = SqliteDb::try_new("astu.db").await?;
         db.migrate().await?;
 
-        let targets = self.resolution_args.clone().resolve();
+        let targets = self.resolution_args.clone().graph();
 
         let connect_timeout = Duration::from_secs(self.connection_args.connect_timeout);
 

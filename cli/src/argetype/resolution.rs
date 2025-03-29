@@ -15,7 +15,7 @@ pub struct ResolutionArgs {
 }
 
 impl ResolutionArgs {
-    pub async fn resolve(self) -> anyhow::Result<TargetGraph> {
+    pub async fn graph(self) -> anyhow::Result<TargetGraph> {
         let chain = forward_chain()?;
 
         let mut graph = TargetGraph::new();

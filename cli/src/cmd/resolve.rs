@@ -10,14 +10,21 @@ use crate::cmd::Run;
 pub struct ResolveArgs {
     #[clap(flatten)]
     resolution_args: ResolutionArgs,
+
+    /// Print the target graph as GraphViz.
+    #[clap(short = 'g', long)]
+    graph: bool,
 }
 
 impl Run for ResolveArgs {
     async fn run(&self, _id: Id) -> Result<()> {
-        let targets = self.resolution_args.clone().resolve().await?;
-
-        let dot = targets.graphviz();
-        println!("{dot}");
+        if self.graph {
+            let targets = self.resolution_args.clone().graph().await?;
+            let dot = targets.graphviz();
+            println!("{dot}");
+        } else {
+            todo!()
+        }
 
         Ok(())
     }
