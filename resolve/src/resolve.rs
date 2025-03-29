@@ -5,6 +5,7 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 
 use crate::Target;
+use crate::TargetGraph;
 
 /// Given initial targets as queries, [`Resolve`] expands them into more
 /// targets if possible.
@@ -22,8 +23,11 @@ pub trait ResolveExt: Resolve {
     /// Like [`Resolve::resolve`], but elides all errors.
     fn resolve_infallible(&self, target: Target) -> BoxStream<Target>;
 
-    /// Collects all targets into a unique set.
+    /// Collects all targets into a new set.
     async fn resolve_infallible_set(&self, target: Target) -> BTreeSet<Target>;
+
+    /// Collects all targets into an existing graph.
+    async fn resolve_infallible_into_graph(&self, target: Target, graph: &mut TargetGraph);
 }
 
 impl<R> ResolveExt for R
@@ -39,5 +43,13 @@ where
 
     async fn resolve_infallible_set(&self, target: Target) -> BTreeSet<Target> {
         self.resolve_infallible(target).collect().await
+    }
+
+    async fn resolve_infallible_into_graph(&self, target: Target, graph: &mut TargetGraph) {
+        let parent = target.clone().intern();
+        let mut targets = self.resolve_infallible(target);
+        while let Some(target) = targets.next().await {
+            graph.add_edge(parent, target.intern());
+        }
     }
 }
