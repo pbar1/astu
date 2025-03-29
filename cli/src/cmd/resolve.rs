@@ -23,9 +23,11 @@ impl Run for ResolveArgs {
             let dot = targets.graphviz();
             println!("{dot}");
         } else {
-            todo!()
+            let targets = self.resolution_args.clone().set().await?;
+            for target in targets {
+                println!("{target}");
+            }
         }
-
         Ok(())
     }
 }

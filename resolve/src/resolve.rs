@@ -66,6 +66,11 @@ pub trait ResolveExt: Resolve {
 
     /// Collects all targets into an existing graph.
     async fn resolve_into_graph(&self, target: Target, graph: &mut TargetGraph);
+
+    /// Like [`ResolveExt::resolve_set`] but for bulk targets.
+    async fn bulk_resolve_set(&self, targets: Vec<Target>) -> BTreeSet<Target>
+    where
+        Self: Sync;
 }
 
 impl<R> ResolveExt for R
@@ -98,5 +103,12 @@ where
         while let Some(target) = targets.next().await {
             graph.add_edge(parent, target.intern());
         }
+    }
+
+    async fn bulk_resolve_set(&self, targets: Vec<Target>) -> BTreeSet<Target>
+    where
+        Self: Sync,
+    {
+        self.bulk_resolve(targets).collect().await
     }
 }

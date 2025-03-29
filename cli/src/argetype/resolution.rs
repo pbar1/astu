@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use astu_resolve::forward_chain;
 use astu_resolve::ResolveExt;
 use astu_resolve::Target;
@@ -15,6 +17,12 @@ pub struct ResolutionArgs {
 }
 
 impl ResolutionArgs {
+    pub async fn set(self) -> anyhow::Result<BTreeSet<Target>> {
+        let chain = forward_chain()?;
+        let set = chain.bulk_resolve_set(self.targets).await;
+        Ok(set)
+    }
+
     pub async fn graph(self) -> anyhow::Result<TargetGraph> {
         let chain = forward_chain()?;
 

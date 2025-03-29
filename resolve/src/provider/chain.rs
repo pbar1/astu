@@ -10,6 +10,9 @@ use crate::Resolve;
 use crate::Target;
 
 /// Composite resolver that flattens the streams of a set of resolvers into one.
+///
+/// If none of the constituent resolvers can resolve a given target, that target
+/// itself is returned.
 #[derive(Clone)]
 pub struct ChainResolver {
     resolvers: Vec<Arc<dyn Resolve + Send + Sync>>,
@@ -24,11 +27,16 @@ impl fmt::Debug for ChainResolver {
 impl Resolve for ChainResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         stream! {
+            let mut bounce_original = true;
             for resolver in &self.resolvers {
                 let mut stream = resolver.resolve_fallible(target.clone());
                 while let Some(result) = stream.next().await {
+                    bounce_original = false;
                     yield result;
                 }
+            }
+            if bounce_original {
+                yield Ok(target);
             }
         }
         .boxed()
