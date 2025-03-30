@@ -1,4 +1,5 @@
 use anyhow::Result;
+use astu_db::DbImpl;
 use astu_util::id::Id;
 use clap::Args;
 
@@ -17,7 +18,7 @@ pub struct ResolveArgs {
 }
 
 impl Run for ResolveArgs {
-    async fn run(&self, _id: Id) -> Result<()> {
+    async fn run(&self, _id: Id, _db: DbImpl) -> Result<()> {
         if self.graph {
             let targets = self.resolution_args.clone().graph_full().await?;
             let dot = targets.graphviz();

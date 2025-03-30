@@ -1,4 +1,8 @@
+use anyhow::Context;
 use anyhow::Result;
+use astu_db::DbImpl;
+use astu_util::dirs;
+use camino::Utf8PathBuf;
 use clap::Args;
 use tracing_glog::Glog;
 use tracing_glog::GlogFields;
@@ -17,9 +21,14 @@ pub struct GlobalArgs {
     /// Log level
     #[clap(long, env = "RUST_LOG", default_value = "error", help_heading = HEADING, global = true)]
     pub log_level: String,
+
+    /// Data directory
+    #[clap(long, default_value_t = data_dir(), help_heading = HEADING, global = true)]
+    pub data_dir: Utf8PathBuf,
 }
 
 impl GlobalArgs {
+    /// Initializes all [`tracing`] config.
     pub fn init_tracing(&self) -> Result<()> {
         let indicatif_layer = IndicatifLayer::new();
 
@@ -36,4 +45,18 @@ impl GlobalArgs {
 
         Ok(())
     }
+
+    /// Gets a ready database connection.
+    pub async fn get_db(&self) -> Result<DbImpl> {
+        let db_file = self.data_dir.join("astu.db");
+        DbImpl::try_new(db_file.as_str())
+            .await
+            .context("unable to connect to a db")
+    }
+}
+
+fn data_dir() -> Utf8PathBuf {
+    dirs::data_dir("astu")
+        .try_into()
+        .expect("unable to get data dir")
 }

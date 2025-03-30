@@ -38,13 +38,9 @@ pub struct PingArgs {
 }
 
 impl Run for PingArgs {
-    async fn run(&self, id: Id) -> Result<()> {
+    async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
         let job_id = id.to_string();
         let timeout = self.timeout.into();
-
-        let db = DbImpl::try_new(&self.db)
-            .await
-            .context("unable to connect to a db")?;
 
         let targets = self.resolution_args.set().await?;
         let client_factory = self.connection_args.client_factory()?;

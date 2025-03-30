@@ -3,6 +3,7 @@ mod ping;
 mod resolve;
 
 use anyhow::Result;
+use astu_db::DbImpl;
 use astu_util::id::Id;
 use astu_util::id::IdGenerator;
 use astu_util::id::SonyflakeGenerator;
@@ -26,7 +27,7 @@ struct Cli {
 /// Subcommands must implement [`Run`] to be executed at runtime.
 #[enum_dispatch]
 pub trait Run {
-    async fn run(&self, id: Id) -> Result<()>;
+    async fn run(&self, id: Id, db: DbImpl) -> Result<()>;
 }
 
 #[enum_dispatch(Run)]
@@ -43,7 +44,7 @@ pub async fn run() -> anyhow::Result<()> {
     cli.global_args.init_tracing()?;
 
     let id = SonyflakeGenerator::from_hostname()?.id_now();
-    eprintln!("Run ID: {id}");
+    let db = cli.global_args.get_db().await?;
 
-    cli.command.run(id).await
+    cli.command.run(id, db).await
 }

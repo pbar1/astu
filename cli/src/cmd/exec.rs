@@ -1,4 +1,5 @@
 use anyhow::Result;
+use astu_db::DbImpl;
 use astu_util::id::Id;
 use clap::Args;
 
@@ -29,7 +30,7 @@ pub struct ExecArgs {
 }
 
 impl Run for ExecArgs {
-    async fn run(&self, _id: Id) -> Result<()> {
+    async fn run(&self, _id: Id, _db: DbImpl) -> Result<()> {
         let _targets = self.resolution_args.clone().graph();
 
         Ok(())
