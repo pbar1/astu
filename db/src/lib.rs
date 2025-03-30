@@ -68,7 +68,8 @@ pub struct PingEntry {
 pub struct ExecEntry {
     pub job_id: String,
     pub target: String,
-    pub exit_status: u32,
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
+    pub error: Option<String>,
+    pub exit_status: Option<u32>,
+    pub stdout: Option<Vec<u8>>,
+    pub stderr: Option<Vec<u8>>,
 }

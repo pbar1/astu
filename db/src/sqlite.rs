@@ -88,8 +88,16 @@ impl Db for SqliteDb {
 
     async fn save_exec(&self, entry: &ExecEntry) -> Result<()> {
         sqlx::query(
-            r"INSERT INTO exec_entries (job_id, target, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?)",
-        ).bind(&entry.job_id).bind(&entry.target).bind(entry.exit_status).bind(&entry.stdout).bind(&entry.stderr).execute(&self.pool()).await?;
+            r"INSERT INTO exec_entries (job_id, target, error, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+            .bind(&entry.job_id)
+            .bind(&entry.target)
+            .bind(&entry.error)
+            .bind(entry.exit_status)
+            .bind(&entry.stdout)
+            .bind(&entry.stderr)
+            .execute(&self.pool())
+            .await?;
         Ok(())
     }
 
@@ -124,23 +132,26 @@ mod tests {
         let entry_foo = ExecEntry {
             job_id: "0".into(),
             target: "foo".into(),
-            exit_status: 0,
-            stdout: b"foo_stdout".into(),
-            stderr: b"foo_stderr".into(),
+            error: None,
+            exit_status: Some(0),
+            stdout: Some(b"foo_stdout".into()),
+            stderr: Some(b"foo_stderr".into()),
         };
         let entry_bar = ExecEntry {
             job_id: "0".into(),
             target: "bar".into(),
-            exit_status: 1,
-            stdout: b"bar_stdout".into(),
-            stderr: b"bar_stderr".into(),
+            error: None,
+            exit_status: Some(1),
+            stdout: Some(b"bar_stdout".into()),
+            stderr: Some(b"bar_stderr".into()),
         };
         let entry_baz = ExecEntry {
             job_id: "1".into(),
             target: "baz".into(),
-            exit_status: 2,
-            stdout: b"baz_stdout".into(),
-            stderr: b"baz_stderr".into(),
+            error: None,
+            exit_status: Some(2),
+            stdout: Some(b"baz_stdout".into()),
+            stderr: Some(b"baz_stderr".into()),
         };
 
         db.save_exec(&entry_foo).await.unwrap();
