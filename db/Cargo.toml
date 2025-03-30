@@ -6,15 +6,12 @@ description = "astu persistence"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-astu-action = { path = "../action" }
-astu-resolve = { path = "../resolve" }
 anyhow = "1"
 async-trait = "0.1"
 futures = "0.3"
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "derive"] }
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
-tokio-util = { version = "0.7", features = ["full"] }
 bon = "3.5.1"
 enum_dispatch = "0.3.13"
 

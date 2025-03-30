@@ -172,7 +172,6 @@ dependencies = [
  "futures",
  "humantime",
  "tokio",
- "tokio-stream",
  "tracing",
  "tracing-glog",
  "tracing-subscriber",
@@ -184,7 +183,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "astu-resolve",
- "astu-util",
  "async-trait",
  "bon",
  "bstr",
@@ -192,8 +190,6 @@ dependencies = [
  "enum_dispatch",
  "rstest",
  "russh",
- "ssh-key",
- "ssh_config",
  "tokio",
  "tracing",
 ]
@@ -203,8 +199,6 @@ name = "astu-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "astu-action",
- "astu-resolve",
  "async-trait",
  "bon",
  "enum_dispatch",
@@ -213,7 +207,6 @@ dependencies = [
  "sqlx",
  "tempfile",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 
@@ -241,17 +234,14 @@ name = "astu-util"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "base32",
  "futures",
- "redact",
  "rstest",
  "sonyflake",
  "tokio",
  "tracing",
  "uuid",
  "whoami",
- "zeroize",
 ]
 
 [[package]]
@@ -2354,15 +2344,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "redact"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0020ec469b096d56edb1ed0f0f141d957863302170f8d9c4bfda1a12969e5969"
-dependencies = [
- "zeroize",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3116,33 +3097,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ssh-key"
-version = "0.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b86f5297f0f04d08cabaa0f6bff7cb6aec4d9c3b49d87990d63da9d9156a8c3"
-dependencies = [
- "ed25519-dalek",
- "p256",
- "p384",
- "p521",
- "rand_core 0.6.4",
- "rsa",
- "sec1",
- "sha2",
- "signature",
- "ssh-cipher",
- "ssh-encoding",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "ssh_config"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08044686521f352c6d1f522ba349c3dd52813819fa8353b60bd3d2107f6dca0a"
-
-[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3357,23 +3311,6 @@ checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
 dependencies = [
  "futures-core",
  "pin-project-lite",
- "tokio",
-]
-
-[[package]]
-name = "tokio-util"
-version = "0.7.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
-dependencies = [
- "bytes",
- "futures-core",
- "futures-io",
- "futures-sink",
- "futures-util",
- "hashbrown 0.14.5",
- "pin-project-lite",
- "slab",
  "tokio",
 ]
 

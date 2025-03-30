@@ -78,11 +78,11 @@ impl Client for TcpClient {
         Ok(())
     }
 
-    async fn auth(&mut self, auth_type: &AuthType) -> Result<()> {
+    async fn auth(&mut self, _auth_type: &AuthType) -> Result<()> {
         bail!("TcpClient::auth not supported");
     }
 
-    async fn exec(&mut self, command: &str) -> Result<ExecOutput> {
+    async fn exec(&mut self, _command: &str) -> Result<ExecOutput> {
         bail!("TcpClient::exec not supported");
     }
 }
