@@ -13,6 +13,7 @@ use astu_util::id::Id;
 use astu_util::tokio::spawn_timeout;
 use clap::Args;
 use futures::StreamExt;
+use tracing::instrument;
 
 use crate::argetype::ConnectionArgs;
 use crate::argetype::ResolutionArgs;
@@ -66,6 +67,7 @@ impl Run for PingArgs {
     }
 }
 
+#[instrument(skip_all, fields(%target))]
 async fn ping2(
     target: Target,
     client_factory: DynamicClientFactory,

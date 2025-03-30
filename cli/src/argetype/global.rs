@@ -3,6 +3,7 @@ use clap::Args;
 use tracing_glog::Glog;
 use tracing_glog::GlogFields;
 use tracing_glog::LocalTime;
+use tracing_indicatif::IndicatifLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
@@ -20,13 +21,17 @@ pub struct GlobalArgs {
 
 impl GlobalArgs {
     pub fn init_tracing(&self) -> Result<()> {
-        let glog_filter = EnvFilter::builder().parse_lossy(&self.log_level);
-        let glog_layer = tracing_subscriber::fmt::layer()
+        let indicatif_layer = IndicatifLayer::new();
+
+        let stderr_filter = EnvFilter::builder().parse_lossy(&self.log_level);
+        let stderr_writer = indicatif_layer.get_stderr_writer();
+        let stderr_layer = tracing_subscriber::fmt::layer()
             .event_format(Glog::default().with_timer(LocalTime::default()))
             .fmt_fields(GlogFields::default())
-            .with_filter(glog_filter);
+            .with_writer(stderr_writer)
+            .with_filter(stderr_filter);
 
-        let subscriber = Registry::default().with(glog_layer);
+        let subscriber = Registry::default().with(stderr_layer).with(indicatif_layer);
         tracing::subscriber::set_global_default(subscriber)?;
 
         Ok(())

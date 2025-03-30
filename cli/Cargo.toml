@@ -7,15 +7,16 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
+astu-action = { path = "../action" }
+astu-db = { path = "../db" }
+astu-resolve = { path = "../resolve" }
+astu-util = { path = "../util" }
 clap = { version = "4", features = ["derive", "env"] }
 enum_dispatch = "0.3"
 futures = "0.3"
-astu-action = { path = "../action" }
-astu-resolve = { path = "../resolve" }
-astu-db = { path = "../db" }
-astu-util = { path = "../util" }
+humantime = "2"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-glog = { version = "0.4", features = ["local-time"] }
+tracing-indicatif = { version = "0.3", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-humantime = "2.2.0"
