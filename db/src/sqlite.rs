@@ -55,15 +55,12 @@ impl Db for SqliteDb {
     }
 
     async fn save_ping(&self, entry: &PingEntry) -> Result<()> {
-        sqlx::query(
-            r"INSERT INTO ping_entries (job_id, target, error, message) VALUES (?, ?, ?, ?)",
-        )
-        .bind(&entry.job_id)
-        .bind(&entry.target)
-        .bind(&entry.error)
-        .bind(&entry.message)
-        .execute(&self.pool())
-        .await?;
+        sqlx::query(r"INSERT INTO ping_entries (job_id, target, error) VALUES (?, ?, ?)")
+            .bind(&entry.job_id)
+            .bind(&entry.target)
+            .bind(&entry.error)
+            .execute(&self.pool())
+            .await?;
         Ok(())
     }
 

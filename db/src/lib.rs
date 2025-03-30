@@ -45,17 +45,9 @@ pub enum DbImpl {
 
 impl DbImpl {
     pub async fn try_new(connection_string: &str) -> Result<Self> {
-        if connection_string.contains("sqlite") {
+        if connection_string.contains("sqlite") || connection_string.contains(".db") {
             let db = SqliteDb::try_new(connection_string).await?;
             return Ok(db.into());
-        }
-
-        if let Ok(exists) = tokio::fs::try_exists(connection_string).await {
-            if !exists {
-            } else if connection_string.contains(".db") {
-                let db = SqliteDb::try_new(connection_string).await?;
-                return Ok(db.into());
-            }
         }
 
         bail!("unable to build a db impl");
@@ -68,7 +60,6 @@ pub struct PingEntry {
     pub job_id: String,
     pub target: String,
     pub error: Option<String>,
-    pub message: Vec<u8>,
 }
 
 /// Outcome of an `exec` run.
