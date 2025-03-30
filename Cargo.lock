@@ -247,6 +247,7 @@ dependencies = [
  "redact",
  "rstest",
  "sonyflake",
+ "tokio",
  "tracing",
  "uuid",
  "whoami",

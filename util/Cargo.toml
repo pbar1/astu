@@ -12,6 +12,7 @@ base32 = "0.5"
 futures = "0.3"
 redact = { version = "0.1", features = ["zeroize"] }
 sonyflake = "0.3"
+tokio = { version = "1", default-features = false, features = ["rt", "time"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
 whoami = "1"

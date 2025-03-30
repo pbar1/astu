@@ -46,6 +46,10 @@ pub struct SonyflakeGenerator {
 impl SonyflakeGenerator {
     /// Generates a [`SonyflakeGenerator`] using a hash of the machine's
     /// hostname as machine ID.
+    ///
+    /// # Errors
+    ///
+    /// - If creating the ID fails
     pub fn from_hostname() -> anyhow::Result<Self> {
         let sonyflake = sonyflake::Sonyflake::builder()
             .machine_id(&machine_id_from_hostname)
@@ -74,7 +78,7 @@ fn machine_id_from_hostname() -> Result<u16, Box<dyn std::error::Error + Send + 
 
     // Fold the 64-bit hash down to 16 bits by XORing the upper and lower parts.
     // This has a bit better distribution than truncation.
-    let folded = ((hash >> 32) ^ (hash & 0xFFFF_FFFF)) as u32;
+    let folded = u32::try_from((hash >> 32) ^ (hash & 0xFFFF_FFFF))?;
     let machine_id = (folded & 0xFFFF) as u16;
 
     Ok(machine_id)

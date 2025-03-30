@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -11,6 +10,7 @@ use astu_db::DbImpl;
 use astu_db::PingEntry;
 use astu_resolve::Target;
 use astu_util::id::Id;
+use astu_util::tokio::spawn_timeout;
 use clap::Args;
 use futures::StreamExt;
 
@@ -107,21 +107,4 @@ async fn ping2_inner(target: Target, client_factory: DynamicClientFactory) -> Re
     client.connect().await.context("unable to connect")?;
 
     Ok(())
-}
-
-// FIXME: Extract to reusable place
-pub async fn spawn_timeout<T>(
-    duration: Duration,
-    future: impl Future<Output = T> + Send + 'static,
-) -> anyhow::Result<T>
-where
-    T: Send + 'static,
-{
-    let task = tokio::spawn(future);
-    let timeout = tokio::time::timeout(duration, task);
-    let t = timeout
-        .await
-        .context("tokio task timed out")?
-        .context("tokio task failed to join")?;
-    Ok(t)
 }
