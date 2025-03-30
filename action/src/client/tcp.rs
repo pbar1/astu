@@ -3,6 +3,8 @@ use anyhow::Context;
 use anyhow::Result;
 use astu_resolve::Target;
 use async_trait::async_trait;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::BufReader;
 use tokio::net::TcpStream;
 
 use crate::transport::Transport;
@@ -76,6 +78,18 @@ impl Client for TcpClient {
         };
 
         Ok(())
+    }
+
+    async fn ping(&mut self) -> Result<Vec<u8>> {
+        let stream = self.stream.take().context("stream not connected")?;
+        let mut reader = BufReader::new(stream);
+
+        let mut output = Vec::new();
+        reader.read_until(b'\n', &mut output).await?;
+
+        self.stream = Some(reader.into_inner());
+
+        Ok(output)
     }
 
     async fn auth(&mut self, _auth_type: &AuthType) -> Result<()> {

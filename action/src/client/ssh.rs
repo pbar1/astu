@@ -108,6 +108,11 @@ impl Client for SshClient {
         Ok(())
     }
 
+    async fn ping(&mut self) -> Result<Vec<u8>> {
+        let _session = self.session.take().context("session not connected")?;
+        Ok(Vec::new())
+    }
+
     async fn auth(&mut self, auth_type: &AuthType) -> anyhow::Result<()> {
         match auth_type {
             AuthType::User(x) => self.auth_user(x).await,

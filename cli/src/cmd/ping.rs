@@ -61,33 +61,39 @@ async fn ping(
 ) -> PingEntry {
     // TODO: Maybe a better way to flatten
     let result = spawn_timeout(timeout, ping_inner(target.clone(), client_factory)).await;
+
     match result {
-        Ok(Ok(())) => PingEntry {
+        Ok(Ok(message)) => PingEntry {
             job_id: job_id.to_owned(),
             target: target.to_string(),
             error: None,
+            message: Some(message),
         },
         Ok(Err(error)) => PingEntry {
             job_id: job_id.to_owned(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
+            message: None,
         },
         Err(error) => PingEntry {
             job_id: job_id.to_owned(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
+            message: None,
         },
     }
 }
 
-async fn ping_inner(target: Target, client_factory: DynamicClientFactory) -> Result<()> {
+async fn ping_inner(target: Target, client_factory: DynamicClientFactory) -> Result<Vec<u8>> {
     let mut client = client_factory
         .client(&target)
         .context("failed getting client for target")?;
 
     client.connect().await.context("unable to connect")?;
 
-    Ok(())
+    let output = client.ping().await.context("unable to ping")?;
+
+    Ok(output)
 }
 
 async fn save(db: DbImpl, entry: PingEntry) -> DbImpl {

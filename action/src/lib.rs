@@ -16,8 +16,11 @@ use enum_dispatch::enum_dispatch;
 #[async_trait]
 #[enum_dispatch]
 pub trait Client {
-    /// Connect to a target
+    /// Connect to a target.
     async fn connect(&mut self) -> Result<()>;
+
+    /// Ping a target.
+    async fn ping(&mut self) -> Result<Vec<u8>>;
 
     /// Authenticate with a target.
     async fn auth(&mut self, auth_type: &AuthType) -> Result<()>;

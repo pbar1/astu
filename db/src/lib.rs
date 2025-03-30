@@ -60,6 +60,7 @@ pub struct PingEntry {
     pub job_id: String,
     pub target: String,
     pub error: Option<String>,
+    pub message: Option<Vec<u8>>,
 }
 
 /// Outcome of an `exec` run.
