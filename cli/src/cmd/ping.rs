@@ -14,6 +14,7 @@ use astu_util::tokio::spawn_timeout;
 use clap::Args;
 use futures::StreamExt;
 use tracing::instrument;
+use tracing::warn;
 
 use crate::argetype::ConnectionArgs;
 use crate::argetype::ResolutionArgs;
@@ -28,10 +29,6 @@ pub struct PingArgs {
     #[clap(flatten)]
     connection_args: ConnectionArgs,
 
-    /// Database to use.
-    #[clap(long, default_value = "astu.db")]
-    db: String,
-
     /// Time to allow action to complete
     #[clap(long, default_value = "30s")]
     pub timeout: humantime::Duration,
@@ -45,18 +42,10 @@ impl Run for PingArgs {
         let targets = self.resolution_args.set().await?;
         let client_factory = self.connection_args.client_factory()?;
 
-        let _results: Vec<_> = futures::stream::iter(targets)
-            .map(|target| {
-                ping2(
-                    target,
-                    client_factory.clone(),
-                    job_id.clone(),
-                    db.clone(),
-                    timeout,
-                )
-            })
+        let _db = futures::stream::iter(targets)
+            .map(|target| ping(target, client_factory.clone(), job_id.clone(), timeout))
             .buffer_unordered(self.connection_args.concurrency)
-            .collect()
+            .fold(db, save)
             .await;
 
         Ok(())
@@ -64,17 +53,15 @@ impl Run for PingArgs {
 }
 
 #[instrument(skip_all, fields(%target))]
-async fn ping2(
+async fn ping(
     target: Target,
     client_factory: DynamicClientFactory,
     job_id: String,
-    db: DbImpl,
     timeout: Duration,
-) -> Result<()> {
-    let result = spawn_timeout(timeout, ping2_inner(target.clone(), client_factory)).await;
-
+) -> PingEntry {
     // TODO: Maybe a better way to flatten
-    let entry = match result {
+    let result = spawn_timeout(timeout, ping_inner(target.clone(), client_factory)).await;
+    match result {
         Ok(Ok(())) => PingEntry {
             job_id: job_id.to_owned(),
             target: target.to_string(),
@@ -90,14 +77,10 @@ async fn ping2(
             target: target.to_string(),
             error: Some(format!("{error:?}")),
         },
-    };
-
-    db.save_ping(&entry).await.context("failed to save to db")?;
-
-    Ok(())
+    }
 }
 
-async fn ping2_inner(target: Target, client_factory: DynamicClientFactory) -> Result<()> {
+async fn ping_inner(target: Target, client_factory: DynamicClientFactory) -> Result<()> {
     let mut client = client_factory
         .client(&target)
         .context("failed getting client for target")?;
@@ -105,4 +88,11 @@ async fn ping2_inner(target: Target, client_factory: DynamicClientFactory) -> Re
     client.connect().await.context("unable to connect")?;
 
     Ok(())
+}
+
+async fn save(db: DbImpl, entry: PingEntry) -> DbImpl {
+    if let Err(error) = db.save_ping(&entry).await {
+        warn!(?error, ?entry, "failed saving entry to db");
+    }
+    db
 }
