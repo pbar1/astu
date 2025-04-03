@@ -24,7 +24,7 @@ jobs:
       run: bun install
 
     - name: Build website
-      run: bun build
+      run: bun run build
 
     - name: Upload Build Artifact
       uses: actions/upload-pages-artifact@v3
