@@ -12,7 +12,7 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
   {
     title: "Large-Scale Execution",
-    Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
+    Svg: require("@site/static/img/astu_largescale.svg").default,
     description: (
       <>
         <code>astu</code> is built for running commands and network pings at
@@ -23,7 +23,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: "Automated Target Resolution",
-    Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
+    Svg: require("@site/static/img/astu_target.svg").default,
     description: (
       <>
         <code>astu</code> resolves hostnames, CIDR blocks, and more, ensuring
@@ -33,7 +33,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: "Results & Aggregation",
-    Svg: require("@site/static/img/undraw_docusaurus_react.svg").default,
+    Svg: require("@site/static/img/astu_storage.svg").default,
     description: (
       <>
         Capture execution results, save them in persistent storage, and view

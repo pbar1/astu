@@ -5,8 +5,8 @@ import type * as Preset from "@docusaurus/preset-classic";
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: "astu",
-  tagline: "Hello friend",
+  title: "Astu",
+  tagline: "Remote execution multitool",
   favicon: "img/favicon.ico",
 
   url: "https://pbar1.github.io",
@@ -42,9 +42,9 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: "img/docusaurus-social-card.jpg",
+    image: "img/social-card.jpg",
     navbar: {
-      title: "astu",
+      title: "Astu",
       logo: {
         alt: "astu logo",
         src: "img/logo.svg",
@@ -65,7 +65,7 @@ const config: Config = {
     },
     footer: {
       style: "dark",
-      copyright: `Copyright © ${new Date().getFullYear()} Pierce Bartine`,
+      copyright: `Hello friend`,
     },
     prism: {
       theme: prismThemes.github,
