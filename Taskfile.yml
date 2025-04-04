@@ -2,3 +2,11 @@ version: "3"
 
 tasks:
   default: task --list
+
+  run:
+    desc: Run the binary
+    cmd: cargo run -- {{.CLI_ARGS}}
+
+  book:
+    desc: Build and open book site
+    cmd: mdbook serve --open book
