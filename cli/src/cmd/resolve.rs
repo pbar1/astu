@@ -12,7 +12,7 @@ pub struct ResolveArgs {
     #[clap(flatten)]
     resolution_args: ResolutionArgs,
 
-    /// Print the target graph as GraphViz.
+    /// Print the target graph as `GraphViz`.
     #[clap(short = 'g', long)]
     graph: bool,
 }

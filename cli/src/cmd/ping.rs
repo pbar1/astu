@@ -64,19 +64,13 @@ async fn ping(
 
     match result {
         Ok(Ok(message)) => PingEntry {
-            job_id: job_id.to_owned(),
+            job_id: job_id.clone(),
             target: target.to_string(),
             error: None,
             message: Some(message),
         },
-        Ok(Err(error)) => PingEntry {
-            job_id: job_id.to_owned(),
-            target: target.to_string(),
-            error: Some(format!("{error:?}")),
-            message: None,
-        },
-        Err(error) => PingEntry {
-            job_id: job_id.to_owned(),
+        Ok(Err(error)) | Err(error) => PingEntry {
+            job_id: job_id.clone(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
             message: None,

@@ -103,23 +103,15 @@ async fn exec(
 
     match result {
         Ok(Ok(output)) => ExecEntry {
-            job_id: job_id.to_owned(),
+            job_id: job_id.clone(),
             target: target.to_string(),
             error: None,
             exit_status: Some(output.exit_status),
             stdout: Some(output.stdout),
             stderr: Some(output.stderr),
         },
-        Ok(Err(error)) => ExecEntry {
-            job_id: job_id.to_owned(),
-            target: target.to_string(),
-            error: Some(format!("{error:?}")),
-            exit_status: None,
-            stdout: None,
-            stderr: None,
-        },
-        Err(error) => ExecEntry {
-            job_id: job_id.to_owned(),
+        Ok(Err(error)) | Err(error) => ExecEntry {
+            job_id: job_id.clone(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
             exit_status: None,
@@ -143,7 +135,7 @@ async fn exec_inner(
 
     // TODO: clowntown
     for auth in auths {
-        client.auth(&auth).await?
+        client.auth(&auth).await?;
     }
 
     let output = client
