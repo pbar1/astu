@@ -145,16 +145,16 @@ impl std::fmt::Display for Target {
         let s = match self {
             Target::IpAddr(ip) => ip.to_string(),
             Target::SocketAddr(sock) => sock.to_string(),
-            Target::Ssh { addr, user } => display_ssh(addr, user),
+            Target::Ssh { addr, user } => display_ssh(addr, user.as_ref()),
             Target::Cidr(cidr) => cidr.to_string(),
-            Target::Domain { name, port } => display_domain(name, port),
+            Target::Domain { name, port } => display_domain(name, *port),
             Target::File(path) => path.to_string(),
         };
         write!(f, "{s}")
     }
 }
 
-fn display_domain(name: &hickory_resolver::Name, port: &Option<u16>) -> String {
+fn display_domain(name: &hickory_resolver::Name, port: Option<u16>) -> String {
     let mut s = name.to_string();
     if let Some(port) = port {
         s.push(':');
@@ -163,7 +163,7 @@ fn display_domain(name: &hickory_resolver::Name, port: &Option<u16>) -> String {
     s
 }
 
-fn display_ssh(addr: &std::net::SocketAddr, user: &Option<String>) -> String {
+fn display_ssh(addr: &std::net::SocketAddr, user: Option<&String>) -> String {
     let mut s = "ssh://".to_string();
     if let Some(user) = user {
         s.push_str(user);
@@ -184,50 +184,13 @@ fn display_ssh(addr: &std::net::SocketAddr, user: &Option<String>) -> String {
     s
 }
 
-/// Number of known unique targets that a target can be divided into discretely.
-///
-/// For example:
-/// - IP and socket addresses are atomic - they cannot be divided further.
-/// - CIDR blocks are not atomic - they can be divided into their constituent IP
-///   addresses.
-/// - DNS names are indeterminate - they are impossible to divide
-///   deterministically.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Atoms {
-    Known(u128),
-    // OR: Could use 0 for this
-    KnownMax,
-    Unknown,
-}
-
 impl Target {
-    /// Returns the total number of individual atomic targets that this target
-    /// can further resolve into. If that is not possible to determine, returns
-    /// [`None`].
-    #[must_use]
-    pub fn atoms(&self) -> Atoms {
-        match self {
-            Target::IpAddr(_) => Atoms::Known(1),
-            Target::SocketAddr(_) => Atoms::Known(1),
-            Target::Cidr(cidr) => ip_atoms(cidr),
-            _unknown => Atoms::Unknown,
-        }
-    }
-
     /// Interns the target. This is so it can implement [`Copy`] for use with
     /// [`crate::TargetGraph`].
+    #[must_use]
     pub fn intern(self) -> Intern<Self> {
         self.into()
     }
-}
-
-fn ip_atoms(ip_net: &ipnet::IpNet) -> Atoms {
-    let host_bits = ip_net.max_prefix_len() - ip_net.prefix_len();
-    // u128 will overflow if a bit shift this large is attempted
-    if host_bits >= 128 {
-        return Atoms::KnownMax;
-    }
-    Atoms::Known(1u128 << host_bits)
 }
 
 #[cfg(test)]
@@ -259,23 +222,5 @@ mod tests {
         let target = Target::from_str(input).unwrap();
         let output = target.to_string();
         assert_eq!(output, should);
-    }
-
-    #[rstest]
-    #[case("localhost", Atoms::Unknown)]
-    #[case("127.0.0.1", Atoms::Known(1))]
-    #[case("::1", Atoms::Known(1))]
-    #[case("127.0.0.1:22", Atoms::Known(1))]
-    #[case("[::1]:22", Atoms::Known(1))]
-    #[case("0.0.0.0/0", Atoms::Known(u32::MAX as u128 + 1))]
-    #[case(
-        "::/1",
-        Atoms::Known(170_141_183_460_469_231_731_687_303_715_884_105_728)
-    )]
-    #[case("::/0", Atoms::KnownMax)]
-    fn target_atoms(#[case] input: &str, #[case] should: Atoms) {
-        let target = Target::from_str(input).unwrap();
-        let got = target.atoms();
-        assert_eq!(got, should);
     }
 }

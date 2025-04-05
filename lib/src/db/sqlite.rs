@@ -13,7 +13,7 @@ use super::Db;
 use super::ExecEntry;
 use super::PingEntry;
 
-/// SQLite persistence layer.
+/// `SQLite` persistence layer.
 #[derive(Debug, Clone, Builder)]
 pub struct SqliteDb {
     #[builder(into)]
@@ -25,6 +25,11 @@ pub struct SqliteDb {
 
 impl SqliteDb {
     /// Returns a connection to the database with migrations having been run.
+    ///
+    /// # Errors
+    ///
+    /// - If connect fails
+    /// - If schema migration fails
     pub async fn try_new(url: &str) -> Result<Self> {
         let db = Self::builder().url(url).build().connect().await?;
         db.migrate().await?;
@@ -32,6 +37,10 @@ impl SqliteDb {
     }
 
     /// Connect to the database.
+    ///
+    /// # Errors
+    ///
+    /// - If connect fails
     pub async fn connect(mut self) -> Result<Self> {
         let opts = SqliteConnectOptions::from_str(&self.url)?.create_if_missing(true);
         let pool = SqlitePoolOptions::new().connect_with(opts).await?;
@@ -145,18 +154,18 @@ mod tests {
             stdout: Some(b"bar_stdout".into()),
             stderr: Some(b"bar_stderr".into()),
         };
-        let entry_baz = ExecEntry {
+        let entry_quux = ExecEntry {
             job_id: "1".into(),
-            target: "baz".into(),
+            target: "quux".into(),
             error: None,
             exit_status: Some(2),
-            stdout: Some(b"baz_stdout".into()),
-            stderr: Some(b"baz_stderr".into()),
+            stdout: Some(b"quux_stdout".into()),
+            stderr: Some(b"quux_stderr".into()),
         };
 
         db.save_exec(&entry_foo).await.unwrap();
         db.save_exec(&entry_bar).await.unwrap();
-        db.save_exec(&entry_baz).await.unwrap();
+        db.save_exec(&entry_quux).await.unwrap();
 
         let entries = db.load_exec("0").await.unwrap();
 

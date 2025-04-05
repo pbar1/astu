@@ -5,18 +5,13 @@ use crate::resolve::Target;
 /// Composite factory for mapping targets to clients at runtime.
 ///
 /// Constituent factories will be iterated until one can build a client.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct DynamicClientFactory {
     factories: Vec<ClientFactoryImpl>,
 }
 
 impl DynamicClientFactory {
-    pub fn new() -> Self {
-        Self {
-            factories: Vec::new(),
-        }
-    }
-
+    #[must_use]
     pub fn with(mut self, factory: impl Into<ClientFactoryImpl>) -> Self {
         self.factories.push(factory.into());
         self

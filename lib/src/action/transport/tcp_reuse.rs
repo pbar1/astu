@@ -26,6 +26,9 @@ pub struct TransportFactory {
 }
 
 impl TransportFactory {
+    /// # Errors
+    ///
+    /// If either of the IPv4 or IPv6 local addresses fail to be reserved.
     pub fn try_new(connect_timeout: Duration) -> Result<Self> {
         let reserved_v4 =
             reserve_socket_v4().context("failed reserving local v4 socket address")?;

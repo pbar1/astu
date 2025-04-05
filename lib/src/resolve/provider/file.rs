@@ -15,7 +15,7 @@ use crate::resolve::Target;
 
 // FIXME: Possibly treat FileResolver specially by injecting a chain
 /// Reads targets from lines in a file.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct FileResolver {
     // FIXME: Use PhantomData to force usage of constructors
 }
@@ -30,10 +30,7 @@ impl Resolve for FileResolver {
 }
 
 impl FileResolver {
-    pub fn new() -> Self {
-        FileResolver {}
-    }
-
+    #[allow(clippy::unused_self)]
     fn resolve_path(&self, path: Utf8PathBuf) -> BoxStream<Result<Target>> {
         try_stream! {
             let file = File::open(&path).await?;
@@ -73,7 +70,7 @@ mod tests {
     #[tokio::test]
     async fn resolve_works(#[case] query: String, #[case] num: usize) {
         let target = Target::from_str(&query).unwrap();
-        let resolver = FileResolver::new();
+        let resolver = FileResolver::default();
         let targets = resolver.resolve_set(target).await;
         assert_eq!(targets.len(), num);
     }

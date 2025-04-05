@@ -18,6 +18,7 @@ const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
 /// # Panics
 ///
 /// If none of the rules succeeds.
+#[must_use]
 pub fn config_dir(name: &str) -> PathBuf {
     let dir = if let Ok(path) = env::var(XDG_CONFIG_HOME) {
         PathBuf::from(path).join(name)
@@ -39,6 +40,7 @@ pub fn config_dir(name: &str) -> PathBuf {
 /// # Panics
 ///
 /// If none of the rules succeeds.
+#[must_use]
 pub fn data_dir(name: &str) -> PathBuf {
     let dir = if let Ok(path) = env::var(XDG_DATA_HOME) {
         PathBuf::from(path).join(name)

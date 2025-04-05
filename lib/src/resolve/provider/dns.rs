@@ -38,6 +38,10 @@ impl Resolve for DnsResolver {
 impl DnsResolver {
     /// Creates a DNS resolver using the system DNS config. Forward resolution
     /// is enabled by default, while reverse resolution is disabled.
+    ///
+    /// # Errors
+    ///
+    /// - If the system resolver config fails to build.
     pub fn try_new() -> Result<Self> {
         // TODO: Use `Ipv4AndIpv6` strategy instead of the default `Ipv4thenIpv6`
         let dns = TokioResolver::builder_tokio()?.build();
@@ -49,12 +53,14 @@ impl DnsResolver {
     }
 
     /// Set forward lookup.
+    #[must_use]
     pub fn with_forward(mut self, enable: bool) -> Self {
         self.forward = enable;
         self
     }
 
     /// Set reverse lookup.
+    #[must_use]
     pub fn with_reverse(mut self, enable: bool) -> Self {
         self.reverse = enable;
         self
@@ -79,7 +85,7 @@ impl DnsResolver {
         try_stream! {
             let names = self.dns.reverse_lookup(ip).await?;
             for ptr in names {
-                let name = remove_trailing_dot(ptr)?;
+                let name = remove_trailing_dot(&ptr)?;
                 yield Target::Domain { name, port }
             }
         }
@@ -87,7 +93,7 @@ impl DnsResolver {
     }
 }
 
-fn remove_trailing_dot(ptr: PTR) -> Result<Name> {
+fn remove_trailing_dot(ptr: &PTR) -> Result<Name> {
     let name = ptr.0.to_string();
     let name = name
         .strip_suffix('.')

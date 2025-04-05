@@ -41,6 +41,9 @@ pub enum DbImpl {
 }
 
 impl DbImpl {
+    /// # Errors
+    ///
+    /// If any db connection fails.
     pub async fn try_new(connection_string: &str) -> Result<Self> {
         if connection_string.contains("sqlite") || connection_string.contains(".db") {
             let db = SqliteDb::try_new(connection_string).await?;

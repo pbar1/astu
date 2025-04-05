@@ -8,6 +8,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use russh::client::Handle;
 use russh::keys::key::PrivateKeyWithHashAlg;
+use russh::keys::HashAlg;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
@@ -31,6 +32,7 @@ pub struct SshClientFactory {
 }
 
 impl SshClientFactory {
+    #[must_use]
     pub fn new(transport: TransportFactoryImpl) -> Self {
         Self { transport }
     }
@@ -61,6 +63,7 @@ pub struct SshClient {
 }
 
 impl SshClient {
+    #[must_use]
     pub fn new(transport: TransportFactoryImpl, target: &Target) -> Self {
         Self {
             transport,
@@ -70,6 +73,9 @@ impl SshClient {
         }
     }
 
+    /// # Errors
+    ///
+    /// If disconnect fails.
     pub async fn close(&mut self) -> Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
@@ -130,6 +136,7 @@ impl Client for SshClient {
 
 /// Helpers for [`Auth`]
 impl SshClient {
+    #[allow(clippy::unused_async)]
     async fn auth_user(&mut self, user: &str) -> anyhow::Result<()> {
         if self.user.is_some() {
             bail!("ssh user is already set");
@@ -212,7 +219,7 @@ impl SshClient {
         let identities = agent.request_identities().await?;
 
         for key in identities {
-            let fingerprint = key.fingerprint(Default::default());
+            let fingerprint = key.fingerprint(HashAlg::default());
             let hash_alg = match key.algorithm() {
                 russh::keys::Algorithm::Rsa { hash } => hash,
                 _else => None,
@@ -224,9 +231,8 @@ impl SshClient {
                 Ok(auth_result) => {
                     if auth_result.success() {
                         return Ok(());
-                    } else {
-                        debug!(%user, key = %fingerprint, "ssh agent auth denied");
                     }
+                    debug!(%user, key = %fingerprint, "ssh agent auth denied");
                 }
                 Err(error) => error!(?error, "ssh agent auth failed"),
             }

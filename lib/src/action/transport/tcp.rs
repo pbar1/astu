@@ -16,6 +16,7 @@ pub struct TransportFactory {
 }
 
 impl TransportFactory {
+    #[must_use]
     pub fn new(connect_timeout: Duration) -> Self {
         Self { connect_timeout }
     }

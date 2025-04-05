@@ -40,6 +40,7 @@ pub struct AsyncStdin {
 impl AsyncStdin {
     /// Creates a new `AsyncStdin` instance and starts a background reader
     /// thread.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel(1024);
 
@@ -122,8 +123,8 @@ async fn main() -> anyhow::Result<()> {
     channel.request_shell(true).await?;
     println!("requested channel shell");
 
+    println!("enabling raw mode");
     crossterm::terminal::enable_raw_mode()?;
-    println!("raw mode enabled");
 
     let code;
     let mut stdin = AsyncStdin::new();
@@ -169,12 +170,8 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    println!("broke out of interactive loop, exit code = {code}");
-
     crossterm::terminal::disable_raw_mode()?;
-    // TODO: gets printed far to the right - may be because println is being used in
-    // raw
-    println!("disabled raw mode");
+    println!("broke out of interactive loop, exit code = {code}");
 
     Ok(())
 }

@@ -13,7 +13,7 @@ use crate::resolve::Target;
 ///
 /// If none of the constituent resolvers can resolve a given target, that target
 /// itself is returned.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ChainResolver {
     resolvers: Vec<Arc<dyn Resolve + Send + Sync>>,
 }
@@ -44,12 +44,7 @@ impl Resolve for ChainResolver {
 }
 
 impl ChainResolver {
-    pub fn new() -> Self {
-        ChainResolver {
-            resolvers: Vec::new(),
-        }
-    }
-
+    #[must_use]
     pub fn with(mut self, resolver: impl Resolve + Send + Sync + 'static) -> Self {
         self.resolvers.push(Arc::new(resolver));
         self
@@ -63,8 +58,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::resolve::CidrResolver;
-    use crate::resolve::DnsResolver;
+    use crate::resolve::provider::CidrResolver;
+    use crate::resolve::provider::DnsResolver;
     use crate::resolve::ResolveExt;
 
     #[rstest]
@@ -74,8 +69,8 @@ mod tests {
     #[tokio::test]
     async fn resolve_works(#[case] query: &str, #[case] num: usize) {
         let target = Target::from_str(query).unwrap();
-        let resolver = ChainResolver::new()
-            .with(CidrResolver::new())
+        let resolver = ChainResolver::default()
+            .with(CidrResolver::default())
             .with(DnsResolver::try_new().unwrap());
         let targets = resolver.resolve_set(target).await;
         dbg!(&targets);

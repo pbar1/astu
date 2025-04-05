@@ -3,14 +3,8 @@ use async_trait::async_trait;
 
 use crate::resolve::Target;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct TransportFactory {}
-
-impl TransportFactory {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 #[async_trait]
 impl super::TransportFactory for TransportFactory {

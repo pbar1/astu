@@ -11,6 +11,7 @@ pub mod tcp;
 pub mod tcp_reuse;
 
 /// Bytestream transports that will be used by clients to connect to targets.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Transport {
     /// No stream, will be handled by the client.

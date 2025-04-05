@@ -28,7 +28,9 @@ impl ConnectionArgs {
         let c_tcp = client::TcpClientFactory::new(t_tcp.clone().into());
 
         // Mapper
-        let mapper = client::DynamicClientFactory::new().with(c_ssh).with(c_tcp);
+        let mapper = client::DynamicClientFactory::default()
+            .with(c_ssh)
+            .with(c_tcp);
         Ok(mapper)
     }
 }

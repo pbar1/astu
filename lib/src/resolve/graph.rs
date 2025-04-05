@@ -8,18 +8,14 @@ use crate::resolve::Target;
 
 // TODO: Consider using ArenaIntern to release targets on drop
 /// Directed graph of unique targets.
+#[derive(Debug, Default)]
 pub struct TargetGraph {
     graph: DiGraphMap<Intern<Target>, ()>,
 }
 
 impl TargetGraph {
-    /// Create an empty target graph.
-    pub fn new() -> Self {
-        let graph = DiGraphMap::<Intern<Target>, ()>::new();
-        Self { graph }
-    }
-
     /// Access the inner graph.
+    #[must_use]
     pub fn inner(&self) -> &DiGraphMap<Intern<Target>, ()> {
         &self.graph
     }
@@ -40,12 +36,14 @@ impl TargetGraph {
         self.graph.add_edge(parent, child, ());
     }
 
+    #[must_use]
     pub fn nodes(&self) -> Vec<Intern<Target>> {
         self.graph.nodes().collect()
     }
 
     /// Get all of the targets that are leaf nodes (ie, targets that have no
     /// further children).
+    #[must_use]
     pub fn leaf_targets(&self) -> Vec<Intern<Target>> {
         self.graph
             .node_references()
@@ -59,6 +57,7 @@ impl TargetGraph {
             .collect()
     }
 
+    #[must_use]
     pub fn graphviz(&self) -> String {
         format!(
             "{:?}",
@@ -75,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_leaf_nodes() {
-        let mut g = TargetGraph::new();
+        let mut g = TargetGraph::default();
 
         let parent = Target::from_str("10.0.0.0/24").unwrap().intern();
         let child1 = Target::from_str("10.0.0.1").unwrap().intern();

@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use astu::resolve::forward_chain;
-use astu::resolve::reverse_chain;
+use astu::resolve::provider::forward_chain;
+use astu::resolve::provider::reverse_chain;
 use astu::resolve::ResolveExt;
 use astu::resolve::Target;
 use astu::resolve::TargetGraph;
@@ -27,7 +27,7 @@ impl ResolutionArgs {
     pub async fn _graph(self) -> anyhow::Result<TargetGraph> {
         let chain = forward_chain()?;
 
-        let mut graph = TargetGraph::new();
+        let mut graph = TargetGraph::default();
         for target in self.targets {
             chain.resolve_into_graph(target, &mut graph).await;
         }
@@ -39,7 +39,7 @@ impl ResolutionArgs {
         let fwd = forward_chain()?;
         let rev = reverse_chain()?;
 
-        let mut graph = TargetGraph::new();
+        let mut graph = TargetGraph::default();
         for target in self.targets {
             fwd.resolve_into_graph(target, &mut graph).await;
         }
