@@ -167,7 +167,7 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "astu"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -199,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "astu-cli"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "astu",
