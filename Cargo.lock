@@ -188,6 +188,9 @@ dependencies = [
  "rstest",
  "russh",
  "sonyflake",
+ "sqlx",
+ "tabled",
+ "tempfile",
  "tokio",
  "tracing",
  "uuid",
@@ -200,7 +203,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "astu",
- "astu-db",
  "camino",
  "clap",
  "enum_dispatch",
@@ -211,23 +213,6 @@ dependencies = [
  "tracing-glog",
  "tracing-indicatif",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "astu-db"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bon",
- "enum_dispatch",
- "futures",
- "rstest",
- "sqlx",
- "tabled",
- "tempfile",
- "tokio",
- "tracing",
 ]
 
 [[package]]

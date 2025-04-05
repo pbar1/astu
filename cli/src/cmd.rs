@@ -3,10 +3,10 @@ mod ping;
 mod resolve;
 
 use anyhow::Result;
+use astu::db::DbImpl;
 use astu::util::id::Id;
 use astu::util::id::IdGenerator;
 use astu::util::id::SonyflakeGenerator;
-use astu_db::DbImpl;
 use clap::Parser;
 use clap::Subcommand;
 use enum_dispatch::enum_dispatch;

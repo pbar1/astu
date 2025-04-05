@@ -8,4 +8,4 @@
 
 ---
 
-[Contributing](./developing.md)
+[Developing](./developing.md)

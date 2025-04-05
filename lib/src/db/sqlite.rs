@@ -9,9 +9,9 @@ use sqlx::sqlite::SqlitePool;
 use sqlx::sqlite::SqlitePoolOptions;
 use tracing::error;
 
-use crate::Db;
-use crate::ExecEntry;
-use crate::PingEntry;
+use super::Db;
+use super::ExecEntry;
+use super::PingEntry;
 
 /// SQLite persistence layer.
 #[derive(Debug, Clone, Builder)]

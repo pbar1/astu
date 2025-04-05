@@ -27,7 +27,11 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
 whoami = "1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "derive"] }
+tabled = "0.18.0"
 
 [dev-dependencies]
-rstest = "0.25"
 crossterm = { version = "0.28" }
+rstest = "0.25"
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }

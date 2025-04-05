@@ -8,7 +8,6 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 astu = { path = "../lib" }
-astu-db = { path = "../db" }
 camino = { version = "1.1.9", default-features = false }
 clap = { version = "4", features = ["derive", "env"] }
 enum_dispatch = "0.3"

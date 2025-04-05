@@ -3,5 +3,6 @@
 #![allow(async_fn_in_trait)]
 
 pub mod action;
+pub mod db;
 pub mod resolve;
 pub mod util;
