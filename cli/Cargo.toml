@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 description = "Remote execution multitool"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/pbar1/astu"
 
 [[bin]]
 name = "astu"

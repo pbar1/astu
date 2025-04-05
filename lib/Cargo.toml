@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 description = "Astu library"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/pbar1/astu"
 
 [dependencies]
 anyhow = "1"
