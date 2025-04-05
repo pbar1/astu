@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use astu_resolve::forward_chain;
-use astu_resolve::reverse_chain;
-use astu_resolve::ResolveExt;
-use astu_resolve::Target;
-use astu_resolve::TargetGraph;
+use astu::resolve::forward_chain;
+use astu::resolve::reverse_chain;
+use astu::resolve::ResolveExt;
+use astu::resolve::Target;
+use astu::resolve::TargetGraph;
 use clap::Args;
 
 const HEADING: Option<&str> = Some("Target Resolution Options");

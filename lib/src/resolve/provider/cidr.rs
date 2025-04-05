@@ -3,8 +3,8 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use ipnet::IpNet;
 
-use crate::Resolve;
-use crate::Target;
+use crate::resolve::Resolve;
+use crate::resolve::Target;
 
 /// Expands CIDR blocks into targets.
 #[derive(Debug, Clone, Copy)]
@@ -39,7 +39,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::ResolveExt;
+    use crate::resolve::ResolveExt;
 
     #[rstest]
     #[case("127.0.0.1/32", 1)]

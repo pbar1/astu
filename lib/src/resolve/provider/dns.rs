@@ -11,8 +11,8 @@ use hickory_resolver::proto::rr::rdata::PTR;
 use hickory_resolver::Name;
 use hickory_resolver::TokioResolver;
 
-use crate::Resolve;
-use crate::Target;
+use crate::resolve::Resolve;
+use crate::resolve::Target;
 
 /// Resolves DNS queries - both forward and reverse - into targets.
 #[derive(Debug, Clone)]
@@ -103,7 +103,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::ResolveExt;
+    use crate::resolve::ResolveExt;
 
     #[rstest]
     #[case("localhost")]

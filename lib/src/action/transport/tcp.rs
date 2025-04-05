@@ -3,10 +3,11 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use astu_resolve::Target;
 use async_trait::async_trait;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
+
+use crate::resolve::Target;
 
 /// Factory that builds TCP connections.
 #[derive(Debug, Clone, Copy)]

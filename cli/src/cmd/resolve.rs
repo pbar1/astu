@@ -1,6 +1,6 @@
 use anyhow::Result;
+use astu::util::id::Id;
 use astu_db::DbImpl;
-use astu_util::id::Id;
 use clap::Args;
 
 use crate::argetype::ResolutionArgs;

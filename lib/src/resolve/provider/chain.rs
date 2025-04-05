@@ -6,8 +6,8 @@ use async_stream::stream;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 
-use crate::Resolve;
-use crate::Target;
+use crate::resolve::Resolve;
+use crate::resolve::Target;
 
 /// Composite resolver that flattens the streams of a set of resolvers into one.
 ///
@@ -63,9 +63,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::CidrResolver;
-    use crate::DnsResolver;
-    use crate::ResolveExt;
+    use crate::resolve::CidrResolver;
+    use crate::resolve::DnsResolver;
+    use crate::resolve::ResolveExt;
 
     #[rstest]
     #[case("127.0.0.1", 1)]

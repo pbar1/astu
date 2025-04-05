@@ -1,23 +1,33 @@
 [package]
-name = "astu-resolve"
+name = "astu"
 version = "0.1.0"
 edition = "2021"
-description = "astu resolvers"
+description = "Astu library"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
 async-stream = "0.3"
+async-trait = "0.1"
+base32 = "0.5"
 bon = "3"
+bstr = { version = "1", default-features = false }
 camino = "1"
+dirs = { version = "6", default-features = false }
+enum_dispatch = "0.3"
 fluent-uri = { version = "0.3", features = ["net"] }
 futures = "0.3"
 hickory-resolver = "0.25"
 internment = "0.8"
 ipnet = "2"
 petgraph = "0.7"
+russh = "0.51"
+sonyflake = "0.3"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
+uuid = { version = "1", features = ["v7"] }
+whoami = "1"
 
 [dev-dependencies]
 rstest = "0.25"
+crossterm = { version = "0.28" }

@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use astu_resolve::DnsResolver;
-use astu_resolve::ResolveExt;
-use astu_resolve::Target;
-use astu_resolve::TargetGraph;
+use astu::resolve::DnsResolver;
+use astu::resolve::ResolveExt;
+use astu::resolve::Target;
+use astu::resolve::TargetGraph;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

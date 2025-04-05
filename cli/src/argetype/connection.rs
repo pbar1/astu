@@ -1,6 +1,6 @@
 use anyhow::Result;
-use astu_action::client;
-use astu_action::transport;
+use astu::action::client;
+use astu::action::transport;
 use clap::Args;
 use humantime::Duration;
 

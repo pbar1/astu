@@ -4,8 +4,8 @@ use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 
-use crate::Target;
-use crate::TargetGraph;
+use crate::resolve::Target;
+use crate::resolve::TargetGraph;
 
 /// Map targets to targets.
 ///

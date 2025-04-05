@@ -5,10 +5,11 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use astu_resolve::Target;
 use async_trait::async_trait;
 use tokio::net::TcpSocket;
 use tokio::time::timeout;
+
+use crate::resolve::Target;
 
 /// Factory that builds TCP connections all sharing a local address.
 ///

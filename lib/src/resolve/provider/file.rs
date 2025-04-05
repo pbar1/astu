@@ -10,8 +10,8 @@ use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tracing::debug;
 
-use crate::Resolve;
-use crate::Target;
+use crate::resolve::Resolve;
+use crate::resolve::Target;
 
 // FIXME: Possibly treat FileResolver specially by injecting a chain
 /// Reads targets from lines in a file.
@@ -61,7 +61,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::ResolveExt;
+    use crate::resolve::ResolveExt;
 
     fn testfile(file: &str) -> String {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");

@@ -4,7 +4,7 @@ use petgraph::dot::Dot;
 use petgraph::prelude::DiGraphMap;
 use petgraph::visit::IntoNodeReferences;
 
-use crate::target::Target;
+use crate::resolve::Target;
 
 // TODO: Consider using ArenaIntern to release targets on drop
 /// Directed graph of unique targets.

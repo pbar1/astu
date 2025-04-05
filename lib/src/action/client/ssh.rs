@@ -5,7 +5,6 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use astu_resolve::Target;
 use async_trait::async_trait;
 use russh::client::Handle;
 use russh::keys::key::PrivateKeyWithHashAlg;
@@ -13,14 +12,15 @@ use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::error;
 
-use crate::transport::Transport;
-use crate::transport::TransportFactory;
-use crate::transport::TransportFactoryImpl;
-use crate::AuthType;
-use crate::Client;
-use crate::ClientFactory;
-use crate::ClientImpl;
-use crate::ExecOutput;
+use crate::action::transport::Transport;
+use crate::action::transport::TransportFactory;
+use crate::action::transport::TransportFactoryImpl;
+use crate::action::AuthType;
+use crate::action::Client;
+use crate::action::ClientFactory;
+use crate::action::ClientImpl;
+use crate::action::ExecOutput;
+use crate::resolve::Target;
 
 // Factory --------------------------------------------------------------------
 
@@ -320,7 +320,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::transport;
+    use crate::action::transport;
 
     #[rstest]
     #[case("10.0.0.54:22", "nixos")]
