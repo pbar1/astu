@@ -186,7 +186,7 @@ fn display_ssh(addr: &std::net::SocketAddr, user: Option<&String>) -> String {
 
 impl Target {
     /// Interns the target. This is so it can implement [`Copy`] for use with
-    /// [`crate::TargetGraph`].
+    /// the target graph.
     #[must_use]
     pub fn intern(self) -> Intern<Self> {
         self.into()

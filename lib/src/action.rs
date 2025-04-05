@@ -48,7 +48,7 @@ pub enum ClientFactoryImpl {
     Ssh(client::SshClientFactory),
 }
 
-/// Assortment of auth payloads that can be used with [`Auth`].
+/// Assortment of auth payloads that can be used with auth.
 #[derive(Debug, Clone)]
 pub enum AuthType {
     User(String),
@@ -58,7 +58,7 @@ pub enum AuthType {
     SshAgent { socket: String },
 }
 
-/// Output of a command run by [`Exec`].
+/// Output of a command run by exec.
 #[derive(Clone)]
 pub struct ExecOutput {
     pub exit_status: u32,

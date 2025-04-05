@@ -5,6 +5,10 @@ edition = "2021"
 description = "Remote execution multitool"
 license = "MIT OR Apache-2.0"
 
+[[bin]]
+name = "astu"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 astu = { path = "../lib" }
