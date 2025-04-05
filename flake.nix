@@ -2,7 +2,7 @@
   description = "Nix flake to cross-compile Rust projects";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     fenix.url = "github:nix-community/fenix";
     naersk.url = "github:nix-community/naersk";
 
@@ -123,10 +123,18 @@
             cargo = toolchain;
             rustc = toolchain;
           };
+
+          # Must specify package attributes explicity for Naersk
+          # https://github.com/nix-community/naersk/issues/347#issuecomment-2660721939
+          cargoAstuCli = builtins.fromTOML (builtins.readFile ./cli/Cargo.toml);
         in
         naersk'.buildPackage (
           buildPackageAttrs
           // rec {
+            name = cargoAstuCli.package.name;
+            pname = "astu"; # TODO: Resolve this from the [[bin]] table
+            version = cargoAstuCli.package.version;
+
             src = ./.;
             strictDeps = true;
             doCheck = false;
