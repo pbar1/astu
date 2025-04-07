@@ -9,7 +9,9 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 
 pub use self::graph::TargetGraph;
+pub use self::target::Host;
 pub use self::target::Target;
+pub use self::target::TargetKind;
 
 /// Map targets to targets.
 ///

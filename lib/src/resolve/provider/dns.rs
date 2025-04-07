@@ -1,5 +1,4 @@
 use std::net::IpAddr;
-use std::net::SocketAddr;
 use std::str::FromStr;
 
 use anyhow::Context;
@@ -11,6 +10,7 @@ use hickory_resolver::proto::rr::rdata::PTR;
 use hickory_resolver::Name;
 use hickory_resolver::TokioResolver;
 
+use crate::resolve::Host;
 use crate::resolve::Resolve;
 use crate::resolve::Target;
 
@@ -26,10 +26,11 @@ impl Resolve for DnsResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         let fwd = self.forward;
         let rev = self.reverse;
-        match target {
-            Target::Domain { name, port } if fwd => self.resolve_domain(name, port),
-            Target::IpAddr(ip) if rev => self.resolve_ip(ip, None),
-            Target::SocketAddr(sock) if rev => self.resolve_ip(sock.ip(), Some(sock.port())),
+        let port = target.port();
+        match target.host() {
+            Some(Host::Domain(name)) if fwd => self.resolve_domain(name, port),
+            Some(Host::Ipv4(ip)) if rev => self.resolve_ip(ip.into(), None),
+            Some(Host::Ipv6(ip)) if rev => self.resolve_ip(ip.into(), None),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
@@ -67,13 +68,13 @@ impl DnsResolver {
     }
 
     /// Forward DNS resolution
-    fn resolve_domain(&self, name: Name, port: Option<u16>) -> BoxStream<Result<Target>> {
+    fn resolve_domain(&self, name: String, port: Option<u16>) -> BoxStream<Result<Target>> {
         try_stream! {
             let ips = self.dns.lookup_ip(name).await?;
             for ip in ips {
                 yield match port {
-                    Some(port) => Target::from(SocketAddr::new(ip, port)),
-                    None => Target::from(ip),
+                    Some(port) => Target::from_str(&format!("ip://{ip}:{port}"))?,
+                    None => Target::from_str(&format!("ip://{ip}"))?,
                 }
             }
         }
@@ -86,7 +87,10 @@ impl DnsResolver {
             let names = self.dns.reverse_lookup(ip).await?;
             for ptr in names {
                 let name = remove_trailing_dot(&ptr)?;
-                yield Target::Domain { name, port }
+                yield match port {
+                    Some(port) => Target::from_str(&format!("dns://{name}:{port}"))?,
+                    None => Target::from_str(&format!("dns://{name}"))?,
+                }
             }
         }
         .boxed()

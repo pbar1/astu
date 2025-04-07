@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
@@ -14,8 +16,9 @@ pub struct CidrResolver {
 
 impl Resolve for CidrResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
-        match target {
-            Target::Cidr(cidr) => self.resolve_cidr(cidr),
+        let port = target.port();
+        match target.cidr() {
+            Some(cidr) => self.resolve_cidr(cidr, port),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
@@ -23,8 +26,14 @@ impl Resolve for CidrResolver {
 
 impl CidrResolver {
     #[allow(clippy::unused_self)]
-    fn resolve_cidr(&self, cidr: IpNet) -> BoxStream<Result<Target>> {
-        let ips = cidr.hosts().map(|ip| Ok(Target::from(ip)));
+    fn resolve_cidr(&self, cidr: IpNet, port: Option<u16>) -> BoxStream<Result<Target>> {
+        let ips = cidr.hosts().map(move |ip| {
+            let s = match port {
+                Some(port) => format!("ip://{ip}:{port}"),
+                None => format!("ip://{ip}"),
+            };
+            Target::from_str(&s)
+        });
         futures::stream::iter(ips).boxed()
     }
 }

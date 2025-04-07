@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -25,10 +24,10 @@ impl TransportFactory {
 #[async_trait]
 impl super::TransportFactory for TransportFactory {
     async fn setup(&self, target: &Target) -> Result<super::Transport> {
-        let addr = match target {
-            Target::SocketAddr(addr) => *addr,
-            unsupported => bail!("TcpTransportFactory: unsupported target: {unsupported}"),
-        };
+        let addr = target
+            .socket_addr()
+            .with_context(|| format!("unsupported target: {target}"))?;
+
         let tcp = timeout(self.connect_timeout, TcpStream::connect(addr))
             .await
             .context("TCP connect timed out")?

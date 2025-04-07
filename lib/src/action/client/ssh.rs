@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -40,12 +39,8 @@ impl SshClientFactory {
 
 impl ClientFactory for SshClientFactory {
     fn client(&self, target: &Target) -> Option<ClientImpl> {
-        let client = match target {
-            Target::IpAddr(ip) => {
-                let target = Target::from(SocketAddr::new(*ip, 22));
-                SshClient::new(self.transport.clone(), &target)
-            }
-            Target::SocketAddr(_) => SshClient::new(self.transport.clone(), target),
+        let client = match target.socket_addr() {
+            Some(_addr) => SshClient::new(self.transport.clone(), target),
             _other => return None,
         };
         Some(client.into())

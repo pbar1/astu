@@ -1,8 +1,8 @@
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Result;
 use async_stream::try_stream;
-use camino::Utf8PathBuf;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use tokio::fs::File;
@@ -22,8 +22,8 @@ pub struct FileResolver {
 
 impl Resolve for FileResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
-        match target {
-            Target::File(path) => self.resolve_path(path),
+        match target.path() {
+            Some(path) => self.resolve_path(path),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
@@ -31,9 +31,9 @@ impl Resolve for FileResolver {
 
 impl FileResolver {
     #[allow(clippy::unused_self)]
-    fn resolve_path(&self, path: Utf8PathBuf) -> BoxStream<Result<Target>> {
+    fn resolve_path(&self, path: PathBuf) -> BoxStream<Result<Target>> {
         try_stream! {
-            let file = File::open(&path).await?;
+            let file = File::open(path).await?;
             let file = BufReader::new(file);
             let mut lines = file.lines();
 
@@ -43,7 +43,7 @@ impl FileResolver {
                 }
                 match Target::from_str(&line) {
                     Ok(target) => yield target,
-                    Err(error) => debug!(?error, %path, "FileResolver: error parsing line"),
+                    Err(error) => debug!(?error, %line, "FileResolver: error parsing line"),
                 }
             }
         }

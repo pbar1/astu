@@ -33,8 +33,8 @@ impl TcpClientFactory {
 
 impl ClientFactory for TcpClientFactory {
     fn client(&self, target: &Target) -> Option<ClientImpl> {
-        let client = match target {
-            Target::SocketAddr(_) => TcpClient::new(self.transport.clone(), target),
+        let client = match target.socket_addr() {
+            Some(_addr) => TcpClient::new(self.transport.clone(), target),
             _other => return None,
         };
         Some(client.into())

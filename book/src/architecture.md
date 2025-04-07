@@ -25,6 +25,34 @@ hosts.txt      -> file:///abs/path/hosts.txt
 example.com    -> dns:///example.com
 ```
 
+Big dump:
+
+```
+ip://127.0.0.1
+ip://127.0.0.1:22
+ip://user@127.0.0.1:22
+ip://[::]
+ip://[::]:22
+ip://user@[::]:22
+cidr://127.0.0.1/31
+cidr://127.0.0.1:22/31
+cidr://user@127.0.0.1:22/31
+tcp://127.0.0.1:22
+ssh://127.0.0.1
+ssh://127.0.0.1:22
+ssh://user@127.0.0.1
+file:relative.txt
+file:///absolute.txt
+dns://localhost
+dns://localhost:22
+dns://user@localhost:22
+k8s:coredns-ff8999cc5-x56jw
+k8s:coredns-ff8999cc5-x56jw#coredns
+k8s:kube-system/coredns-ff8999cc5-x56jw
+k8s:kube-system/coredns-ff8999cc5-x56jw#coredns
+k8s://user@default/kube-system/coredns-ff8999cc5-x56jw#coredns
+```
+
 Sources of well-known URI schemes:
 
 - [gRPC Name Resolution][uri_grpc]
