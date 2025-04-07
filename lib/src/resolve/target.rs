@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fs::File;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;

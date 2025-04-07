@@ -61,8 +61,14 @@ impl TargetGraph {
     pub fn graphviz(&self) -> String {
         format!(
             "{:?}",
-            Dot::with_config(&self.graph, &[Config::EdgeNoLabel])
+            Dot::with_attr_getters(
+                &self.graph,
+                &[Config::EdgeNoLabel, Config::NodeNoLabel],
+                &|_, _| String::new(),
+                &|_, node| format!("label=\"{}\"", node.0),
+            )
         )
+        .replace("digraph {\n", "digraph {\n    rankdir=LR;\n")
     }
 }
 
