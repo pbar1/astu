@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fs::File;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
@@ -6,6 +7,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::bail;
 use anyhow::Context;
 use fluent_uri::Uri;
 use internment::Intern;
@@ -139,15 +141,56 @@ impl fmt::Display for Target {
     }
 }
 
+// Conversions
+
+impl Target {
+    /// # Errors
+    ///
+    /// If the string does not conform to any of the supported short forms.
+    pub fn parse_short_form(s: &str) -> anyhow::Result<Self> {
+        let target = if let Ok(value) = IpAddr::from_str(s) {
+            Self::from(value)
+        } else if let Ok(value) = SocketAddr::from_str(s) {
+            Self::from(value)
+        } else if let Ok(value) = IpNet::from_str(s) {
+            Self::from(value)
+        } else {
+            bail!("Unsupported target short form: {s}");
+        };
+        Ok(target)
+    }
+}
+
 impl FromStr for Target {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(target) = Self::parse_short_form(s) {
+            return Ok(target);
+        }
+
         let uri = Uri::from_str(s).with_context(|| format!("Failed to parse as URI: {s}"))?;
-        // dbg!(&uri);
         let kind = TargetKind::from_str(uri.scheme().as_str())
             .with_context(|| format!("URI not supported: {s}"))?;
         Ok(Target { uri, kind })
+    }
+}
+
+impl From<IpAddr> for Target {
+    fn from(value: IpAddr) -> Self {
+        Self::from_str(&format!("ip://{value}")).expect("URI invariant not upheld")
+    }
+}
+
+impl From<SocketAddr> for Target {
+    fn from(value: SocketAddr) -> Self {
+        Self::from_str(&format!("ip://{value}")).expect("URI invariant not upheld")
+    }
+}
+
+impl From<IpNet> for Target {
+    fn from(value: IpNet) -> Self {
+        Self::from_str(&format!("cidr://{value}")).expect("URI invariant not upheld")
     }
 }
 
