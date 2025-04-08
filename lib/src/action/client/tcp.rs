@@ -88,6 +88,7 @@ impl Client for TcpClient {
 
         let mut output = Vec::new();
         reader.read_until(b'\n', &mut output).await?;
+        let output = output.trim_ascii().to_owned();
 
         self.stream = Some(reader.into_inner());
 
