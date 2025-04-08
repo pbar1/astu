@@ -52,6 +52,78 @@ digraph {
 }
 ```
 
+## Target Types
+
+For each target type, the URI and short forms will be given along with some
+examples.
+
+### IP
+
+Internet Protocol (IP) address.
+
+- URI form: `ip://[user@]<ip>[:port]`
+  - `ip://127.0.0.1`
+  - `ip://root@127.0.0.1:22`
+  - `ip://[::1]`
+  - `ip://root@[::1]:22`
+- Short form: `<ip>[:port]`
+  - `127.0.0.1`
+  - `127.0.0.1:22`
+  - `::1`
+  - `[::1]:22`
+
+### CIDR
+
+Classless Inter-Domain Routing (CIDR) block.
+
+- URI form: `cidr://[user@]<ip>[:port]/<prefix>`
+  - `cidr://127.0.0.0/32`
+  - `cidr://root@127.0.0.0:22/32`
+  - `cidr://[::1]/128`
+  - `cidr://root@[::1]:22/128`
+- Short form: `<ip>/<prefix>`
+  - `127.0.0.0/24`
+  - `::1/128`
+
+### DNS
+
+Domain Name System (DNS) record.
+
+- URI form: `dns://[user@]<name>[:port]`
+  - `dns://localhost`
+  - `dns://root@localhost:22`
+- Short form: n/a
+
+### SSH
+
+Secure Shell (SSH) address.
+
+- URI form: `ssh://[user@]<host>[:port]`
+  - `ssh://127.0.0.1`
+  - `ssh://localhost`
+  - `ssh://root@localhost:2222`
+- Short form: n/a
+
+### TCP
+
+Essentially an alias for IP.
+
+### File
+
+Local file.
+
+- URI form: `file://<abs_or_rel_path>` or `file:<rel_path_only>`
+  - `file:///absolute/file.txt`
+  - `file://relative/file.txt`
+  - `file:relative/file.txt`
+- Short form: `<path>` (if path exists locally)
+  - `/absolute/file.txt`
+  - `relative/file.txt`
+
+### Kubernetes
+
+TODO
+
 <!-- Links -->
 
 [uri_grpc]: https://github.com/grpc/grpc/blob/ac90ebd310955024a188712b5231575e40dffcc5/doc/naming.md#detailed-design
