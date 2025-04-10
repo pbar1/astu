@@ -282,25 +282,27 @@ mod tests {
 
     #[rustfmt::skip::attributes(case)]
     #[rstest]
-    #[case("k8s:kube-system",                                  Some("kube-system"), None,              None,            None, None)]
-    #[case("k8s:kube-system/coredns-0",                        Some("kube-system"), Some("coredns-0"), None,            None, None)]
-    #[case("k8s:kube-system/coredns-0#coredns",                Some("kube-system"), Some("coredns-0"), Some("coredns"), None, None)]
-    #[case("k8s:///kube-system",                               Some("kube-system"), None,              None,            None, None)]
-    #[case("k8s:///kube-system/coredns-0",                     Some("kube-system"), Some("coredns-0"), None,            None, None)]
-    #[case("k8s:///kube-system/coredns-0#coredns",             Some("kube-system"), Some("coredns-0"), Some("coredns"), None, None)]
-    #[case("k8s://cluster/kube-system/coredns-0#coredns",      Some("kube-system"), Some("coredns-0"), Some("coredns"), Some("cluster"), None)]
-    #[case("k8s://user@cluster/kube-system/coredns-0#coredns", Some("kube-system"), Some("coredns-0"), Some("coredns"), Some("cluster"), Some("user"))]
+    #[case("k8s:kube-system",                                  "kube-system", None,        None,      None, None)]
+    #[case("k8s:kube-system/coredns-0",                        "kube-system", "coredns-0", None,      None, None)]
+    #[case("k8s:kube-system/coredns-0#coredns",                "kube-system", "coredns-0", "coredns", None, None)]
+    #[case("k8s:///kube-system",                               "kube-system", None,        None,      None, None)]
+    #[case("k8s:///kube-system/coredns-0",                     "kube-system", "coredns-0", None,      None, None)]
+    #[case("k8s:///kube-system/coredns-0#coredns",             "kube-system", "coredns-0", "coredns", None, None)]
+    #[case("k8s://cluster/kube-system/coredns-0#coredns",      "kube-system", "coredns-0", "coredns", "cluster", None)]
+    #[case("k8s://user@cluster/kube-system/coredns-0#coredns", "kube-system", "coredns-0", "coredns", "cluster", "user")]
     fn target_k8s_works(
         #[case] input: &str,
-        #[case] namespace: Option<&str>,
-        #[case] resource: Option<&str>,
-        #[case] container: Option<&str>,
-        #[case] cluster: Option<&str>,
-        #[case] user: Option<&str>,
+        #[case] namespace: impl Into<Option<&'static str>>,
+        #[case] resource: impl Into<Option<&'static str>>,
+        #[case] container: impl Into<Option<&'static str>>,
+        #[case] cluster: impl Into<Option<&'static str>>,
+        #[case] user: impl Into<Option<&'static str>>,
     ) {
-        let namespace = namespace.map(ToOwned::to_owned);
-        let resource = resource.map(ToOwned::to_owned);
-        let container = container.map(ToOwned::to_owned);
+        let namespace = namespace.into().map(ToOwned::to_owned);
+        let resource = resource.into().map(ToOwned::to_owned);
+        let container = container.into().map(ToOwned::to_owned);
+        let cluster = cluster.into();
+        let user = user.into();
 
         let target = Target::from_str(input).unwrap();
 
