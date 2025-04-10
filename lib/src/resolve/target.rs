@@ -257,80 +257,40 @@ mod tests {
 
     use super::*;
 
+    #[rustfmt::skip::attributes(case)]
     #[rstest]
-    #[case::ipv4("127.0.0.1", "ip://127.0.0.1")]
-    #[case::ipv6("::1", "ip://[::1]")]
-    #[case::sock4("127.0.0.1:22", "ip://127.0.0.1:22")]
-    #[case::sock6("[::1]:22", "ip://[::1]:22")]
-    #[case::net4("0.0.0.0/0", "cidr://0.0.0.0/0")]
-    #[case::net6("::/0", "cidr://[::]/0")]
-    #[case::domain("localhost", "dns://localhost")]
-    #[case::domain("dns://domain.test", "dns://domain.test")]
-    #[case::domainport("localhost:22", "dns://localhost:22")]
-    #[case::domainport("dns://domain.test:22", "dns://domain.test:22")]
-    #[case::ssh("ssh://127.0.0.1", "ssh://127.0.0.1")]
-    #[case::ssh("ssh://user@127.0.0.1", "ssh://user@127.0.0.1")]
-    // #[case::sshport("ssh://[::1]:22", "ssh://[::1]")]
-    #[case::sshport("ssh://[::1]:2222", "ssh://[::1]:2222")]
-    #[case::sshport("ssh://user@[::1]:2222", "ssh://user@[::1]:2222")]
+    #[case("127.0.0.1"            , "ip://127.0.0.1")]
+    #[case("::1"                  , "ip://[::1]")]
+    #[case("127.0.0.1:22"         , "ip://127.0.0.1:22")]
+    #[case("[::1]:22"             , "ip://[::1]:22")]
+    #[case("0.0.0.0/0"            , "cidr://0.0.0.0/0")]
+    #[case("::/0"                 , "cidr://[::]/0")]
+    #[case("localhost"            , "dns://localhost")]
+    #[case("dns://domain.test"    , "dns://domain.test")]
+    #[case("localhost:22"         , "dns://localhost:22")]
+    #[case("dns://domain.test:22" , "dns://domain.test:22")]
+    #[case("ssh://127.0.0.1"      , "ssh://127.0.0.1")]
+    #[case("ssh://user@127.0.0.1" , "ssh://user@127.0.0.1")]
+    // #[case("ssh://[::1]:22"       , "ssh://[::1]")]
+    #[case("ssh://[::1]:2222"     , "ssh://[::1]:2222")]
+    #[case("ssh://user@[::1]:2222", "ssh://user@[::1]:2222")]
     fn target_roundtrip(#[case] input: &str, #[case] should: &str) {
         let target = Target::from_str(input).unwrap();
         let output = target.to_string();
         assert_eq!(output, should);
     }
 
+    #[rustfmt::skip::attributes(case)]
     #[rstest]
-    #[case("k8s:kube-system", Some("kube-system"), None, None, None, None)]
-    #[case(
-        "k8s:kube-system/coredns-0",
-        Some("kube-system"),
-        Some("coredns-0"),
-        None,
-        None,
-        None
-    )]
-    #[case(
-        "k8s:kube-system/coredns-0#coredns",
-        Some("kube-system"),
-        Some("coredns-0"),
-        Some("coredns"),
-        None,
-        None
-    )]
-    #[case("k8s:///kube-system", Some("kube-system"), None, None, None, None)]
-    #[case(
-        "k8s:///kube-system/coredns-0",
-        Some("kube-system"),
-        Some("coredns-0"),
-        None,
-        None,
-        None
-    )]
-    #[case(
-        "k8s:///kube-system/coredns-0#coredns",
-        Some("kube-system"),
-        Some("coredns-0"),
-        Some("coredns"),
-        None,
-        None
-    )]
-    #[case(
-        "k8s://cluster/kube-system/coredns-0#coredns",
-        Some("kube-system"),
-        Some("coredns-0"),
-        Some("coredns"),
-        Some("cluster"),
-        None
-    )]
-    #[case(
-        "k8s://user@cluster/kube-system/coredns-0#coredns",
-        Some("kube-system"),
-        Some("coredns-0"),
-        Some("coredns"),
-        Some("cluster"),
-        Some("user")
-    )]
-    fn target_k8s(
+    #[case("k8s:kube-system",                                  Some("kube-system"), None,              None,            None, None)]
+    #[case("k8s:kube-system/coredns-0",                        Some("kube-system"), Some("coredns-0"), None,            None, None)]
+    #[case("k8s:kube-system/coredns-0#coredns",                Some("kube-system"), Some("coredns-0"), Some("coredns"), None, None)]
+    #[case("k8s:///kube-system",                               Some("kube-system"), None,              None,            None, None)]
+    #[case("k8s:///kube-system/coredns-0",                     Some("kube-system"), Some("coredns-0"), None,            None, None)]
+    #[case("k8s:///kube-system/coredns-0#coredns",             Some("kube-system"), Some("coredns-0"), Some("coredns"), None, None)]
+    #[case("k8s://cluster/kube-system/coredns-0#coredns",      Some("kube-system"), Some("coredns-0"), Some("coredns"), Some("cluster"), None)]
+    #[case("k8s://user@cluster/kube-system/coredns-0#coredns", Some("kube-system"), Some("coredns-0"), Some("coredns"), Some("cluster"), Some("user"))]
+    fn target_k8s_works(
         #[case] input: &str,
         #[case] namespace: Option<&str>,
         #[case] resource: Option<&str>,
