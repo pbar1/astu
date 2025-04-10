@@ -2,6 +2,7 @@ mod chain;
 mod cidr;
 mod dns;
 mod file;
+mod k8s;
 
 pub use self::chain::ChainResolver;
 pub use self::cidr::CidrResolver;

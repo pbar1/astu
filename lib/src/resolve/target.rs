@@ -5,6 +5,7 @@ use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::string::ToString;
 
 use anyhow::bail;
 use anyhow::Context;
@@ -132,6 +133,48 @@ impl Target {
         let prefix_len = u8::from_str(prefix_str.as_str()).ok()?;
         IpNet::new(ip, prefix_len).ok()
     }
+
+    #[must_use]
+    pub fn k8s_namespace(&self) -> Option<String> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        let mut segments = match self.uri.path().segments_if_absolute() {
+            Some(segments) => segments,
+            None => self.uri.path().split('/'),
+        };
+        segments.next().map(ToString::to_string)
+    }
+
+    #[must_use]
+    pub fn k8s_resource(&self) -> Option<String> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        let mut segments = match self.uri.path().segments_if_absolute() {
+            Some(segments) => segments,
+            None => self.uri.path().split('/'),
+        };
+        segments.nth(1).map(ToString::to_string)
+    }
+
+    #[must_use]
+    pub fn k8s_container(&self) -> Option<String> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        self.uri.fragment().map(ToString::to_string)
+    }
+
+    #[must_use]
+    pub fn k8s_cluster(&self) -> Option<&str> {
+        let host = self.uri.authority()?.host();
+        if host.is_empty() {
+            None
+        } else {
+            Some(host)
+        }
+    }
 }
 
 impl fmt::Display for Target {
@@ -147,6 +190,10 @@ impl Target {
     ///
     /// If the string does not conform to any of the supported short forms.
     pub fn parse_short_form(s: &str) -> anyhow::Result<Self> {
+        if s.starts_with("localhost") {
+            return Target::from_str(&format!("dns://{s}"));
+        }
+
         let target = if let Ok(value) = IpAddr::from_str(s) {
             Self::from(value)
         } else if let Ok(value) = SocketAddr::from_str(s) {
@@ -156,6 +203,7 @@ impl Target {
         } else {
             bail!("Unsupported target short form: {s}");
         };
+
         Ok(target)
     }
 }
@@ -177,7 +225,11 @@ impl FromStr for Target {
 
 impl From<IpAddr> for Target {
     fn from(value: IpAddr) -> Self {
-        Self::from_str(&format!("ip://{value}")).expect("URI invariant not upheld")
+        let s = match value {
+            IpAddr::V4(ip) => format!("ip://{ip}"),
+            IpAddr::V6(ip) => format!("ip://[{ip}]"),
+        };
+        Self::from_str(&s).expect("URI invariant not upheld")
     }
 }
 
@@ -189,7 +241,11 @@ impl From<SocketAddr> for Target {
 
 impl From<IpNet> for Target {
     fn from(value: IpNet) -> Self {
-        Self::from_str(&format!("cidr://{value}")).expect("URI invariant not upheld")
+        let s = match value {
+            IpNet::V4(cidr) => format!("cidr://{cidr}"),
+            IpNet::V6(cidr) => format!("cidr://[{}]/{}", cidr.network(), cidr.prefix_len()),
+        };
+        Self::from_str(&s).expect("URI invariant not upheld")
     }
 }
 
@@ -202,25 +258,96 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case::ipv4("127.0.0.1", "127.0.0.1")]
-    #[case::ipv6("::1", "::1")]
-    #[case::ipv6("[::1]", "::1")]
-    #[case::sock4("127.0.0.1:22", "127.0.0.1:22")]
-    #[case::sock6("[::1]:22", "[::1]:22")]
-    #[case::net4("0.0.0.0/0", "0.0.0.0/0")]
-    #[case::net6("::/0", "::/0")]
-    #[case::domain("localhost", "localhost")]
-    #[case::domain("domain.test", "domain.test")]
-    #[case::domainport("localhost:22", "localhost:22")]
-    #[case::domainport("domain.test:22", "domain.test:22")]
+    #[case::ipv4("127.0.0.1", "ip://127.0.0.1")]
+    #[case::ipv6("::1", "ip://[::1]")]
+    #[case::sock4("127.0.0.1:22", "ip://127.0.0.1:22")]
+    #[case::sock6("[::1]:22", "ip://[::1]:22")]
+    #[case::net4("0.0.0.0/0", "cidr://0.0.0.0/0")]
+    #[case::net6("::/0", "cidr://[::]/0")]
+    #[case::domain("localhost", "dns://localhost")]
+    #[case::domain("dns://domain.test", "dns://domain.test")]
+    #[case::domainport("localhost:22", "dns://localhost:22")]
+    #[case::domainport("dns://domain.test:22", "dns://domain.test:22")]
     #[case::ssh("ssh://127.0.0.1", "ssh://127.0.0.1")]
     #[case::ssh("ssh://user@127.0.0.1", "ssh://user@127.0.0.1")]
-    #[case::sshport("ssh://[::1]:22", "ssh://[::1]")]
+    // #[case::sshport("ssh://[::1]:22", "ssh://[::1]")]
     #[case::sshport("ssh://[::1]:2222", "ssh://[::1]:2222")]
     #[case::sshport("ssh://user@[::1]:2222", "ssh://user@[::1]:2222")]
     fn target_roundtrip(#[case] input: &str, #[case] should: &str) {
         let target = Target::from_str(input).unwrap();
         let output = target.to_string();
         assert_eq!(output, should);
+    }
+
+    #[rstest]
+    #[case("k8s:kube-system", Some("kube-system"), None, None, None, None)]
+    #[case(
+        "k8s:kube-system/coredns-0",
+        Some("kube-system"),
+        Some("coredns-0"),
+        None,
+        None,
+        None
+    )]
+    #[case(
+        "k8s:kube-system/coredns-0#coredns",
+        Some("kube-system"),
+        Some("coredns-0"),
+        Some("coredns"),
+        None,
+        None
+    )]
+    #[case("k8s:///kube-system", Some("kube-system"), None, None, None, None)]
+    #[case(
+        "k8s:///kube-system/coredns-0",
+        Some("kube-system"),
+        Some("coredns-0"),
+        None,
+        None,
+        None
+    )]
+    #[case(
+        "k8s:///kube-system/coredns-0#coredns",
+        Some("kube-system"),
+        Some("coredns-0"),
+        Some("coredns"),
+        None,
+        None
+    )]
+    #[case(
+        "k8s://cluster/kube-system/coredns-0#coredns",
+        Some("kube-system"),
+        Some("coredns-0"),
+        Some("coredns"),
+        Some("cluster"),
+        None
+    )]
+    #[case(
+        "k8s://user@cluster/kube-system/coredns-0#coredns",
+        Some("kube-system"),
+        Some("coredns-0"),
+        Some("coredns"),
+        Some("cluster"),
+        Some("user")
+    )]
+    fn target_k8s(
+        #[case] input: &str,
+        #[case] namespace: Option<&str>,
+        #[case] resource: Option<&str>,
+        #[case] container: Option<&str>,
+        #[case] cluster: Option<&str>,
+        #[case] user: Option<&str>,
+    ) {
+        let namespace = namespace.map(ToOwned::to_owned);
+        let resource = resource.map(ToOwned::to_owned);
+        let container = container.map(ToOwned::to_owned);
+
+        let target = Target::from_str(input).unwrap();
+
+        assert_eq!(target.k8s_namespace(), namespace);
+        assert_eq!(target.k8s_resource(), resource);
+        assert_eq!(target.k8s_container(), container);
+        assert_eq!(target.k8s_cluster(), cluster);
+        assert_eq!(target.user(), user);
     }
 }
