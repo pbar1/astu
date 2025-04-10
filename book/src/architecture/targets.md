@@ -72,6 +72,10 @@ Internet Protocol (IP) address.
   - `::1`
   - `[::1]:22`
 
+### TCP
+
+Essentially an alias for IP.
+
 ### CIDR
 
 Classless Inter-Domain Routing (CIDR) block.
@@ -104,15 +108,11 @@ Secure Shell (SSH) address.
   - `ssh://root@localhost:2222`
 - Short form: n/a
 
-### TCP
-
-Essentially an alias for IP.
-
 ### File
 
 Local file.
 
-- URI form: `file://<abs_or_rel_path>` or `file:<rel_path_only>`
+- URI form: `file:[//]<path>`
   - `file:///absolute/file.txt`
   - `file://relative/file.txt`
   - `file:relative/file.txt`
@@ -122,7 +122,13 @@ Local file.
 
 ### Kubernetes
 
-TODO
+Kubernetes pod.
+
+- URI form: `k8s:[//][user@][cluster][/namespace]/<name>[#container][?kind]`
+  - `k8s:coredns-ff8999cc5-x56jw`
+  - `k8s:kube-system/coredns#coredns?deployment`
+  - `k8s://user@cluster/kube-system/coredns#coredns?deployment`
+- Short form: n/a
 
 <!-- Links -->
 
