@@ -225,7 +225,7 @@ mod tests {
     #[rstest]
     #[case("file:relative/file.txt", "relative/file.txt")]
     #[case("file:///absolute/file.txt", "/absolute/file.txt")]
-    fn target2_file(#[case] uri: &str, #[case] path: &str) {
+    fn target2_file_works(#[case] uri: &str, #[case] path: &str) {
         let target = Target::from_str(uri).unwrap();
         let path_should = PathBuf::from_str(path).unwrap();
         match target {
@@ -235,11 +235,36 @@ mod tests {
     }
 
     #[rstest]
+    #[case("ip://127.0.0.1", "127.0.0.1", None, None)]
+    #[case("ip://root@127.0.0.1:22", "127.0.0.1", "root", 22)]
+    #[case("ip://[::1]", "::1", None, None)]
+    #[case("ip://root@[::1]:22", "::1", "root", 22)]
+    fn target2_ip_works(
+        #[case] uri: &str,
+        #[case] ip: &str,
+        #[case] user: impl Into<Option<&'static str>>,
+        #[case] port: impl Into<Option<u16>>,
+    ) {
+        let target = Target::from_str(uri).unwrap();
+        let ip_should = IpAddr::from_str(ip).unwrap();
+        let user_should: Option<String> = user.into().map(ToOwned::to_owned);
+        let port_should: Option<u16> = port.into();
+        match target {
+            Target::Ip { user, ip, port } => {
+                assert_eq!(ip, ip_should);
+                assert_eq!(user, user_should);
+                assert_eq!(port, port_should);
+            }
+            _ => panic!("target type incorrect"),
+        };
+    }
+
+    #[rstest]
     #[case("cidr://127.0.0.0/32", "127.0.0.0/32", None, None)]
     #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
     #[case("cidr://[::1]/128", "::1/128", None, None)]
     #[case("cidr://root@[::1]:22/128", "::1/128", "root", 22)]
-    fn target2_cidr(
+    fn target2_cidr_works(
         #[case] uri: &str,
         #[case] cidr: &str,
         #[case] user: impl Into<Option<&'static str>>,
