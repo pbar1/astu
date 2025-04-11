@@ -9,6 +9,26 @@ use fluent_uri::Uri;
 use ipnet::IpNet;
 use strum::EnumString;
 
+/// Hostnames may be either IP addresses or domain names.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Host {
+    Ip(IpAddr),
+    Domain(String),
+}
+
+impl FromStr for Host {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let host = if let Ok(ip) = IpAddr::from_str(s) {
+            Host::Ip(ip)
+        } else {
+            Host::Domain(s.to_owned())
+        };
+        Ok(host)
+    }
+}
+
 /// All target scheme variants supported by [`Target`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(ascii_case_insensitive)]
@@ -46,7 +66,7 @@ pub enum Target {
     Ssh {
         user: Option<String>,
         password: Option<String>,
-        host: String,
+        host: Host,
         port: Option<u16>,
     },
     K8s {
@@ -122,7 +142,7 @@ fn uri_to_ip(uri: &Uri<String>) -> Result<Target> {
 }
 
 fn uri_to_dns(uri: &Uri<String>) -> Result<Target> {
-    let name = uri_utils::domain_name(uri).context("URI dns: must have a valid domain name")?;
+    let name = uri_utils::domain(uri).context("URI dns: must have a valid domain name")?;
 
     Ok(Target::Dns {
         user: uri_utils::user(uri),
@@ -180,8 +200,14 @@ mod uri_utils {
             .into()
     }
 
-    pub fn host(uri: &Uri<String>) -> Option<String> {
-        uri.authority()?.host().to_owned().into()
+    pub fn host(uri: &Uri<String>) -> Option<super::Host> {
+        #[allow(clippy::match_wildcard_for_single_variants)]
+        match uri.authority()?.host_parsed() {
+            Host::Ipv4(ip) => Some(super::Host::Ip(ip.into())),
+            Host::Ipv6(ip) => Some(super::Host::Ip(ip.into())),
+            Host::RegName(name) => Some(super::Host::Domain(name.to_string())),
+            _ => None,
+        }
     }
 
     pub fn ip(uri: &Uri<String>) -> Option<IpAddr> {
@@ -192,7 +218,7 @@ mod uri_utils {
         }
     }
 
-    pub fn domain_name(uri: &Uri<String>) -> Option<String> {
+    pub fn domain(uri: &Uri<String>) -> Option<String> {
         match uri.authority()?.host_parsed() {
             Host::RegName(name) => Some(name.to_string()),
             _ => None,
@@ -235,6 +261,35 @@ mod tests {
     }
 
     #[rstest]
+    #[case("cidr://127.0.0.0/32", "127.0.0.0/32", None, None)]
+    #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
+    #[case("cidr://[::1]/128", "::1/128", None, None)]
+    #[case("cidr://root@[::1]:22/128", "::1/128", "root", 22)]
+    fn target2_cidr_works(
+        #[case] uri: &str,
+        #[case] cidr: &str,
+        #[case] user: impl Into<Option<&'static str>>,
+        #[case] port: impl Into<Option<u16>>,
+    ) {
+        let target = Target::from_str(uri).unwrap();
+        let network_should = IpNet::from_str(cidr).unwrap();
+        let user_should: Option<String> = user.into().map(ToOwned::to_owned);
+        let port_should: Option<u16> = port.into();
+        match target {
+            Target::Cidr {
+                user,
+                network,
+                port,
+            } => {
+                assert_eq!(network, network_should);
+                assert_eq!(user, user_should);
+                assert_eq!(port, port_should);
+            }
+            _ => panic!("target type incorrect"),
+        };
+    }
+
+    #[rstest]
     #[case("ip://127.0.0.1", "127.0.0.1", None, None)]
     #[case("ip://root@127.0.0.1:22", "127.0.0.1", "root", 22)]
     #[case("ip://[::1]", "::1", None, None)]
@@ -260,28 +315,56 @@ mod tests {
     }
 
     #[rstest]
-    #[case("cidr://127.0.0.0/32", "127.0.0.0/32", None, None)]
-    #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
-    #[case("cidr://[::1]/128", "::1/128", None, None)]
-    #[case("cidr://root@[::1]:22/128", "::1/128", "root", 22)]
-    fn target2_cidr_works(
+    #[case("dns://localhost", "localhost", None, None)]
+    #[case("dns://root@localhost:22", "localhost", "root", 22)]
+    fn target2_dns_works(
         #[case] uri: &str,
-        #[case] cidr: &str,
+        #[case] domain: &str,
         #[case] user: impl Into<Option<&'static str>>,
         #[case] port: impl Into<Option<u16>>,
     ) {
         let target = Target::from_str(uri).unwrap();
-        let network_should = IpNet::from_str(cidr).unwrap();
+        let name_should = domain.to_owned();
         let user_should: Option<String> = user.into().map(ToOwned::to_owned);
         let port_should: Option<u16> = port.into();
         match target {
-            Target::Cidr {
+            Target::Dns { user, name, port } => {
+                assert_eq!(name, name_should);
+                assert_eq!(user, user_should);
+                assert_eq!(port, port_should);
+            }
+            _ => panic!("target type incorrect"),
+        };
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("ssh://127.0.0.1", "127.0.0.1", None, None, None)]
+    #[case("ssh://localhost", "localhost", None, None, None)]
+    #[case("ssh://root:password@localhost:2222", "localhost", "root", "password", 2222)]
+    #[case("ssh://root@[::1]", "::1", "root", None, None)]
+    fn target2_ssh_works(
+        #[case] uri: &str,
+        #[case] host: &str,
+        #[case] user: impl Into<Option<&'static str>>,
+        #[case] password: impl Into<Option<&'static str>>,
+        #[case] port: impl Into<Option<u16>>,
+    ) {
+        let target = Target::from_str(uri).unwrap();
+        let host_should = Host::from_str(host).unwrap();
+        let user_should: Option<String> = user.into().map(ToOwned::to_owned);
+        let password_should: Option<String> = password.into().map(ToOwned::to_owned);
+        let port_should: Option<u16> = port.into();
+        match target {
+            Target::Ssh {
                 user,
-                network,
+                password,
+                host,
                 port,
             } => {
-                assert_eq!(network, network_should);
+                assert_eq!(host, host_should);
                 assert_eq!(user, user_should);
+                assert_eq!(password, password_should);
                 assert_eq!(port, port_should);
             }
             _ => panic!("target type incorrect"),
