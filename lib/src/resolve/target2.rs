@@ -1,10 +1,13 @@
 use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Context;
 use anyhow::Result;
 use borrow_or_share::Bos;
+use fluent_uri::encoding::encoder::RegName;
+use fluent_uri::encoding::EStr;
 use fluent_uri::Uri;
 use ipnet::IpNet;
 use strum::EnumString;
@@ -78,10 +81,83 @@ pub enum Target {
     },
 }
 
+impl From<PathBuf> for Target {
+    fn from(path: PathBuf) -> Self {
+        Target::File { path }
+    }
+}
+
+impl From<IpNet> for Target {
+    fn from(network: IpNet) -> Self {
+        Target::Cidr {
+            user: None,
+            network,
+            port: None,
+        }
+    }
+}
+
+impl From<IpAddr> for Target {
+    fn from(ip: IpAddr) -> Self {
+        Target::Ip {
+            user: None,
+            ip,
+            port: None,
+        }
+    }
+}
+
+impl From<SocketAddr> for Target {
+    fn from(sock: SocketAddr) -> Self {
+        Target::Ip {
+            user: None,
+            ip: sock.ip(),
+            port: sock.port().into(),
+        }
+    }
+}
+
+fn short_cidr(s: &str) -> Option<Target> {
+    IpNet::from_str(s).map(Into::into).ok()
+}
+
+fn short_ip(s: &str) -> Option<Target> {
+    if let Ok(ip) = IpAddr::from_str(s) {
+        Target::from(ip).into()
+    } else if let Ok(sock) = SocketAddr::from_str(s) {
+        Target::from(sock).into()
+    } else {
+        None
+    }
+}
+
+fn short_dns(s: &str) -> Option<Target> {
+    let dn: &EStr<RegName> = EStr::new(s)?;
+    if dn.is_empty() {
+        None
+    } else {
+        Some(Target::Dns {
+            user: None,
+            name: dn.to_string(),
+            port: None,
+        })
+    }
+}
+
 impl FromStr for Target {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if let Some(t) = short_cidr(s) {
+            return Ok(t);
+        }
+        if let Some(t) = short_ip(s) {
+            return Ok(t);
+        }
+        if let Some(t) = short_dns(s) {
+            return Ok(t);
+        }
+
         let uri = Uri::parse(s)?;
         Self::try_from(uri)
     }
@@ -168,12 +244,20 @@ fn uri_to_k8s(uri: &Uri<String>) -> Result<Target> {
     let cluster = uri_utils::domain(uri);
 
     let mut path = uri_utils::path_segments(uri);
-    let pod = path.nth_back(0).and_then(|p| (!p.is_empty()).then_some(p.to_string()));
+    let pod = path
+        .nth_back(0)
+        .and_then(|p| (!p.is_empty()).then_some(p.to_string()));
     let namespace = path.nth_back(0).map(ToString::to_string);
 
     let container = uri_utils::fragement(uri);
 
-    Ok(Target::K8s { user, cluster, namespace, pod, container })
+    Ok(Target::K8s {
+        user,
+        cluster,
+        namespace,
+        pod,
+        container,
+    })
 }
 
 mod uri_utils {
@@ -251,7 +335,7 @@ mod uri_utils {
         }
     }
 
-    pub fn fragement(uri: &Uri<String>) -> Option<String > {
+    pub fn fragement(uri: &Uri<String>) -> Option<String> {
         uri.fragment()?.as_str().to_owned().into()
     }
 }
@@ -275,6 +359,8 @@ mod tests {
     }
 
     #[rstest]
+    #[case("0.0.0.0/0", "0.0.0.0/0", None, None)]
+    #[case("::/0", "::/0", None, None)]
     #[case("cidr://127.0.0.0/32", "127.0.0.0/32", None, None)]
     #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
     #[case("cidr://[::1]/128", "::1/128", None, None)]
@@ -304,6 +390,10 @@ mod tests {
     }
 
     #[rstest]
+    #[case("0.0.0.0", "0.0.0.0", None, None)]
+    #[case("::", "::", None, None)]
+    #[case("0.0.0.0:0", "0.0.0.0", None, 0)]
+    #[case("[::]:0", "::", None, 0)]
     #[case("ip://127.0.0.1", "127.0.0.1", None, None)]
     #[case("ip://root@127.0.0.1:22", "127.0.0.1", "root", 22)]
     #[case("ip://[::1]", "::1", None, None)]
@@ -329,6 +419,8 @@ mod tests {
     }
 
     #[rstest]
+    #[case("localhost", "localhost", None, None)]
+    #[case("google.com.", "google.com.", None, None)]
     #[case("dns://localhost", "localhost", None, None)]
     #[case("dns://root@localhost:22", "localhost", "root", 22)]
     fn dns_works(
@@ -414,14 +506,13 @@ mod tests {
                 cluster,
                 namespace,
                 pod,
-                container
+                container,
             } => {
                 assert_eq!(user, user_should);
                 assert_eq!(cluster, cluster_should);
                 assert_eq!(namespace, namespace_should);
                 assert_eq!(pod, pod_should);
                 assert_eq!(container, container_should);
-
             }
             _ => panic!("target type incorrect"),
         };
