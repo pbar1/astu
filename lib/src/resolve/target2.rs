@@ -265,7 +265,7 @@ mod tests {
     #[rstest]
     #[case("file:relative/file.txt", "relative/file.txt")]
     #[case("file:///absolute/file.txt", "/absolute/file.txt")]
-    fn target2_file_works(#[case] uri: &str, #[case] path: &str) {
+    fn file_works(#[case] uri: &str, #[case] path: &str) {
         let target = Target::from_str(uri).unwrap();
         let path_should = PathBuf::from_str(path).unwrap();
         match target {
@@ -279,7 +279,7 @@ mod tests {
     #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
     #[case("cidr://[::1]/128", "::1/128", None, None)]
     #[case("cidr://root@[::1]:22/128", "::1/128", "root", 22)]
-    fn target2_cidr_works(
+    fn cidr_works(
         #[case] uri: &str,
         #[case] cidr: &str,
         #[case] user: impl Into<Option<&'static str>>,
@@ -308,7 +308,7 @@ mod tests {
     #[case("ip://root@127.0.0.1:22", "127.0.0.1", "root", 22)]
     #[case("ip://[::1]", "::1", None, None)]
     #[case("ip://root@[::1]:22", "::1", "root", 22)]
-    fn target2_ip_works(
+    fn ip_works(
         #[case] uri: &str,
         #[case] ip: &str,
         #[case] user: impl Into<Option<&'static str>>,
@@ -331,7 +331,7 @@ mod tests {
     #[rstest]
     #[case("dns://localhost", "localhost", None, None)]
     #[case("dns://root@localhost:22", "localhost", "root", 22)]
-    fn target2_dns_works(
+    fn dns_works(
         #[case] uri: &str,
         #[case] domain: &str,
         #[case] user: impl Into<Option<&'static str>>,
@@ -357,7 +357,7 @@ mod tests {
     #[case("ssh://localhost", "localhost", None, None, None)]
     #[case("ssh://root:password@localhost:2222", "localhost", "root", "password", 2222)]
     #[case("ssh://root@[::1]", "::1", "root", None, None)]
-    fn target2_ssh_works(
+    fn ssh_works(
         #[case] uri: &str,
         #[case] host: &str,
         #[case] user: impl Into<Option<&'static str>>,
@@ -392,7 +392,7 @@ mod tests {
     #[case("k8s:namespace/pod#container", None, None, "namespace", "pod", "container")]
     #[case("k8s://cluster/pod", None, "cluster", None, "pod", None)]
     #[case("k8s://user@cluster/namespace/pod#container", "user", "cluster", "namespace", "pod", "container")]
-    fn target2_k8s_works(
+    fn k8s_works(
         #[case] uri: &str,
         #[case] user: impl Into<Option<&'static str>>,
         #[case] cluster: impl Into<Option<&'static str>>,
