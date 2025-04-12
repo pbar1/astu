@@ -81,6 +81,20 @@ pub enum Target {
     },
 }
 
+impl Target {
+    /// Gets the type of the target without its associated fields.
+    pub fn kind(&self) -> TargetKind {
+        match self {
+            Target::File { .. } => TargetKind::File,
+            Target::Cidr { .. } => TargetKind::Cidr,
+            Target::Ip { .. } => TargetKind::Ip,
+            Target::Dns { .. } => TargetKind::Dns,
+            Target::Ssh { .. } => TargetKind::Ssh,
+            Target::K8s { .. } => TargetKind::K8s,
+        }
+    }
+}
+
 impl From<PathBuf> for Target {
     fn from(path: PathBuf) -> Self {
         Target::File { path }
@@ -343,8 +357,31 @@ mod uri_utils {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use TargetKind as K;
 
     use super::*;
+
+    #[rstest]
+    #[case("0.0.0.0/0", K::Cidr)]
+    #[case("::/0", K::Cidr)]
+    #[case("0.0.0.0", K::Ip)]
+    #[case("::", K::Ip)]
+    #[case("0.0.0.0:0", K::Ip)]
+    #[case("[::]:0", K::Ip)]
+    #[case("localhost", K::Dns)]
+    #[case("google.com", K::Dns)]
+    #[case("file:relative.txt", K::File)]
+    #[case("file:///absolute.txt", K::File)]
+    #[case("cidr://user@0.0.0.0:0/0", K::Cidr)]
+    #[case("ip://user@0.0.0.0:0", K::Ip)]
+    #[case("dns://user@localhost:0", K::Dns)]
+    #[case("ssh://user:password@localhost:2222", K::Ssh)]
+    #[case("k8s:pod#container", K::K8s)]
+    #[case("k8s://user@cluster/namespace/pod#container", K::K8s)]
+    fn unified_works(#[case] uri: &str, #[case] kind_should: K) {
+        let target = Target::from_str(uri).unwrap();
+        assert_eq!(target.kind(), kind_should);
+    }
 
     #[rstest]
     #[case("file:relative/file.txt", "relative/file.txt")]
