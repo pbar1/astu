@@ -162,8 +162,18 @@ fn uri_to_ssh(uri: &Uri<String>) -> Result<Target> {
     })
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn uri_to_k8s(uri: &Uri<String>) -> Result<Target> {
-    todo!()
+    let user = uri_utils::user(uri);
+    let cluster = uri_utils::domain(uri);
+
+    let mut path = uri_utils::path_segments(uri);
+    let pod = path.nth_back(0).and_then(|p| (!p.is_empty()).then_some(p.to_string()));
+    let namespace = path.nth_back(0).map(ToString::to_string);
+
+    let container = uri_utils::fragement(uri);
+
+    Ok(Target::K8s { user, cluster, namespace, pod, container })
 }
 
 mod uri_utils {
@@ -239,6 +249,10 @@ mod uri_utils {
         } else {
             PathBuf::from_str(path).ok()
         }
+    }
+
+    pub fn fragement(uri: &Uri<String>) -> Option<String > {
+        uri.fragment()?.as_str().to_owned().into()
     }
 }
 
@@ -366,6 +380,48 @@ mod tests {
                 assert_eq!(user, user_should);
                 assert_eq!(password, password_should);
                 assert_eq!(port, port_should);
+            }
+            _ => panic!("target type incorrect"),
+        };
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("k8s:pod", None, None, None, "pod", None)]
+    #[case("k8s:namespace/", None, None, "namespace", None, None)]
+    #[case("k8s:namespace/pod#container", None, None, "namespace", "pod", "container")]
+    #[case("k8s://cluster/pod", None, "cluster", None, "pod", None)]
+    #[case("k8s://user@cluster/namespace/pod#container", "user", "cluster", "namespace", "pod", "container")]
+    fn target2_k8s_works(
+        #[case] uri: &str,
+        #[case] user: impl Into<Option<&'static str>>,
+        #[case] cluster: impl Into<Option<&'static str>>,
+        #[case] namespace: impl Into<Option<&'static str>>,
+        #[case] pod: impl Into<Option<&'static str>>,
+        #[case] container: impl Into<Option<&'static str>>,
+    ) {
+        let target = Target::from_str(uri).unwrap();
+
+        let user_should = user.into().map(ToOwned::to_owned);
+        let cluster_should = cluster.into().map(ToOwned::to_owned);
+        let namespace_should = namespace.into().map(ToOwned::to_owned);
+        let pod_should = pod.into().map(ToOwned::to_owned);
+        let container_should = container.into().map(ToOwned::to_owned);
+
+        match target {
+            Target::K8s {
+                user,
+                cluster,
+                namespace,
+                pod,
+                container
+            } => {
+                assert_eq!(user, user_should);
+                assert_eq!(cluster, cluster_should);
+                assert_eq!(namespace, namespace_should);
+                assert_eq!(pod, pod_should);
+                assert_eq!(container, container_should);
+
             }
             _ => panic!("target type incorrect"),
         };
