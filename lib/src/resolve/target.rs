@@ -6,6 +6,7 @@ use std::string::ToString;
 
 use anyhow::bail;
 use anyhow::Context;
+use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use fluent_uri::encoding::encoder::Path;
 use fluent_uri::encoding::Split;
@@ -210,6 +211,57 @@ impl Target {
             return None;
         }
         self.fragment()
+    }
+}
+
+/// Constructors
+impl Target {
+    /// # Errors
+    ///
+    /// If the URI is malformed
+    pub fn new_file(path: &Utf8Path) -> anyhow::Result<Self> {
+        let uri = if path.is_absolute() {
+            format!("file://{path}")
+        } else {
+            format!("file:{path}")
+        };
+        Self::from_str(&uri)
+    }
+
+    /// # Errors
+    ///
+    /// If the URI is malformed
+    pub fn new_cidr(cidr: IpNet, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+        let mut uri = "cidr://".to_owned();
+        if let Some(user) = user {
+            uri.push_str(user);
+            uri.push('@');
+        }
+        uri.push_str(&cidr.addr().to_string());
+        if let Some(port) = port {
+            uri.push(':');
+            uri.push_str(&port.to_string());
+        }
+        uri.push('/');
+        uri.push_str(&cidr.prefix_len().to_string());
+        Self::from_str(&uri)
+    }
+
+    /// # Errors
+    ///
+    /// If the URI is malformed
+    pub fn new_ip(ip: IpAddr, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+        let mut uri = "ip://".to_owned();
+        if let Some(user) = user {
+            uri.push_str(user);
+            uri.push('@');
+        }
+        uri.push_str(&ip.to_string());
+        if let Some(port) = port {
+            uri.push(':');
+            uri.push_str(&port.to_string());
+        }
+        Self::from_str(&uri)
     }
 }
 
