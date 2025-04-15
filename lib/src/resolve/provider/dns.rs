@@ -26,10 +26,9 @@ impl Resolve for DnsResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         let fwd = self.forward;
         let rev = self.reverse;
-        let port = target.port();
         match target.host() {
-            Some(Host::Domain(name)) if fwd => self.resolve_domain(name, port),
-            Some(Host::Ip(ip)) if rev => self.resolve_ip(ip, None),
+            Some(Host::Domain(name)) if fwd => self.resolve_domain(name, target),
+            Some(Host::Ip(ip)) if rev => self.resolve_ip(ip, target),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
@@ -67,29 +66,27 @@ impl DnsResolver {
     }
 
     /// Forward DNS resolution
-    fn resolve_domain(&self, name: String, port: Option<u16>) -> BoxStream<Result<Target>> {
+    fn resolve_domain(&self, name: String, target: Target) -> BoxStream<Result<Target>> {
         try_stream! {
             let ips = self.dns.lookup_ip(name).await?;
             for ip in ips {
-                yield match port {
-                    Some(port) => Target::from_str(&format!("ip://{ip}:{port}"))?,
-                    None => Target::from_str(&format!("ip://{ip}"))?,
-                }
+                let port = target.port();
+                let user = target.user();
+                yield Target::new_ip(&ip, port, user)?
             }
         }
         .boxed()
     }
 
     /// Reverse DNS resolution
-    fn resolve_ip(&self, ip: IpAddr, port: Option<u16>) -> BoxStream<Result<Target>> {
+    fn resolve_ip(&self, ip: IpAddr, target: Target) -> BoxStream<Result<Target>> {
         try_stream! {
             let names = self.dns.reverse_lookup(ip).await?;
             for ptr in names {
-                let name = remove_trailing_dot(&ptr)?;
-                yield match port {
-                    Some(port) => Target::from_str(&format!("dns://{name}:{port}"))?,
-                    None => Target::from_str(&format!("dns://{name}"))?,
-                }
+                let domain = remove_trailing_dot(&ptr)?;
+                let port = target.port();
+                let user = target.user();
+                yield Target::new_dns(&domain.to_string(), port, user)?
             }
         }
         .boxed()

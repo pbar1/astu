@@ -231,7 +231,7 @@ impl Target {
     /// # Errors
     ///
     /// If the URI is malformed
-    pub fn new_cidr(cidr: IpNet, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new_cidr(cidr: &IpNet, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
         let mut uri = "cidr://".to_owned();
         if let Some(user) = user {
             uri.push_str(user);
@@ -250,13 +250,30 @@ impl Target {
     /// # Errors
     ///
     /// If the URI is malformed
-    pub fn new_ip(ip: IpAddr, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new_ip(ip: &IpAddr, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
         let mut uri = "ip://".to_owned();
         if let Some(user) = user {
             uri.push_str(user);
             uri.push('@');
         }
         uri.push_str(&ip.to_string());
+        if let Some(port) = port {
+            uri.push(':');
+            uri.push_str(&port.to_string());
+        }
+        Self::from_str(&uri)
+    }
+
+    /// # Errors
+    ///
+    /// If the URI is malformed
+    pub fn new_dns(domain: &str, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+        let mut uri = "dns://".to_owned();
+        if let Some(user) = user {
+            uri.push_str(user);
+            uri.push('@');
+        }
+        uri.push_str(domain);
         if let Some(port) = port {
             uri.push(':');
             uri.push_str(&port.to_string());

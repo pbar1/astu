@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
@@ -29,7 +27,7 @@ impl CidrResolver {
         let ips = cidr.hosts().map(move |ip| {
             let port = target.port();
             let user = target.user();
-            Target::new_ip(ip, port, user)
+            Target::new_ip(&ip, port, user)
         });
         futures::stream::iter(ips).boxed()
     }
