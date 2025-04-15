@@ -23,7 +23,7 @@ pub struct FileResolver {
 impl Resolve for FileResolver {
     fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
         match target.path() {
-            Some(path) => self.resolve_path(path),
+            Some(path) => self.resolve_path(path.into()),
             _unsupported => futures::stream::empty().boxed(),
         }
     }

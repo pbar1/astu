@@ -29,8 +29,7 @@ impl Resolve for DnsResolver {
         let port = target.port();
         match target.host() {
             Some(Host::Domain(name)) if fwd => self.resolve_domain(name, port),
-            Some(Host::Ipv4(ip)) if rev => self.resolve_ip(ip.into(), None),
-            Some(Host::Ipv6(ip)) if rev => self.resolve_ip(ip.into(), None),
+            Some(Host::Ip(ip)) if rev => self.resolve_ip(ip, None),
             _unsupported => futures::stream::empty().boxed(),
         }
     }

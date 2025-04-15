@@ -1,18 +1,37 @@
 use std::fmt;
 use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::Ipv6Addr;
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
 
 use anyhow::bail;
 use anyhow::Context;
+use camino::Utf8PathBuf;
+use fluent_uri::encoding::encoder::Path;
+use fluent_uri::encoding::Split;
 use fluent_uri::Uri;
 use internment::Intern;
 use ipnet::IpNet;
 use strum::EnumString;
+
+/// Hostnames may be either IP addresses or domain names.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Host {
+    Ip(IpAddr),
+    Domain(String),
+}
+
+impl FromStr for Host {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(ip) = IpAddr::from_str(s) {
+            Ok(Self::Ip(ip))
+        } else {
+            Ok(Self::Domain(s.to_owned()))
+        }
+    }
+}
 
 /// All target scheme variants supported by [`Target`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
@@ -28,24 +47,16 @@ pub enum TargetKind {
     K8s,
 }
 
-/// Hostnames may be either IP addresses or domain names.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Host {
-    Ipv4(Ipv4Addr),
-    Ipv6(Ipv6Addr),
-    Domain(String),
-}
-
 /// A generic address that may be targeted by actions.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Target {
     uri: Uri<String>,
-
-    /// Scheme of the target.
-    pub kind: TargetKind,
+    kind: TargetKind,
 }
 
+/// Accessors
 impl Target {
+    // FIXME: Remove when replacing GraphMap with Graph+Map
     /// Interns the target. This is so it can implement [`Copy`] for use with
     /// the target graph.
     #[must_use]
@@ -54,66 +65,98 @@ impl Target {
     }
 
     #[must_use]
+    pub fn kind(&self) -> TargetKind {
+        self.kind
+    }
+
+    #[must_use]
     pub fn user(&self) -> Option<&str> {
-        self.uri.authority()?.userinfo()?.as_str().into()
+        let value: Option<_> = self
+            .uri
+            .authority()?
+            .userinfo()?
+            .as_str()
+            .split(':')
+            .next()?
+            .into();
+        value.filter(|x| !x.is_empty())
+    }
+
+    #[must_use]
+    pub fn password(&self) -> Option<&str> {
+        let value: Option<_> = self
+            .uri
+            .authority()?
+            .userinfo()?
+            .as_str()
+            .split(':')
+            .nth(1)?
+            .into();
+        value.filter(|x| !x.is_empty())
     }
 
     #[must_use]
     pub fn host(&self) -> Option<Host> {
         use fluent_uri::component::Host as H;
-
         let authority = self.uri.authority()?;
         let host = match authority.host_parsed() {
-            H::Ipv4(ipv4_addr) => Host::Ipv4(ipv4_addr),
-            H::Ipv6(ipv6_addr) => Host::Ipv6(ipv6_addr),
+            H::Ipv4(ip) => Host::Ip(ip.into()),
+            H::Ipv6(ip) => Host::Ip(ip.into()),
             _other => Host::Domain(authority.host().to_string()),
         };
         Some(host)
     }
 
     #[must_use]
-    pub fn port(&self) -> Option<u16> {
-        let port = self.uri.authority()?.port_to_u16().ok()?;
-        if port.is_some() {
-            port
-        } else {
-            self.default_scheme_port()
-        }
-    }
-
-    fn default_scheme_port(&self) -> Option<u16> {
-        match &self.kind {
-            TargetKind::Ssh => Some(22),
-            _other => None,
-        }
+    pub fn domain(&self) -> Option<&str> {
+        use fluent_uri::component::Host as H;
+        let authority = self.uri.authority()?;
+        let value: Option<_> = match authority.host_parsed() {
+            H::RegName(name) => name.as_str().into(),
+            _ => None,
+        };
+        value.filter(|x| !x.is_empty())
     }
 
     #[must_use]
-    pub fn path(&self) -> Option<PathBuf> {
-        if self.kind != TargetKind::File {
-            return None;
-        }
+    pub fn port(&self) -> Option<u16> {
+        self.uri.authority()?.port_to_u16().ok()?
+    }
+
+    #[must_use]
+    pub fn path(&self) -> Option<Utf8PathBuf> {
         let path = self.uri.path().as_str();
         if path.is_empty() {
             None
         } else {
-            PathBuf::from_str(path).ok()
+            Utf8PathBuf::from_str(path).ok()
+        }
+    }
+
+    pub fn path_segments(&self) -> Split<'_, Path> {
+        match self.uri.path().segments_if_absolute() {
+            Some(segments) => segments,
+            None => self.uri.path().split('/'),
         }
     }
 
     #[must_use]
-    pub fn ip_addr(&self) -> Option<IpAddr> {
-        #[allow(clippy::match_wildcard_for_single_variants)]
+    pub fn fragment(&self) -> Option<&str> {
+        let value: Option<_> = self.uri.fragment()?.as_str().into();
+        value.filter(|x| !x.is_empty())
+    }
+
+    #[must_use]
+    pub fn ip(&self) -> Option<IpAddr> {
         match self.host()? {
-            Host::Ipv4(ip) => Some(ip.into()),
-            Host::Ipv6(ip) => Some(ip.into()),
-            _other => None,
+            Host::Ip(ip) => ip.into(),
+            Host::Domain(_) => None,
         }
     }
 
     #[must_use]
     pub fn socket_addr(&self) -> Option<SocketAddr> {
-        let ip = self.ip_addr()?;
+        let ip = self.ip()?;
         let port = self.port()?;
         Some(SocketAddr::new(ip, port))
     }
@@ -123,68 +166,54 @@ impl Target {
         if self.kind != TargetKind::Cidr {
             return None;
         }
-        let ip = self.ip_addr()?;
-        let mut path_iter = self.uri.path().split('/');
-        let prefix_str = if self.uri.path().is_rootless() {
-            path_iter.next()?
-        } else {
-            path_iter.nth(1)?
-        };
-        let prefix_len = u8::from_str(prefix_str.as_str()).ok()?;
+        let ip = self.ip()?;
+        let prefix_len = self.path_segments().next()?.as_str().parse::<u8>().ok()?;
         IpNet::new(ip, prefix_len).ok()
     }
 
     #[must_use]
-    pub fn k8s_namespace(&self) -> Option<String> {
+    pub fn k8s_user(&self) -> Option<&str> {
         if self.kind != TargetKind::K8s {
             return None;
         }
-        let mut segments = match self.uri.path().segments_if_absolute() {
-            Some(segments) => segments,
-            None => self.uri.path().split('/'),
-        };
-        segments.next().map(ToString::to_string)
-    }
-
-    #[must_use]
-    pub fn k8s_resource(&self) -> Option<String> {
-        if self.kind != TargetKind::K8s {
-            return None;
-        }
-        let mut segments = match self.uri.path().segments_if_absolute() {
-            Some(segments) => segments,
-            None => self.uri.path().split('/'),
-        };
-        segments.nth(1).map(ToString::to_string)
-    }
-
-    #[must_use]
-    pub fn k8s_container(&self) -> Option<String> {
-        if self.kind != TargetKind::K8s {
-            return None;
-        }
-        self.uri.fragment().map(ToString::to_string)
+        self.user()
     }
 
     #[must_use]
     pub fn k8s_cluster(&self) -> Option<&str> {
-        let host = self.uri.authority()?.host();
-        if host.is_empty() {
-            None
-        } else {
-            Some(host)
+        if self.kind != TargetKind::K8s {
+            return None;
         }
+        self.domain()
+    }
+
+    #[must_use]
+    pub fn k8s_namespace(&self) -> Option<&str> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        self.path_segments().nth_back(1)?.as_str().into()
+    }
+
+    #[must_use]
+    pub fn k8s_pod(&self) -> Option<&str> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        let pod: Option<_> = self.path_segments().next_back()?.as_str().into();
+        pod.filter(|x| !x.is_empty())
+    }
+
+    #[must_use]
+    pub fn k8s_container(&self) -> Option<&str> {
+        if self.kind != TargetKind::K8s {
+            return None;
+        }
+        self.fragment()
     }
 }
 
-impl fmt::Display for Target {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uri)
-    }
-}
-
-// Conversions
-
+/// Conversions
 impl Target {
     /// # Errors
     ///
@@ -194,17 +223,25 @@ impl Target {
             return Target::from_str(&format!("dns://{s}"));
         }
 
-        let target = if let Ok(value) = IpAddr::from_str(s) {
-            Self::from(value)
-        } else if let Ok(value) = SocketAddr::from_str(s) {
-            Self::from(value)
-        } else if let Ok(value) = IpNet::from_str(s) {
-            Self::from(value)
-        } else {
-            bail!("Unsupported target short form: {s}");
-        };
+        if let Ok(value) = IpNet::from_str(s) {
+            return Ok(Self::from(value));
+        }
 
-        Ok(target)
+        if let Ok(value) = IpAddr::from_str(s) {
+            return Ok(Self::from(value));
+        }
+
+        if let Ok(value) = SocketAddr::from_str(s) {
+            return Ok(Self::from(value));
+        }
+
+        bail!("Unsupported target short form: {s}");
+    }
+}
+
+impl fmt::Display for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.uri)
     }
 }
 
@@ -215,7 +252,6 @@ impl FromStr for Target {
         if let Ok(target) = Self::parse_short_form(s) {
             return Ok(target);
         }
-
         let uri = Uri::from_str(s).with_context(|| format!("Failed to parse as URI: {s}"))?;
         let kind = TargetKind::from_str(uri.scheme().as_str())
             .with_context(|| format!("URI not supported: {s}"))?;
@@ -255,42 +291,171 @@ mod tests {
 
     use rstest::rstest;
 
+    use super::TargetKind as K;
     use super::*;
 
     #[rustfmt::skip::attributes(case)]
     #[rstest]
-    #[case("127.0.0.1"            , "ip://127.0.0.1")]
-    #[case("::1"                  , "ip://[::1]")]
-    #[case("127.0.0.1:22"         , "ip://127.0.0.1:22")]
-    #[case("[::1]:22"             , "ip://[::1]:22")]
-    #[case("0.0.0.0/0"            , "cidr://0.0.0.0/0")]
-    #[case("::/0"                 , "cidr://[::]/0")]
-    #[case("localhost"            , "dns://localhost")]
-    #[case("dns://domain.test"    , "dns://domain.test")]
-    #[case("localhost:22"         , "dns://localhost:22")]
-    #[case("dns://domain.test:22" , "dns://domain.test:22")]
-    #[case("ssh://127.0.0.1"      , "ssh://127.0.0.1")]
-    #[case("ssh://user@127.0.0.1" , "ssh://user@127.0.0.1")]
-    // #[case("ssh://[::1]:22"       , "ssh://[::1]")]
-    #[case("ssh://[::1]:2222"     , "ssh://[::1]:2222")]
-    #[case("ssh://user@[::1]:2222", "ssh://user@[::1]:2222")]
-    fn target_roundtrip(#[case] input: &str, #[case] should: &str) {
-        let target = Target::from_str(input).unwrap();
+    #[case("0.0.0.0/0",                                  K::Cidr, "cidr://0.0.0.0/0")]
+    #[case("::/0",                                       K::Cidr, "cidr://[::]/0")]
+    #[case("0.0.0.0",                                    K::Ip,   "ip://0.0.0.0")]
+    #[case("::",                                         K::Ip,   "ip://[::]")]
+    #[case("0.0.0.0:0",                                  K::Ip,   "ip://0.0.0.0:0")]
+    #[case("[::]:0",                                     K::Ip,   "ip://[::]:0")]
+    #[case("localhost",                                  K::Dns,  "dns://localhost")]
+    #[case("file:relative.txt",                          K::File, "file:relative.txt")]
+    #[case("file:///absolute.txt",                       K::File, "file:///absolute.txt")]
+    #[case("cidr://user@0.0.0.0:0/0",                    K::Cidr, "cidr://user@0.0.0.0:0/0")]
+    #[case("ip://user@0.0.0.0:0",                        K::Ip,   "ip://user@0.0.0.0:0")]
+    #[case("dns://user@localhost:0",                     K::Dns,  "dns://user@localhost:0")]
+    #[case("ssh://user:password@localhost:2222",         K::Ssh,  "ssh://user:password@localhost:2222")]
+    #[case("k8s:pod#container",                          K::K8s,  "k8s:pod#container")]
+    #[case("k8s://user@cluster/namespace/pod#container", K::K8s,  "k8s://user@cluster/namespace/pod#container")]
+    fn roundtrip_works(#[case] uri: &str, #[case] kind_should: K, #[case] output_should: &str) {
+        let target = Target::from_str(uri).unwrap();
+        assert_eq!(target.kind(), kind_should);
         let output = target.to_string();
-        assert_eq!(output, should);
+        assert_eq!(output, output_should);
     }
 
     #[rustfmt::skip::attributes(case)]
     #[rstest]
-    #[case("k8s:kube-system",                                  "kube-system", None,        None,      None, None)]
-    #[case("k8s:kube-system/coredns-0",                        "kube-system", "coredns-0", None,      None, None)]
-    #[case("k8s:kube-system/coredns-0#coredns",                "kube-system", "coredns-0", "coredns", None, None)]
-    #[case("k8s:///kube-system",                               "kube-system", None,        None,      None, None)]
-    #[case("k8s:///kube-system/coredns-0",                     "kube-system", "coredns-0", None,      None, None)]
-    #[case("k8s:///kube-system/coredns-0#coredns",             "kube-system", "coredns-0", "coredns", None, None)]
+    #[case("file:relative/file.txt",    "relative/file.txt")]
+    #[case("file:///absolute/file.txt", "/absolute/file.txt")]
+    fn file_works(#[case] uri: &str, #[case] path_should: &str) {
+        let target = Target::from_str(uri).unwrap();
+        let path = target.path().unwrap();
+        assert_eq!(path, path_should);
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("0.0.0.0/0",                   "0.0.0.0/0",    None,   None)]
+    #[case("::/0",                        "::/0",         None,   None)]
+    #[case("cidr://127.0.0.0/32",         "127.0.0.0/32", None,   None)]
+    #[case("cidr://root@127.0.0.0:22/32", "127.0.0.0/32", "root", 22)]
+    #[case("cidr://[::1]/128",            "::1/128",      None,   None)]
+    #[case("cidr://root@[::1]:22/128",    "::1/128",      "root", 22)]
+    fn cidr_works(
+        #[case] uri: &str,
+        #[case] cidr_should: &str,
+        #[case] user_should: impl Into<Option<&'static str>>,
+        #[case] port_should: impl Into<Option<u16>>,
+    ) {
+        let cidr_should = IpNet::from_str(cidr_should).unwrap();
+        let user_should = user_should.into();
+        let port_should = port_should.into();
+
+        let target = Target::from_str(uri).unwrap();
+
+        let cidr = target.cidr().unwrap();
+        let user = target.user();
+        let port = target.port();
+
+        assert_eq!(cidr, cidr_should);
+        assert_eq!(user, user_should);
+        assert_eq!(port, port_should);
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("0.0.0.0",                "0.0.0.0",   None,   None)]
+    #[case("::",                     "::",        None,   None)]
+    #[case("0.0.0.0:0",              "0.0.0.0",   None,   0)]
+    #[case("[::]:0",                 "::",        None,   0)]
+    #[case("ip://127.0.0.1",         "127.0.0.1", None,   None)]
+    #[case("ip://root@127.0.0.1:22", "127.0.0.1", "root", 22)]
+    #[case("ip://[::1]",             "::1",       None,   None)]
+    #[case("ip://root@[::1]:22",     "::1",       "root", 22)]
+    fn ip_works(
+        #[case] uri: &str,
+        #[case] ip_should: &str,
+        #[case] user_should: impl Into<Option<&'static str>>,
+        #[case] port_should: impl Into<Option<u16>>,
+    ) {
+        let ip_should = IpAddr::from_str(ip_should).unwrap();
+        let user_should = user_should.into();
+        let port_should = port_should.into();
+
+        let target = Target::from_str(uri).unwrap();
+
+        let ip = target.ip().unwrap();
+        let user = target.user();
+        let port = target.port();
+
+        assert_eq!(ip, ip_should);
+        assert_eq!(user, user_should);
+        assert_eq!(port, port_should);
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("localhost",               "localhost", None, None)]
+    #[case("dns://localhost",         "localhost", None, None)]
+    #[case("dns://root@localhost:22", "localhost", 22,   "root")]
+    fn dns_works(
+        #[case] uri: &str,
+        #[case] domain_should: &str,
+        #[case] port_should: impl Into<Option<u16>>,
+        #[case] user_should: impl Into<Option<&'static str>>,
+    ) {
+        let port_should = port_should.into();
+        let user_should = user_should.into();
+
+        let target = Target::from_str(uri).unwrap();
+
+        let domain = target.domain().unwrap();
+        let user = target.user();
+        let port = target.port();
+
+        assert_eq!(domain, domain_should);
+        assert_eq!(port, port_should);
+        assert_eq!(user, user_should);
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("ssh://127.0.0.1",                    "127.0.0.1",  None, None,   None)]
+    #[case("ssh://localhost",                    "localhost",  None, None,   None)]
+    #[case("ssh://root:password@localhost:2222", "localhost",  2222, "root", "password")]
+    #[case("ssh://root@[::1]",                   "::1",        None, "root", None)]
+    fn ssh_works(
+        #[case] uri: &str,
+        #[case] host_should: &str,
+        #[case] port_should: impl Into<Option<u16>>,
+        #[case] user_should: impl Into<Option<&'static str>>,
+        #[case] password_should: impl Into<Option<&'static str>>,
+    ) {
+        let host_should = Host::from_str(host_should).unwrap();
+        let port_should = port_should.into();
+        let user_should = user_should.into();
+        let password_should = password_should.into();
+
+        let target = Target::from_str(uri).unwrap();
+
+        let host = target.host().unwrap();
+        let port = target.port();
+        let user = target.user();
+        let password = target.password();
+
+        assert_eq!(host, host_should);
+        assert_eq!(port, port_should);
+        assert_eq!(user, user_should);
+        assert_eq!(password, password_should);
+    }
+
+    #[rustfmt::skip::attributes(case)]
+    #[rstest]
+    #[case("k8s:kube-system/",                                 "kube-system", None,        None,      None,      None)]
+    #[case("k8s:coredns-0",                                    None,          "coredns-0", None,      None,      None)]
+    #[case("k8s:kube-system/coredns-0",                        "kube-system", "coredns-0", None,      None,      None)]
+    #[case("k8s:kube-system/coredns-0#coredns",                "kube-system", "coredns-0", "coredns", None,      None)]
+    #[case("k8s:///kube-system/",                              "kube-system", None,        None,      None,      None)]
+    #[case("k8s:///kube-system/coredns-0",                     "kube-system", "coredns-0", None,      None,      None)]
+    #[case("k8s:///kube-system/coredns-0#coredns",             "kube-system", "coredns-0", "coredns", None,      None)]
     #[case("k8s://cluster/kube-system/coredns-0#coredns",      "kube-system", "coredns-0", "coredns", "cluster", None)]
     #[case("k8s://user@cluster/kube-system/coredns-0#coredns", "kube-system", "coredns-0", "coredns", "cluster", "user")]
-    fn target_k8s_works(
+    fn k8s_works(
         #[case] input: &str,
         #[case] namespace: impl Into<Option<&'static str>>,
         #[case] resource: impl Into<Option<&'static str>>,
@@ -298,18 +463,18 @@ mod tests {
         #[case] cluster: impl Into<Option<&'static str>>,
         #[case] user: impl Into<Option<&'static str>>,
     ) {
-        let namespace = namespace.into().map(ToOwned::to_owned);
-        let resource = resource.into().map(ToOwned::to_owned);
-        let container = container.into().map(ToOwned::to_owned);
-        let cluster = cluster.into();
-        let user = user.into();
+        let namespace_should = namespace.into();
+        let pod_should = resource.into();
+        let container_should = container.into();
+        let cluster_should = cluster.into();
+        let user_should = user.into();
 
         let target = Target::from_str(input).unwrap();
 
-        assert_eq!(target.k8s_namespace(), namespace);
-        assert_eq!(target.k8s_resource(), resource);
-        assert_eq!(target.k8s_container(), container);
-        assert_eq!(target.k8s_cluster(), cluster);
-        assert_eq!(target.user(), user);
+        assert_eq!(target.k8s_namespace(), namespace_should);
+        assert_eq!(target.k8s_pod(), pod_should);
+        assert_eq!(target.k8s_container(), container_should);
+        assert_eq!(target.k8s_cluster(), cluster_should);
+        assert_eq!(target.user(), user_should);
     }
 }
