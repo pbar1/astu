@@ -2,7 +2,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(async_fn_in_trait)]
 
-mod argetype;
+mod arggroup;
 mod cmd;
 
 #[tokio::main]

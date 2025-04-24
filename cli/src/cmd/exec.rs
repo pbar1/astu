@@ -18,8 +18,8 @@ use futures::StreamExt;
 use tracing::instrument;
 use tracing::warn;
 
-use crate::argetype::ConnectionArgs;
-use crate::argetype::ResolutionArgs;
+use crate::arggroup::ConnectionArgs;
+use crate::arggroup::ResolutionArgs;
 use crate::cmd::Run;
 
 /// Run commands on targets

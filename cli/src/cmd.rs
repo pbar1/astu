@@ -11,7 +11,7 @@ use clap::Parser;
 use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 
-use crate::argetype::GlobalArgs;
+use crate::arggroup::GlobalArgs;
 
 /// Remote execution multitool
 #[derive(Debug, Parser)]

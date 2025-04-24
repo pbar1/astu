@@ -3,7 +3,7 @@ use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 
-use crate::argetype::ResolutionArgs;
+use crate::arggroup::ResolutionArgs;
 use crate::cmd::Run;
 
 /// Resolve targets
