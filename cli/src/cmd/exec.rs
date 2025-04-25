@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 use astu::action::client::DynamicClientFactory;
-use astu::action::AuthType;
+use astu::action::AuthPayload;
 use astu::action::Client;
 use astu::action::ClientFactory;
 use astu::action::ExecOutput;
@@ -59,9 +59,9 @@ impl Run for ExecArgs {
 
         // TODO: move auth to own arg group
         let mut auths = Vec::new();
-        auths.push(AuthType::User(self.user.clone()));
+        auths.push(AuthPayload::User(self.user.clone()));
         if let Some(socket) = &self.ssh_agent {
-            auths.push(AuthType::SshAgent {
+            auths.push(AuthPayload::SshAgent {
                 socket: socket.to_owned(),
             });
         }
@@ -92,7 +92,7 @@ async fn exec(
     job_id: String,
     timeout: Duration,
     command: String,
-    auths: Vec<AuthType>,
+    auths: Vec<AuthPayload>,
 ) -> ExecEntry {
     // TODO: Maybe a better way to flatten
     let result = spawn_timeout(
@@ -125,7 +125,7 @@ async fn exec_inner(
     target: Target,
     client_factory: DynamicClientFactory,
     command: String,
-    auths: Vec<AuthType>,
+    auths: Vec<AuthPayload>,
 ) -> Result<ExecOutput> {
     let mut client = client_factory
         .client(&target)

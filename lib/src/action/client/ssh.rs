@@ -15,7 +15,7 @@ use tracing::error;
 use crate::action::transport::Transport;
 use crate::action::transport::TransportFactory;
 use crate::action::transport::TransportFactoryImpl;
-use crate::action::AuthType;
+use crate::action::AuthPayload;
 use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
@@ -114,13 +114,13 @@ impl Client for SshClient {
         Ok(Vec::new())
     }
 
-    async fn auth(&mut self, auth_type: &AuthType) -> anyhow::Result<()> {
+    async fn auth(&mut self, auth_type: &AuthPayload) -> anyhow::Result<()> {
         match auth_type {
-            AuthType::User(x) => self.auth_user(x).await,
-            AuthType::Password(x) => self.auth_password(x).await,
-            AuthType::SshKey(x) => self.auth_ssh_key(x).await,
-            AuthType::SshCert { key, cert } => self.auth_ssh_cert(key, cert).await,
-            AuthType::SshAgent { socket } => self.auth_ssh_agent(socket).await,
+            AuthPayload::User(x) => self.auth_user(x).await,
+            AuthPayload::Password(x) => self.auth_password(x).await,
+            AuthPayload::SshKey(x) => self.auth_ssh_key(x).await,
+            AuthPayload::SshCert { key, cert } => self.auth_ssh_cert(key, cert).await,
+            AuthPayload::SshAgent { socket } => self.auth_ssh_agent(socket).await,
         }
     }
 

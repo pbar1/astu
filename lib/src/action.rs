@@ -21,7 +21,7 @@ pub trait Client {
     async fn ping(&mut self) -> Result<Vec<u8>>;
 
     /// Authenticate with a target.
-    async fn auth(&mut self, auth_type: &AuthType) -> Result<()>;
+    async fn auth(&mut self, auth_type: &AuthPayload) -> Result<()>;
 
     /// Execute commands on a target.
     async fn exec(&mut self, command: &str) -> Result<ExecOutput>;
@@ -50,7 +50,7 @@ pub enum ClientFactoryImpl {
 
 /// Assortment of auth payloads that can be used with auth.
 #[derive(Debug, Clone)]
-pub enum AuthType {
+pub enum AuthPayload {
     User(String),
     Password(String),
     SshKey(String),

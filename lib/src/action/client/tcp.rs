@@ -9,7 +9,7 @@ use tokio::net::TcpStream;
 use crate::action::transport::Transport;
 use crate::action::transport::TransportFactory;
 use crate::action::transport::TransportFactoryImpl;
-use crate::action::AuthType;
+use crate::action::AuthPayload;
 use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
@@ -95,7 +95,7 @@ impl Client for TcpClient {
         Ok(output)
     }
 
-    async fn auth(&mut self, _auth_type: &AuthType) -> Result<()> {
+    async fn auth(&mut self, _auth_type: &AuthPayload) -> Result<()> {
         bail!("TcpClient::auth not supported");
     }
 
