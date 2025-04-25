@@ -190,7 +190,6 @@ dependencies = [
  "fluent-uri",
  "futures",
  "hickory-resolver",
- "internment",
  "ipnet",
  "k8s-openapi",
  "kube",
@@ -1955,15 +1954,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "internment"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "636d4b0f6a39fd684effe2a73f5310df16a3fa7954c26d36833e98f44d1977a2"
-dependencies = [
- "hashbrown",
-]
-
-[[package]]
 name = "ipconfig"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2690,6 +2680,7 @@ dependencies = [
  "hashbrown",
  "indexmap",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

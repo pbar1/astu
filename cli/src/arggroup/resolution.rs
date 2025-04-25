@@ -44,7 +44,7 @@ impl ResolutionArgs {
             fwd.resolve_into_graph(target, &mut graph).await;
         }
         for target in graph.nodes() {
-            let target = (*target).clone();
+            let target = target.clone();
             rev.resolve_into_graph_reverse(target, &mut graph).await;
         }
 

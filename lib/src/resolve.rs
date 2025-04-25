@@ -102,28 +102,26 @@ where
         }
     }
 
-    async fn resolve_into_graph(&self, target: Target, graph: &mut TargetGraph) {
-        let parent = target.clone().intern();
-        graph.add_node(parent);
+    async fn resolve_into_graph(&self, parent: Target, graph: &mut TargetGraph) {
+        graph.add_node(&parent);
 
-        let mut targets = self.resolve(target);
+        let mut targets = self.resolve(parent.clone());
         while let Some(child) = targets.next().await {
             // Avoid having targets refer to themselves
-            if child != *parent {
-                graph.add_edge(parent, child.intern());
+            if child != parent {
+                graph.add_edge(&parent, &child);
             }
         }
     }
 
-    async fn resolve_into_graph_reverse(&self, target: Target, graph: &mut TargetGraph) {
-        let child = target.clone().intern();
-        graph.add_node(child);
+    async fn resolve_into_graph_reverse(&self, child: Target, graph: &mut TargetGraph) {
+        graph.add_node(&child);
 
-        let mut targets = self.resolve(target);
+        let mut targets = self.resolve(child.clone());
         while let Some(parent) = targets.next().await {
             // Avoid having targets refer to themselves
-            if parent != *child {
-                graph.add_edge(parent.intern(), child);
+            if parent != child {
+                graph.add_edge(&parent, &child);
             }
         }
     }

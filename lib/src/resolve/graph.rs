@@ -1,50 +1,65 @@
-use internment::Intern;
+use std::collections::HashMap;
+
 use petgraph::dot::Config;
 use petgraph::dot::Dot;
-use petgraph::prelude::DiGraphMap;
+use petgraph::graph::DiGraph;
+use petgraph::graph::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::resolve::Target;
 
-// TODO: Consider using ArenaIntern to release targets on drop
 /// Directed graph of unique targets.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TargetGraph {
-    graph: DiGraphMap<Intern<Target>, ()>,
+    graph: DiGraph<Target, ()>,
+    map: HashMap<Target, NodeIndex>,
 }
 
 impl TargetGraph {
     /// Access the inner graph.
     #[must_use]
-    pub fn inner(&self) -> &DiGraphMap<Intern<Target>, ()> {
+    pub fn inner(&self) -> &DiGraph<Target, ()> {
         &self.graph
     }
 
     /// Access the inner graph mutably.
-    pub fn inner_mut(&mut self) -> &mut DiGraphMap<Intern<Target>, ()> {
+    pub fn inner_mut(&mut self) -> &mut DiGraph<Target, ()> {
         &mut self.graph
     }
 
     /// Add target to the graph with no relation.
-    pub fn add_node(&mut self, node: Intern<Target>) {
-        self.graph.add_node(node);
+    pub fn add_node(&mut self, target: &Target) -> NodeIndex {
+        if let Some(index) = self.map.get(target) {
+            return index.to_owned();
+        }
+        let index = self.graph.add_node(target.to_owned());
+        self.map.insert(target.to_owned(), index);
+        index
     }
 
     /// Add target relations to the graph. Nodes will be created if they don't
     /// exist yet.
-    pub fn add_edge(&mut self, parent: Intern<Target>, child: Intern<Target>) {
-        self.graph.add_edge(parent, child, ());
+    pub fn add_edge(&mut self, parent: &Target, child: &Target) {
+        let index_parent = self.add_node(parent);
+        let index_child = self.add_node(child);
+        self.graph.add_edge(index_parent, index_child, ());
     }
 
     #[must_use]
-    pub fn nodes(&self) -> Vec<Intern<Target>> {
-        self.graph.nodes().collect()
+    pub fn nodes(&self) -> Vec<Target> {
+        self.graph
+            .raw_nodes()
+            .iter()
+            .map(|x| x.weight.clone())
+            .collect()
     }
 
     /// Get all of the targets that are leaf nodes (ie, targets that have no
     /// further children).
     #[must_use]
-    pub fn leaf_targets(&self) -> Vec<Intern<Target>> {
+    pub fn leaf_targets(&self) -> Vec<Target> {
         self.graph
             .node_references()
             .filter(|(node, _)| {
@@ -53,7 +68,7 @@ impl TargetGraph {
                     .count()
                     == 0
             })
-            .map(|(node, _)| node)
+            .map(|(_node, target)| target.to_owned())
             .collect()
     }
 
@@ -65,7 +80,7 @@ impl TargetGraph {
                 &self.graph,
                 &[Config::EdgeNoLabel, Config::NodeNoLabel],
                 &|_, _| String::new(),
-                &|_, node| format!("label=\"{}\"", node.0),
+                &|_, (_node, target)| format!("label=\"{target}\""),
             )
         )
         .replace("digraph {\n", "digraph {\n    rankdir=LR;\n")
@@ -82,15 +97,15 @@ mod tests {
     fn test_leaf_nodes() {
         let mut g = TargetGraph::default();
 
-        let parent = Target::from_str("10.0.0.0/24").unwrap().intern();
-        let child1 = Target::from_str("10.0.0.1").unwrap().intern();
-        let child2 = Target::from_str("10.0.0.2").unwrap().intern();
+        let a = Target::from_str("10.0.0.0/24").unwrap();
+        let b = Target::from_str("10.0.0.1").unwrap();
+        let c = Target::from_str("10.0.0.2").unwrap();
 
-        g.add_edge(parent, child1);
-        g.add_edge(parent, child2);
+        g.add_edge(&a, &b);
+        g.add_edge(&a, &c);
 
         let got = g.leaf_targets();
-        let should = vec![child1, child2];
+        let should = vec![b, c];
         assert_eq!(got, should);
     }
 }

@@ -11,7 +11,6 @@ use camino::Utf8PathBuf;
 use fluent_uri::encoding::encoder::Path;
 use fluent_uri::encoding::Split;
 use fluent_uri::Uri;
-use internment::Intern;
 use ipnet::IpNet;
 use serde::Deserialize;
 use serde::Serialize;
@@ -61,14 +60,6 @@ pub struct Target {
 
 /// Accessors
 impl Target {
-    // FIXME: Remove when replacing GraphMap with Graph+Map
-    /// Interns the target. This is so it can implement [`Copy`] for use with
-    /// the target graph.
-    #[must_use]
-    pub fn intern(self) -> Intern<Self> {
-        self.into()
-    }
-
     #[must_use]
     pub fn kind(&self) -> TargetKind {
         self.kind
