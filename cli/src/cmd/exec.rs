@@ -9,7 +9,7 @@ use astu::action::ClientFactory;
 use astu::action::ExecOutput;
 use astu::db::Db;
 use astu::db::DbImpl;
-use astu::db::ExecEntry;
+use astu::db::ResultEntry;
 use astu::resolve::Target;
 use astu::util::id::Id;
 use astu::util::tokio::spawn_timeout;
@@ -93,7 +93,7 @@ async fn exec(
     timeout: Duration,
     command: String,
     auths: Vec<AuthPayload>,
-) -> ExecEntry {
+) -> ResultEntry {
     // TODO: Maybe a better way to flatten
     let result = spawn_timeout(
         timeout,
@@ -102,7 +102,7 @@ async fn exec(
     .await;
 
     match result {
-        Ok(Ok(output)) => ExecEntry {
+        Ok(Ok(output)) => ResultEntry {
             job_id: job_id.clone(),
             target: target.to_string(),
             error: None,
@@ -110,7 +110,7 @@ async fn exec(
             stdout: Some(output.stdout),
             stderr: Some(output.stderr),
         },
-        Ok(Err(error)) | Err(error) => ExecEntry {
+        Ok(Err(error)) | Err(error) => ResultEntry {
             job_id: job_id.clone(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
@@ -146,8 +146,8 @@ async fn exec_inner(
     Ok(output)
 }
 
-async fn save(db: DbImpl, entry: ExecEntry) -> DbImpl {
-    if let Err(error) = db.save_exec(&entry).await {
+async fn save(db: DbImpl, entry: ResultEntry) -> DbImpl {
+    if let Err(error) = db.save(&entry).await {
         warn!(?error, ?entry, "failed saving entry to db");
     }
     db

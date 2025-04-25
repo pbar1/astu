@@ -10,15 +10,13 @@ use sqlx::sqlite::SqlitePoolOptions;
 use tracing::error;
 
 use super::Db;
-use super::ExecEntry;
-use super::PingEntry;
+use super::ResultEntry;
 
 /// `SQLite` persistence layer.
 #[derive(Debug, Clone, Builder)]
 pub struct SqliteDb {
     #[builder(into)]
     url: String,
-
     #[builder(skip)]
     pool: Option<SqlitePool>,
 }
@@ -63,41 +61,9 @@ impl Db for SqliteDb {
             .map_err(anyhow::Error::from)
     }
 
-    async fn save_ping(&self, entry: &PingEntry) -> Result<()> {
+    async fn save(&self, entry: &ResultEntry) -> Result<()> {
         sqlx::query(
-            r"INSERT INTO ping_entries (job_id, target, error, message) VALUES (?, ?, ?, ?)",
-        )
-        .bind(&entry.job_id)
-        .bind(&entry.target)
-        .bind(&entry.error)
-        .bind(&entry.message)
-        .execute(&self.pool())
-        .await?;
-        Ok(())
-    }
-
-    async fn load_ping(&self, job_id: &str) -> Result<Vec<PingEntry>> {
-        let pool = self.pool();
-
-        let mut stream =
-            sqlx::query_as::<_, PingEntry>(r"SELECT * FROM ping_entries WHERE job_id = ?")
-                .bind(job_id)
-                .fetch(&pool);
-
-        let mut entries = Vec::new();
-        while let Some(entry) = stream.next().await {
-            match entry {
-                Ok(e) => entries.push(e),
-                Err(error) => error!(?error, "row error in load_ping"),
-            }
-        }
-
-        Ok(entries)
-    }
-
-    async fn save_exec(&self, entry: &ExecEntry) -> Result<()> {
-        sqlx::query(
-            r"INSERT INTO exec_entries (job_id, target, error, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?, ?)",
+            r"INSERT INTO results (job_id, target, error, exit_status, stdout, stderr) VALUES (?, ?, ?, ?, ?, ?)",
         )
             .bind(&entry.job_id)
             .bind(&entry.target)
@@ -110,11 +76,11 @@ impl Db for SqliteDb {
         Ok(())
     }
 
-    async fn load_exec(&self, job_id: &str) -> Result<Vec<ExecEntry>> {
+    async fn load(&self, job_id: &str) -> Result<Vec<ResultEntry>> {
         let pool = self.pool();
 
         let mut stream =
-            sqlx::query_as::<_, ExecEntry>(r"SELECT * FROM exec_entries WHERE job_id = ?")
+            sqlx::query_as::<_, ResultEntry>(r"SELECT * FROM results WHERE job_id = ?")
                 .bind(job_id)
                 .fetch(&pool);
 
@@ -138,7 +104,7 @@ mod tests {
     async fn save_load_works() {
         let db = SqliteDb::try_new("sqlite::memory:").await.unwrap();
 
-        let entry_foo = ExecEntry {
+        let entry_foo = ResultEntry {
             job_id: "0".into(),
             target: "foo".into(),
             error: None,
@@ -146,7 +112,7 @@ mod tests {
             stdout: Some(b"foo_stdout".into()),
             stderr: Some(b"foo_stderr".into()),
         };
-        let entry_bar = ExecEntry {
+        let entry_bar = ResultEntry {
             job_id: "0".into(),
             target: "bar".into(),
             error: None,
@@ -154,7 +120,7 @@ mod tests {
             stdout: Some(b"bar_stdout".into()),
             stderr: Some(b"bar_stderr".into()),
         };
-        let entry_quux = ExecEntry {
+        let entry_quux = ResultEntry {
             job_id: "1".into(),
             target: "quux".into(),
             error: None,
@@ -163,11 +129,11 @@ mod tests {
             stderr: Some(b"quux_stderr".into()),
         };
 
-        db.save_exec(&entry_foo).await.unwrap();
-        db.save_exec(&entry_bar).await.unwrap();
-        db.save_exec(&entry_quux).await.unwrap();
+        db.save(&entry_foo).await.unwrap();
+        db.save(&entry_bar).await.unwrap();
+        db.save(&entry_quux).await.unwrap();
 
-        let entries = db.load_exec("0").await.unwrap();
+        let entries = db.load("0").await.unwrap();
 
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0], entry_foo);

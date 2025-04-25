@@ -7,7 +7,7 @@ use astu::action::Client;
 use astu::action::ClientFactory;
 use astu::db::Db;
 use astu::db::DbImpl;
-use astu::db::PingEntry;
+use astu::db::ResultEntry;
 use astu::resolve::Target;
 use astu::util::id::Id;
 use astu::util::tokio::spawn_timeout;
@@ -58,22 +58,26 @@ async fn ping(
     client_factory: DynamicClientFactory,
     job_id: String,
     timeout: Duration,
-) -> PingEntry {
+) -> ResultEntry {
     // TODO: Maybe a better way to flatten
     let result = spawn_timeout(timeout, ping_inner(target.clone(), client_factory)).await;
 
     match result {
-        Ok(Ok(message)) => PingEntry {
+        Ok(Ok(message)) => ResultEntry {
             job_id: job_id.clone(),
             target: target.to_string(),
             error: None,
-            message: Some(message),
+            exit_status: None,
+            stdout: Some(message),
+            stderr: None,
         },
-        Ok(Err(error)) | Err(error) => PingEntry {
+        Ok(Err(error)) | Err(error) => ResultEntry {
             job_id: job_id.clone(),
             target: target.to_string(),
             error: Some(format!("{error:?}")),
-            message: None,
+            exit_status: None,
+            stdout: None,
+            stderr: None,
         },
     }
 }
@@ -90,8 +94,8 @@ async fn ping_inner(target: Target, client_factory: DynamicClientFactory) -> Res
     Ok(output)
 }
 
-async fn save(db: DbImpl, entry: PingEntry) -> DbImpl {
-    if let Err(error) = db.save_ping(&entry).await {
+async fn save(db: DbImpl, entry: ResultEntry) -> DbImpl {
+    if let Err(error) = db.save(&entry).await {
         warn!(?error, ?entry, "failed saving entry to db");
     }
     db

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS exec_entries (
+CREATE TABLE IF NOT EXISTS results (
   job_id TEXT NOT NULL,
   target TEXT NOT NULL,
   error TEXT,

@@ -12,17 +12,11 @@ pub use self::sqlite::SqliteDb;
 pub trait Db {
     // Required
 
-    /// Saves a [`PingEntry`] to the database.
-    async fn save_ping(&self, entry: &PingEntry) -> Result<()>;
+    /// Saves an action result to the database.
+    async fn save(&self, entry: &ResultEntry) -> Result<()>;
 
-    /// Loads a [`PingEntry`] from the database by `job_id`.
-    async fn load_ping(&self, job_id: &str) -> Result<Vec<PingEntry>>;
-
-    /// Saves an [`ExecEntry`] to the database.
-    async fn save_exec(&self, entry: &ExecEntry) -> Result<()>;
-
-    /// Loads an [`ExecEntry`] from the database by `job_id`.
-    async fn load_exec(&self, job_id: &str) -> Result<Vec<ExecEntry>>;
+    /// Loads action results from the dataabse for a job.
+    async fn load(&self, job_id: &str) -> Result<Vec<ResultEntry>>;
 
     // Defaults
 
@@ -49,23 +43,13 @@ impl DbImpl {
             let db = SqliteDb::try_new(connection_string).await?;
             return Ok(db.into());
         }
-
         bail!("unable to build a db impl");
     }
 }
 
-/// Outcome of a `ping` run.
+/// Outcome of an action.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, sqlx::FromRow)]
-pub struct PingEntry {
-    pub job_id: String,
-    pub target: String,
-    pub error: Option<String>,
-    pub message: Option<Vec<u8>>,
-}
-
-/// Outcome of an `exec` run.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, sqlx::FromRow)]
-pub struct ExecEntry {
+pub struct ResultEntry {
     pub job_id: String,
     pub target: String,
     pub error: Option<String>,
