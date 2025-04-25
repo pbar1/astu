@@ -12,28 +12,29 @@ async-stream = "0.3"
 async-trait = "0.1"
 base32 = "0.5"
 bon = "3"
+borrow-or-share = "0.2"
 bstr = { version = "1", default-features = false }
 camino = "1"
 dirs = { version = "6", default-features = false }
 enum_dispatch = "0.3"
-fluent-uri = { version = "0.3", features = ["net"] }
+fluent-uri = { version = "0.3", features = ["net", "serde"] }
 futures = "0.3"
 hickory-resolver = "0.25"
 internment = { version = "0.8", features = ["arena"] }
 ipnet = "2"
-petgraph = "0.8"
+k8s-openapi = { version = "0.24", features = ["latest"] }
+kube = { version = "0.99", features = ["runtime", "derive"] }
+petgraph = { version = "0.8", features = ["serde"] }
 russh = "0.51"
+serde = { version = "1", features = ["derive"] }
 sonyflake = "0.3"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "derive"] }
+strum = { version = "0.27", features = ["derive"] }
+tabled = "0.18"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
 whoami = "1"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate", "derive"] }
-tabled = "0.18"
-strum = { version = "0.27", features = ["derive"] }
-kube = { version = "0.99", features = ["runtime", "derive"] }
-k8s-openapi = { version = "0.24", features = ["latest"] }
-borrow-or-share = "0.2"
 
 [dev-dependencies]
 borrow-or-share = "0.2.2"

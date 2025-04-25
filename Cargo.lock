@@ -197,6 +197,7 @@ dependencies = [
  "petgraph",
  "rstest",
  "russh",
+ "serde",
  "sonyflake",
  "sqlx",
  "strum",
@@ -1196,6 +1197,7 @@ checksum = "1918b65d96df47d3591bed19c5cca17e3fa5d0707318e4b5ef2eae01764df7e5"
 dependencies = [
  "borrow-or-share",
  "ref-cast",
+ "serde",
 ]
 
 [[package]]

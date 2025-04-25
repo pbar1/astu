@@ -13,6 +13,8 @@ use fluent_uri::encoding::Split;
 use fluent_uri::Uri;
 use internment::Intern;
 use ipnet::IpNet;
+use serde::Deserialize;
+use serde::Serialize;
 use strum::EnumString;
 
 /// Hostnames may be either IP addresses or domain names.
@@ -35,7 +37,9 @@ impl FromStr for Host {
 }
 
 /// All target scheme variants supported by [`Target`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString, Serialize, Deserialize,
+)]
 #[strum(ascii_case_insensitive)]
 #[non_exhaustive]
 pub enum TargetKind {
@@ -49,7 +53,7 @@ pub enum TargetKind {
 }
 
 /// A generic address that may be targeted by actions.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Target {
     uri: Uri<String>,
     kind: TargetKind,
