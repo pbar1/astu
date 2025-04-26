@@ -36,6 +36,8 @@ pub struct PingArgs {
 
 impl Run for PingArgs {
     async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
+        println!("Job ID: {id}");
+
         let job_id = id.to_string();
         let timeout = self.timeout.into();
 
