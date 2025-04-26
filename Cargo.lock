@@ -219,6 +219,8 @@ dependencies = [
  "enum_dispatch",
  "futures",
  "humantime",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-glog",

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 
 use petgraph::dot::Config;
@@ -5,13 +7,14 @@ use petgraph::dot::Dot;
 use petgraph::graph::DiGraph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
+use petgraph::Direction;
 use serde::Deserialize;
 use serde::Serialize;
 
 use crate::resolve::Target;
 
 /// Directed graph of unique targets.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TargetGraph {
     graph: DiGraph<Target, ()>,
     map: HashMap<Target, NodeIndex>,
@@ -64,12 +67,40 @@ impl TargetGraph {
             .node_references()
             .filter(|(node, _)| {
                 self.graph
-                    .neighbors_directed(*node, petgraph::Direction::Outgoing)
+                    .neighbors_directed(*node, Direction::Outgoing)
                     .count()
                     == 0
             })
             .map(|(_node, target)| target.to_owned())
             .collect()
+    }
+
+    /// Gets targets grouped into buckets by their parents. If a target has
+    /// multiple parents, it will only appear in the first parent's bucket.
+    #[must_use]
+    pub fn buckets(&self) -> BTreeMap<Target, BTreeSet<Target>> {
+        self.graph
+            .node_references()
+            .fold(BTreeMap::new(), |mut map, (node, target)| {
+                if self
+                    .graph
+                    .neighbors_directed(node, Direction::Outgoing)
+                    .count()
+                    > 0
+                {
+                    return map;
+                }
+                let Some(parent) = self
+                    .graph
+                    .neighbors_directed(node, Direction::Incoming)
+                    .next()
+                    .and_then(|node| self.graph.node_weight(node).map(ToOwned::to_owned))
+                else {
+                    return map;
+                };
+                map.entry(parent).or_default().insert(target.clone());
+                map
+            })
     }
 
     #[must_use]

@@ -1,7 +1,9 @@
 use std::fmt;
 
+use enum_dispatch::enum_dispatch;
 use tracing::error;
 
+#[derive(Debug, Clone, Copy)]
 pub struct Id {
     inner: IdInner,
 }
@@ -17,20 +19,28 @@ impl fmt::Display for Id {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum IdInner {
     Uuid(uuid::Uuid),
     Sonyflake(u64),
 }
 
-pub trait IdGenerator<T> {
+#[enum_dispatch]
+pub trait IdGenerator {
     fn id_now(&self) -> Id;
+}
+
+#[enum_dispatch(IdGenerator)]
+pub enum IdGeneratorImpl {
+    UuidV7(UuidV7Generator),
+    Sonyflake(SonyflakeGenerator),
 }
 
 // UUIDv7 ---------------------------------------------------------------------
 
 pub struct UuidV7Generator;
 
-impl IdGenerator<uuid::Uuid> for UuidV7Generator {
+impl IdGenerator for UuidV7Generator {
     fn id_now(&self) -> Id {
         let inner = IdInner::Uuid(uuid::Uuid::now_v7());
         Id { inner }
@@ -58,7 +68,7 @@ impl SonyflakeGenerator {
     }
 }
 
-impl IdGenerator<u64> for SonyflakeGenerator {
+impl IdGenerator for SonyflakeGenerator {
     fn id_now(&self) -> Id {
         let inner = IdInner::Sonyflake(self.sonyflake.next_id().unwrap_or_else(|error| {
             error!(?error, "sonyflake id error, falling back to 0");
