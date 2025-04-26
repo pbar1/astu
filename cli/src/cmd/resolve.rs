@@ -3,8 +3,6 @@ use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use clap::ValueEnum;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::args::ResolutionArgs;
 use crate::cmd::Run;
