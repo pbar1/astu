@@ -4465,9 +4465,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-glog"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a86a9f39b8e45905591031517e7ae453025d35b777b7dbaa32cfc7801565c896"
+checksum = "4c45ab066a087486d062874889d4b551add3a33890969475d606f175c5ce7b68"
 dependencies = [
  "chrono",
  "nu-ansi-term",
