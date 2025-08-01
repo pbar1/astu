@@ -36,6 +36,7 @@ uuid = { version = "1", features = ["v7"] }
 whoami = "1"
 
 [dev-dependencies]
+ahash = "0.8"
 borrow-or-share = "0.2.2"
 crossterm = { version = "0.29" }
 rstest = "0.25"

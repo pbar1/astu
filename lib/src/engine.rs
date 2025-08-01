@@ -16,8 +16,8 @@ pub struct Engine {
     id_generator: IdGeneratorImpl,
     forward_resolver: ChainResolver,
     reverse_resolver: ChainResolver,
-    client_factory: DynamicClientFactory,
-    db: DbImpl,
+    _client_factory: DynamicClientFactory,
+    _db: DbImpl,
 }
 
 impl Engine {
