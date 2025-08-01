@@ -13,7 +13,6 @@ use enum_dispatch::enum_dispatch;
 
 use crate::args::GlobalArgs;
 
-/// Arbitrary Shell Targeting Utility
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
@@ -40,7 +39,7 @@ enum Command {
 
 pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    cli.global_args.init_tracing()?;
+    let _guards = cli.global_args.init_tracing()?;
 
     let id = SonyflakeGenerator::from_hostname()?.id_now();
     let db = cli.global_args.get_db().await?;
