@@ -12,8 +12,8 @@ const HEADING: Option<&str> = Some("Target Resolution Options");
 /// Arguments for resolving targets.
 #[derive(Debug, Args, Clone)]
 pub struct ResolutionArgs {
-    /// Target query. Pass `-` to read from stdin.
-    #[clap(short = 't', long = "targets", help_heading = HEADING)]
+    /// Target query.
+    #[clap(short = 'T', long = "target", help_heading = HEADING)]
     pub targets: Vec<Target>,
 }
 

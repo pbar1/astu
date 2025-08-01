@@ -16,22 +16,16 @@ use futures::StreamExt;
 use tracing::instrument;
 use tracing::warn;
 
-use crate::args::ConnectionArgs;
-use crate::args::ResolutionArgs;
 use crate::cmd::Run;
 
 /// Connect to targets
 #[derive(Debug, Args)]
 pub struct PingArgs {
     #[clap(flatten)]
-    resolution_args: ResolutionArgs,
+    resolution_args: crate::args::ResolutionArgs,
 
     #[clap(flatten)]
-    connection_args: ConnectionArgs,
-
-    /// Time to allow action to complete
-    #[clap(long, default_value = "30s")]
-    pub timeout: humantime::Duration,
+    action_args: crate::args::ActionArgs,
 }
 
 impl Run for PingArgs {
@@ -39,14 +33,14 @@ impl Run for PingArgs {
         println!("Job ID: {id}");
 
         let job_id = id.to_string();
-        let timeout = self.timeout.into();
+        let timeout = self.action_args.timeout.into();
 
         let targets = self.resolution_args.set().await?;
-        let client_factory = self.connection_args.client_factory()?;
+        let client_factory = self.action_args.client_factory()?;
 
         let _db = futures::stream::iter(targets)
             .map(|target| ping(target, client_factory.clone(), job_id.clone(), timeout))
-            .buffer_unordered(self.connection_args.concurrency)
+            .buffer_unordered(self.action_args.concurrency)
             .fold(db, save)
             .await;
 

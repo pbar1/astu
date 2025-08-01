@@ -4,22 +4,17 @@ use astu::util::id::Id;
 use clap::Args;
 use clap::ValueEnum;
 
-use crate::args::ResolutionArgs;
 use crate::cmd::Run;
 
 /// Resolve targets
 #[derive(Debug, Args)]
 pub struct ResolveArgs {
     #[clap(flatten)]
-    resolution_args: ResolutionArgs,
+    resolution_args: crate::args::ResolutionArgs,
 
     /// Output mode
     #[clap(short = 'm', long, value_enum, default_value_t = OutputMode::default())]
     mode: OutputMode,
-
-    /// Output format
-    #[clap(short = 'o', long, value_enum, default_value_t = OutputFormat::default())]
-    output: OutputFormat,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
@@ -28,13 +23,6 @@ enum OutputMode {
     Targets,
     Buckets,
     Graph,
-}
-
-// TODO: Move to OmnipresentArgs
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-enum OutputFormat {
-    #[default]
-    Text,
 }
 
 impl Run for ResolveArgs {

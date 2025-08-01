@@ -18,51 +18,40 @@ use futures::StreamExt;
 use tracing::instrument;
 use tracing::warn;
 
-use crate::args::ConnectionArgs;
-use crate::args::ResolutionArgs;
 use crate::cmd::Run;
 
 /// Run commands on targets
 #[derive(Debug, Args)]
 pub struct ExecArgs {
     #[command(flatten)]
-    resolution_args: ResolutionArgs,
+    resolution_args: crate::args::ResolutionArgs,
 
     #[command(flatten)]
-    connection_args: ConnectionArgs,
+    auth_args: crate::args::AuthArgs,
+
+    #[command(flatten)]
+    action_args: crate::args::ActionArgs,
 
     /// Command to run.
     #[arg(trailing_var_arg = true)]
     command: Vec<String>,
-
-    /// Remote user to authenticate as.
-    #[arg(short = 'u', long, default_value = "root")]
-    user: String,
-
-    /// SSH agent socket to use.
-    #[arg(long, env = "SSH_AUTH_SOCK")]
-    ssh_agent: Option<String>,
-
-    /// Time to allow action to complete
-    #[clap(long, default_value = "30s")]
-    pub timeout: humantime::Duration,
 }
 
 impl Run for ExecArgs {
     async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
         let job_id = id.to_string();
-        let timeout = self.timeout.into();
+        let timeout = self.action_args.timeout.into();
         let command = self.command.join(" "); // TODO: shlex join
 
         let targets = self.resolution_args.set().await?;
-        let client_factory = self.connection_args.client_factory()?;
+        let client_factory = self.action_args.client_factory()?;
 
         // TODO: move auth to own arg group
         let mut auths = Vec::new();
-        auths.push(AuthPayload::User(self.user.clone()));
-        if let Some(socket) = &self.ssh_agent {
+        auths.push(AuthPayload::User(self.auth_args.user.clone()));
+        if let Some(socket) = &self.auth_args.ssh_agent {
             auths.push(AuthPayload::SshAgent {
-                socket: socket.to_owned(),
+                socket: socket.to_string(),
             });
         }
 
@@ -77,7 +66,7 @@ impl Run for ExecArgs {
                     auths.clone(),
                 )
             })
-            .buffer_unordered(self.connection_args.concurrency)
+            .buffer_unordered(self.action_args.concurrency)
             .fold(db, save)
             .await;
 

@@ -13,7 +13,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::args::GlobalArgs;
 
-/// Remote execution multitool
+/// Arbitrary Shell Targeting Utility
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Cli {
@@ -33,7 +33,6 @@ pub trait Run {
 #[enum_dispatch(Run)]
 #[derive(Debug, Subcommand)]
 enum Command {
-    #[clap(visible_alias = "hosts")]
     Resolve(resolve::ResolveArgs),
     Ping(ping::PingArgs),
     Exec(exec::ExecArgs),
