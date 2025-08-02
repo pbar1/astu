@@ -2,10 +2,13 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
+use tabled::Table;
+use tabled::Tabled;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::process::Command;
@@ -53,6 +56,7 @@ impl TokenizerContext {
 struct OutputTokenizer {
     ipv4_regex: Regex,
     ipv6_regex: Regex,
+    mac_regex: Regex,
     hostname_regex: Regex,
     timestamp_regex: Regex,
     uuid_regex: Regex,
@@ -68,6 +72,8 @@ impl OutputTokenizer {
             ipv6_regex: Regex::new(
                 r"\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}\b",
             )?,
+            // MAC addresses (colon-delimited only: xx:xx:xx:xx:xx:xx)
+            mac_regex: Regex::new(r"\b(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b")?,
             // Hostnames and FQDNs
             hostname_regex: Regex::new(
                 r"\b[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}\b",
@@ -112,6 +118,7 @@ impl OutputTokenizer {
         result = self.uuid_regex.replace_all(&result, "<UUID>").to_string();
         result = self.ipv6_regex.replace_all(&result, "<IPV6>").to_string();
         result = self.ipv4_regex.replace_all(&result, "<IPV4>").to_string();
+        result = self.mac_regex.replace_all(&result, "<MAC>").to_string();
         result = self
             .hostname_regex
             .replace_all(&result, "<HOSTNAME>")
@@ -129,7 +136,19 @@ impl OutputTokenizer {
     }
 }
 
-async fn run_command<S, I>(program: S, args: I, tokenizer: Arc<OutputTokenizer>) -> Result<()>
+#[derive(Tabled)]
+struct CommandOutput {
+    stdout: String,
+    stderr: String,
+    count: usize,
+}
+
+async fn run_command<S, I>(
+    program: S,
+    args: I,
+    tokenizer: Arc<OutputTokenizer>,
+    frequency_map: Arc<Mutex<HashMap<(String, String), usize>>>,
+) -> Result<()>
 where
     S: AsRef<OsStr>,
     I: IntoIterator<Item = S>,
@@ -170,6 +189,8 @@ where
 
     let mut stdout_done = false;
     let mut stderr_done = false;
+    let mut normalized_stdout = Vec::new();
+    let mut normalized_stderr = Vec::new();
 
     while !stdout_done || !stderr_done {
         tokio::select! {
@@ -178,6 +199,7 @@ where
                     Some(text) => {
                         let normalized = tokenizer.tokenize(&text, Some(&context));
                         println!("stdout[{pid}]: {text} -> {normalized}");
+                        normalized_stdout.push(normalized);
                     }
                     None => stdout_done = true,
                 }
@@ -187,6 +209,7 @@ where
                     Some(text) => {
                         let normalized = tokenizer.tokenize(&text, Some(&context));
                         eprintln!("stderr[{pid}]: {text} -> {normalized}");
+                        normalized_stderr.push(normalized);
                     }
                     None => stderr_done = true,
                 }
@@ -197,33 +220,62 @@ where
     let status = child.wait().await?;
     println!("status[{pid}]: {status}");
 
+    // Aggregate normalized output and update frequency map
+    let stdout_aggregated = normalized_stdout.join("\n");
+    let stderr_aggregated = normalized_stderr.join("\n");
+
+    let mut freq_map = frequency_map.lock().unwrap();
+    *freq_map
+        .entry((stdout_aggregated, stderr_aggregated))
+        .or_insert(0) += 1;
+
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let tokenizer = Arc::new(OutputTokenizer::new()?);
+    let frequency_map = Arc::new(Mutex::new(HashMap::<(String, String), usize>::new()));
 
     let cmd1 = tokio::spawn(run_command(
         "bash",
-        ["-c", "echo $$; hostname; whoami; pwd; echo 192.168.1.1"],
+        [
+            "-c",
+            "echo $$; hostname; whoami; pwd; echo 192.168.1.1; echo aa:bb:cc:dd:ee:ff",
+        ],
         tokenizer.clone(),
+        frequency_map.clone(),
     ));
     let cmd2 = tokio::spawn(run_command(
         "bash",
-        ["-c", "echo $$; hostname; whoami; pwd; echo 10.0.0.1"],
+        [
+            "-c",
+            "echo $$; hostname; whoami; pwd; echo 10.0.0.1; echo 11:22:33:44:55:66",
+        ],
         tokenizer.clone(),
-    ));
-    let cmd3 = tokio::spawn(run_command(
-        "bash",
-        ["-c", "echo $$; hostname; whoami; pwd; echo 172.16.0.1"],
-        tokenizer.clone(),
+        frequency_map.clone(),
     ));
 
-    let (r1, r2, r3) = tokio::join!(cmd1, cmd2, cmd3);
+    let (r1, r2) = tokio::join!(cmd1, cmd2);
     r1??;
     r2??;
-    r3??;
+
+    // Display frequency table
+    println!("\n=== Command Output Frequency ===");
+    let freq_map = frequency_map.lock().unwrap();
+    let mut outputs: Vec<CommandOutput> = freq_map
+        .iter()
+        .map(|((stdout, stderr), count)| CommandOutput {
+            stdout: stdout.clone(),
+            stderr: stderr.clone(),
+            count: *count,
+        })
+        .collect();
+
+    // Sort by count descending
+    outputs.sort_by(|a, b| b.count.cmp(&a.count));
+
+    println!("{}", Table::new(outputs));
 
     Ok(())
 }
