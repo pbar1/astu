@@ -38,6 +38,7 @@ whoami = "1"
 [dev-dependencies]
 ahash = "0.8"
 borrow-or-share = "0.2.2"
+regex = "1"
 crossterm = { version = "0.29" }
 rstest = "0.25"
 tempfile = "3"

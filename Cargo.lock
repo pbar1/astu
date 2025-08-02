@@ -195,6 +195,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "petgraph",
+ "regex",
  "rstest",
  "russh",
  "serde",
