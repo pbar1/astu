@@ -3831,9 +3831,9 @@ dependencies = [
 
 [[package]]
 name = "sonyflake"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c98948de7f3b5d7ed20786a79eeca2be67269d07ea08d74a3e9813fb41f5655c"
+checksum = "8e573317adfcc882c0f17a73a53d4d4fc2880850a7da01bab0a8e87965af206c"
 dependencies = [
  "chrono",
  "pnet_datalink",
