@@ -1,4 +1,7 @@
+mod cp;
 mod exec;
+mod freq;
+mod output;
 mod ping;
 mod resolve;
 
@@ -32,9 +35,12 @@ pub trait Run {
 #[enum_dispatch(Run)]
 #[derive(Debug, Subcommand)]
 enum Command {
-    Resolve(resolve::ResolveArgs),
-    Ping(ping::PingArgs),
+    Cp(cp::CpArgs),
     Exec(exec::ExecArgs),
+    Freq(freq::FreqArgs),
+    Output(output::OutputArgs),
+    Ping(ping::PingArgs),
+    Resolve(resolve::ResolveArgs),
 }
 
 pub async fn run() -> anyhow::Result<()> {

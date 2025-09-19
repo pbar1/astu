@@ -20,7 +20,7 @@ use tracing::warn;
 
 use crate::cmd::Run;
 
-/// Run commands on targets
+/// Execute commands on targets.
 #[derive(Debug, Args)]
 pub struct ExecArgs {
     #[command(flatten)]
