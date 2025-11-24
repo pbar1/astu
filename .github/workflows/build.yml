@@ -16,7 +16,7 @@ jobs:
     # TODO: Run tests when they don't depend on environment
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Setup Rust toolchain
       run: rustup toolchain install stable --profile minimal
