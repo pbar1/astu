@@ -33,7 +33,7 @@ tabled = "0.20"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
-whoami = "1"
+whoami = "2"
 
 [dev-dependencies]
 ahash = "0.8"
