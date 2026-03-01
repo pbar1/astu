@@ -4,6 +4,3 @@ language = "en"
 multilingual = false
 src = "src"
 title = "Astu"
-
-[preprocessor.graphviz]
-command = "mdbook-graphviz"

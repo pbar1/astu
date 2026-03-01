@@ -1,13 +1,12 @@
 # Summary
 
-[Introduction](./introduction.md)
-
 # User Guide
 
 - [Quickstart](./quickstart.md)
 
 # Reference
 
+- [CLI](./cli.md)
 - [Architecture](./architecture/index.md)
   - [Targets](./architecture/targets.md)
   - [Resolvers](./architecture/resolvers.md)
