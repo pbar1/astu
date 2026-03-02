@@ -4,7 +4,7 @@ mod gc;
 mod jobs;
 mod output;
 mod ping;
-mod render;
+pub(crate) mod render;
 mod resolve;
 mod resume;
 mod tasks;

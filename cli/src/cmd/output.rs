@@ -79,7 +79,8 @@ impl Run for OutputArgs {
                 }
                 out.insert(field.output_title().to_owned(), serde_json::to_value(view)?);
             }
-            println!("{}", serde_json::to_string_pretty(&out)?);
+            let rendered = format!("{}\n", serde_json::to_string_pretty(&out)?);
+            crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
             return Ok(());
         }
 

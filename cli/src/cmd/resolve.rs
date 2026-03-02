@@ -20,7 +20,8 @@ impl Run for ResolveArgs {
                 .into_iter()
                 .map(|target| target.to_string())
                 .collect::<Vec<_>>();
-            println!("{}", serde_json::to_string_pretty(&values)?);
+            let rendered = format!("{}\n", serde_json::to_string_pretty(&values)?);
+            crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
             return Ok(());
         }
         for target in targets {

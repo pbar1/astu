@@ -27,7 +27,8 @@ pub async fn print_error_freq_summary(
 
     if matches!(output, crate::args::OutputFormat::Json) {
         let value = serde_json::json!({ "error-freq": view });
-        println!("{}", serde_json::to_string_pretty(&value)?);
+        let rendered = format!("{}\n", serde_json::to_string_pretty(&value)?);
+        crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
         return Ok(());
     }
 

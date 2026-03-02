@@ -48,7 +48,8 @@ impl Run for TraceArgs {
             })
             .collect::<Vec<_>>();
         if matches!(runtime.output(), crate::args::OutputFormat::Json) {
-            println!("{}", serde_json::to_string_pretty(&view)?);
+            let rendered = format!("{}\n", serde_json::to_string_pretty(&view)?);
+            crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
             return Ok(());
         }
         let rendered = crate::cmd::render::modern_table(view);
