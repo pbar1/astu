@@ -16,7 +16,9 @@ astu jobs
 <summary>Output</summary>
 
 ```
-TODO
+| job_id                               | started_at                 | command                           | task_count |
+|--------------------------------------|----------------------------|-----------------------------------|------------|
+| 019ca7da-534f-7fa0-874a-7af651acbd65 | 2026-03-01 05:23:49.199082 | /usr/bin/printf 'x=%s\n' '{param} | 2          |
 ```
 
 </details>

@@ -19,7 +19,6 @@
     - [jobs](./cli/other/jobs.md)
     - [tasks](./cli/other/tasks.md)
     - [gc](./cli/other/gc.md)
-    - [doctor](./cli/other/doctor.md)
 - [Architecture](./architecture/index.md)
   - [Targets](./architecture/targets.md)
   - [Resolvers](./architecture/resolvers.md)
