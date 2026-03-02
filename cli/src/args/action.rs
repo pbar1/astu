@@ -16,7 +16,7 @@ use clap::ValueEnum;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
@@ -256,13 +256,12 @@ impl ActionArgs {
         let sem = Arc::new(Semaphore::new(self.concurrency.max(1)));
         let client_factory = self.client_factory()?;
         let mut tasks = tokio::task::JoinSet::new();
+        let progress_label = operation.progress_message();
+        let completed = Arc::new(AtomicUsize::new(0));
         let progress = if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
             let span = info_span!("action");
-            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}")
-                .unwrap_or_else(|_| ProgressStyle::default_bar());
-            span.pb_set_style(&style);
-            span.pb_set_length(u64::try_from(total_tasks).unwrap_or(u64::MAX));
-            span.pb_set_message(operation.progress_message());
+            span.pb_set_style(&ProgressStyle::default_spinner());
+            span.pb_set_message(&format!("{progress_label} 0/{total_tasks}"));
             Some(span)
         } else {
             None
@@ -286,9 +285,12 @@ impl ActionArgs {
                     0,
                 )
                 .await?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.pb_inc(1);
-                }
+                increment_progress(
+                    progress.as_ref(),
+                    completed.as_ref(),
+                    total_tasks,
+                    progress_label,
+                );
                 continue;
             }
 
@@ -301,6 +303,7 @@ impl ActionArgs {
             let client_factory = client_factory.clone();
             let operation = operation.clone();
             let progress = progress.clone();
+            let completed = completed.clone();
 
             tasks.spawn(async move {
                 let _permit = permit;
@@ -315,9 +318,12 @@ impl ActionArgs {
                         0,
                     )
                     .await?;
-                    if let Some(progress) = progress.as_ref() {
-                        progress.pb_inc(1);
-                    }
+                    increment_progress(
+                        progress.as_ref(),
+                        completed.as_ref(),
+                        total_tasks,
+                        progress_label,
+                    );
                     return Ok::<(), anyhow::Error>(());
                 };
 
@@ -335,9 +341,12 @@ impl ActionArgs {
                         0,
                     )
                     .await?;
-                    if let Some(progress) = progress.as_ref() {
-                        progress.pb_inc(1);
-                    }
+                    increment_progress(
+                        progress.as_ref(),
+                        completed.as_ref(),
+                        total_tasks,
+                        progress_label,
+                    );
                     return Ok::<(), anyhow::Error>(());
                 }
 
@@ -435,9 +444,12 @@ impl ActionArgs {
                     }
                 }
 
-                if let Some(progress) = progress.as_ref() {
-                    progress.pb_inc(1);
-                }
+                increment_progress(
+                    progress.as_ref(),
+                    completed.as_ref(),
+                    total_tasks,
+                    progress_label,
+                );
                 Ok::<(), anyhow::Error>(())
             });
         }
@@ -570,4 +582,17 @@ fn normalize_stream_bytes(normalizer: &Normalizer, bytes: &[u8]) -> Vec<u8> {
         .collect::<Vec<_>>()
         .join("\n")
         .into_bytes()
+}
+
+fn increment_progress(
+    progress: Option<&tracing::Span>,
+    completed: &AtomicUsize,
+    total: usize,
+    label: &str,
+) {
+    let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
+    if let Some(progress) = progress {
+        progress.pb_set_message(&format!("{label} {done}/{total}"));
+        progress.pb_tick();
+    }
 }
