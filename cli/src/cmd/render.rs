@@ -1,24 +1,66 @@
+use anyhow::Context;
+use anyhow::Result;
+use std::io::IsTerminal;
+use std::io::Write;
+use std::process::Command;
+use std::process::Stdio;
 use tabled::settings::Style;
 use tabled::Table;
 use tabled::Tabled;
 
 pub fn markdown_table<T: Tabled>(rows: Vec<T>) -> String {
+    if rows.is_empty() {
+        return "(no rows)\n".to_owned();
+    }
     let mut table = Table::new(rows);
     table.with(Style::markdown());
-    table.to_string()
+    format!("{table}\n")
 }
 
-pub fn print_markdown_table<T: Tabled>(rows: Vec<T>) {
-    println!("{}", markdown_table(rows));
+pub fn section_table<T: Tabled>(title: &str, rows: Vec<T>) -> String {
+    let mut out = String::new();
+    out.push_str(title);
+    out.push('\n');
+    out.push_str(&markdown_table(rows));
+    out
 }
 
-pub fn print_section_table<T: Tabled>(title: &str, rows: Vec<T>) {
-    println!("{title}");
-    if rows.is_empty() {
-        println!("(no rows)");
-        println!();
-        return;
+pub fn emit_with_optional_pager(content: &str, enable_pager: bool) -> Result<()> {
+    if !enable_pager || !should_use_pager() {
+        print!("{content}");
+        return Ok(());
     }
-    print_markdown_table(rows);
-    println!();
+
+    let Ok(mut child) = Command::new("less")
+        .args(["-FIRX"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+    else {
+        print!("{content}");
+        return Ok(());
+    };
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(content.as_bytes())
+            .context("write pager input")?;
+    }
+
+    let status = child.wait().context("wait pager")?;
+    if !status.success() {
+        anyhow::bail!("pager exited with status {status}");
+    }
+    Ok(())
+}
+
+fn should_use_pager() -> bool {
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        return false;
+    }
+    if matches!(std::env::var("ASTU_NO_PAGER").as_deref(), Ok("1")) {
+        return false;
+    }
+    true
 }

@@ -73,7 +73,11 @@ impl Run for FreqArgs {
             self.fields.clone()
         };
 
-        for field in fields {
+        let mut rendered = String::new();
+        for (idx, field) in fields.into_iter().enumerate() {
+            if idx > 0 {
+                rendered.push('\n');
+            }
             let rows = db
                 .freq(field.into_db(), &job_id, self.contains.as_deref())
                 .await?;
@@ -84,8 +88,9 @@ impl Run for FreqArgs {
                     value: row.value,
                 })
                 .collect::<Vec<_>>();
-            crate::cmd::render::print_section_table(field.as_str(), view);
+            rendered.push_str(&crate::cmd::render::section_table(field.as_str(), view));
         }
+        crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
 
         Ok(())
     }

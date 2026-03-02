@@ -87,7 +87,11 @@ impl Run for OutputArgs {
             HashMap::new()
         };
 
-        for field in fields {
+        let mut rendered = String::new();
+        for (idx, field) in fields.into_iter().enumerate() {
+            if idx > 0 {
+                rendered.push('\n');
+            }
             let rows = db
                 .output(
                     field.into_db(),
@@ -104,8 +108,9 @@ impl Run for OutputArgs {
                     value: denormalize_value(&row.value, vars_by_task.get(&row.task_id)),
                 })
                 .collect::<Vec<_>>();
-            crate::cmd::render::print_section_table(field.as_str(), view);
+            rendered.push_str(&crate::cmd::render::section_table(field.as_str(), view));
         }
+        crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
 
         Ok(())
     }
