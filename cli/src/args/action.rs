@@ -16,14 +16,11 @@ use clap::ValueEnum;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
 use tokio::sync::Semaphore;
-use tracing::info_span;
-use tracing_indicatif::span_ext::IndicatifSpanExt;
-use tracing_indicatif::style::ProgressStyle;
 use uuid::Uuid;
 
 use super::AuthArgs;
@@ -80,15 +77,6 @@ pub enum ActionOperation {
         pipe_stdin: Option<PathBuf>,
     },
     Ping,
-}
-
-impl ActionOperation {
-    const fn progress_message(&self) -> &'static str {
-        match self {
-            Self::Exec { .. } => "executing",
-            Self::Ping => "pinging",
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -231,7 +219,6 @@ impl ActionArgs {
         )
         .await?;
 
-        let total_tasks = specs.len();
         let cancel = Arc::new(AtomicBool::new(false));
         {
             let cancel = cancel.clone();
@@ -256,17 +243,6 @@ impl ActionArgs {
         let sem = Arc::new(Semaphore::new(self.concurrency.max(1)));
         let client_factory = self.client_factory()?;
         let mut tasks = tokio::task::JoinSet::new();
-        let progress_label = operation.progress_message();
-        let completed = Arc::new(AtomicUsize::new(0));
-        let progress = if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
-            let span = info_span!("action");
-            span.pb_set_style(&ProgressStyle::default_spinner());
-            span.pb_set_message(&format!("{progress_label} 0/{total_tasks}"));
-            Some(span)
-        } else {
-            None
-        };
-        let _progress_enter = progress.as_ref().map(tracing::Span::enter);
 
         for spec in specs {
             let task_id = Uuid::now_v7().hyphenated().to_string();
@@ -285,12 +261,6 @@ impl ActionArgs {
                     0,
                 )
                 .await?;
-                increment_progress(
-                    progress.as_ref(),
-                    completed.as_ref(),
-                    total_tasks,
-                    progress_label,
-                );
                 continue;
             }
 
@@ -302,8 +272,6 @@ impl ActionArgs {
             let db = db.clone();
             let client_factory = client_factory.clone();
             let operation = operation.clone();
-            let progress = progress.clone();
-            let completed = completed.clone();
 
             tasks.spawn(async move {
                 let _permit = permit;
@@ -318,12 +286,6 @@ impl ActionArgs {
                         0,
                     )
                     .await?;
-                    increment_progress(
-                        progress.as_ref(),
-                        completed.as_ref(),
-                        total_tasks,
-                        progress_label,
-                    );
                     return Ok::<(), anyhow::Error>(());
                 };
 
@@ -341,12 +303,6 @@ impl ActionArgs {
                         0,
                     )
                     .await?;
-                    increment_progress(
-                        progress.as_ref(),
-                        completed.as_ref(),
-                        total_tasks,
-                        progress_label,
-                    );
                     return Ok::<(), anyhow::Error>(());
                 }
 
@@ -444,12 +400,6 @@ impl ActionArgs {
                     }
                 }
 
-                increment_progress(
-                    progress.as_ref(),
-                    completed.as_ref(),
-                    total_tasks,
-                    progress_label,
-                );
                 Ok::<(), anyhow::Error>(())
             });
         }
@@ -582,17 +532,4 @@ fn normalize_stream_bytes(normalizer: &Normalizer, bytes: &[u8]) -> Vec<u8> {
         .collect::<Vec<_>>()
         .join("\n")
         .into_bytes()
-}
-
-fn increment_progress(
-    progress: Option<&tracing::Span>,
-    completed: &AtomicUsize,
-    total: usize,
-    label: &str,
-) {
-    let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
-    if let Some(progress) = progress {
-        progress.pb_set_message(&format!("{label} {done}/{total}"));
-        progress.pb_tick();
-    }
 }
