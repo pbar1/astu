@@ -64,3 +64,10 @@ each task has a cursor, guaranteeing delivery.
 Default: `30s`
 
 Per-task timeout value in humantime. 0 indicates no timeout.
+
+#### `--confirm`
+
+Auto-accept the plan if passed target count is correct.
+
+Required if running non-interactively to proceed with action. Skips prompt for
+confirmation if running interactively.
