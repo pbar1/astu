@@ -15,6 +15,10 @@ pub struct ResolutionArgs {
     /// Target query.
     #[clap(short = 'T', long = "target", help_heading = HEADING)]
     pub targets: Vec<Target>,
+
+    /// Path to file with target URIs.
+    #[clap(short = 'f', long = "target-file", help_heading = HEADING)]
+    pub target_files: Vec<String>,
 }
 
 impl ResolutionArgs {

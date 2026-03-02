@@ -8,6 +8,7 @@ use astu::db::DbImpl;
 use astu::util::dirs;
 use camino::Utf8PathBuf;
 use clap::Args;
+use clap::ValueEnum;
 use tracing::debug;
 use tracing_appender::non_blocking;
 use tracing_glog::Glog;
@@ -25,16 +26,23 @@ const HEADING: Option<&str> = Some("Global Options");
 #[derive(Debug, Args, Clone)]
 pub struct GlobalArgs {
     /// Filter directive for stderr logs
-    #[clap(long, env = "RUST_LOG", default_value = "error", help_heading = HEADING, global = true)]
+    #[clap(long, env = "ASTU_LOG", default_value = "debug", help_heading = HEADING, global = true)]
     pub log_level: String,
 
-    /// Filter directive for log file
-    #[clap(long, default_value = "astu=debug,astu_cli=debug", help_heading = HEADING, global = true)]
-    pub file_level: String,
+    /// Output format.
+    #[clap(short = 'o', long, default_value_t = OutputFormat::default(), value_enum, help_heading = HEADING, global = true)]
+    pub output: OutputFormat,
 
     /// Data directory
-    #[clap(long, default_value_t = data_dir(), help_heading = HEADING, global = true)]
+    #[clap(long, env = "ASTU_DATA_DIR", default_value_t = data_dir(), help_heading = HEADING, global = true)]
     pub data_dir: Utf8PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
 }
 
 /// Guard holder for [`tracing`] things that need to live until the end of the
@@ -68,7 +76,7 @@ impl GlobalArgs {
             .open(&log_file_path)
             .context("unable to create log file")?;
         let (file_writer, file_writer_guard) = non_blocking(log_file);
-        let file_filter = EnvFilter::builder().parse_lossy(&self.file_level);
+        let file_filter = EnvFilter::builder().parse_lossy("astu=debug,astu_cli=debug");
         let file_layer = tracing_subscriber::fmt::layer()
             .event_format(Glog::default().with_timer(LocalTime::default()))
             .fmt_fields(GlogFields::default())

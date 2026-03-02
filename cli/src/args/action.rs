@@ -2,6 +2,7 @@ use anyhow::Result;
 use astu::action::client;
 use astu::action::transport;
 use clap::Args;
+use clap::ValueEnum;
 
 const HEADING: Option<&str> = Some("Action Options");
 
@@ -19,6 +20,19 @@ pub struct ActionArgs {
     /// Time to allow each action to complete.
     #[clap(long, default_value = "30s", help_heading = HEADING)]
     pub timeout: humantime::Duration,
+
+    /// How to interpret stdin.
+    #[clap(long, default_value_t = StdinMode::default(), value_enum, help_heading = HEADING)]
+    pub stdin: StdinMode,
+}
+
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+pub enum StdinMode {
+    #[default]
+    Auto,
+    Param,
+    Target,
+    Pipe,
 }
 
 impl ActionArgs {

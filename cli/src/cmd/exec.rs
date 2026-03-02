@@ -32,16 +32,15 @@ pub struct ExecArgs {
     #[command(flatten)]
     action_args: crate::args::ActionArgs,
 
-    /// Command to run.
-    #[arg(trailing_var_arg = true)]
-    command: Vec<String>,
+    /// Command template.
+    command: String,
 }
 
 impl Run for ExecArgs {
     async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
         let job_id = id.to_string();
         let timeout = self.action_args.timeout.into();
-        let command = self.command.join(" "); // TODO: shlex join
+        let command = self.command.clone();
 
         let targets = self.resolution_args.set().await?;
         let client_factory = self.action_args.client_factory()?;
@@ -128,7 +127,7 @@ async fn exec_inner(
     }
 
     let output = client
-        .exec(&command)
+        .exec(&command, None)
         .await
         .context("unable to run command")?;
 
