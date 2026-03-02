@@ -1,9 +1,7 @@
 use anyhow::Result;
 use astu::db::DbImpl;
-use astu::resolve::Target;
 use astu::util::id::Id;
 use clap::Args;
-use std::str::FromStr;
 
 use crate::cmd::Run;
 
@@ -16,12 +14,7 @@ pub struct ResolveArgs {
 
 impl Run for ResolveArgs {
     async fn run(&self, _id: Id, _db: DbImpl) -> Result<()> {
-        let mut set = self.resolution_args.set().await?;
-        if set.is_empty() {
-            set.insert(Target::from_str("local:")?);
-        }
-
-        for target in set {
+        for target in self.resolution_args.set_with_default(None).await? {
             println!("{target}");
         }
 

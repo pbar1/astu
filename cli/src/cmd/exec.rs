@@ -1,14 +1,10 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use astu::db::DbField;
 use astu::db::DbImpl;
-use astu::resolve::Target;
 use astu::util::id::Id;
 use clap::Args;
 use uuid::Uuid;
 
-use crate::cmd::common;
 use crate::cmd::Run;
 
 /// Execute commands on targets.
@@ -29,32 +25,30 @@ pub struct ExecArgs {
 
 impl Run for ExecArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
-        let stdin_bytes = common::read_stdin_all_if_piped().await?.unwrap_or_default();
+        let stdin_bytes = crate::args::read_stdin_all_if_piped()
+            .await?
+            .unwrap_or_default();
         let has_stdin_target_file = self
             .resolution_args
             .target_files
             .iter()
             .any(|x| x == "-" || x == "/dev/stdin");
 
-        let mode =
-            common::infer_input_mode(&self.action_args, &self.command, has_stdin_target_file);
+        let mode = self
+            .action_args
+            .infer_input_mode(&self.command, has_stdin_target_file);
 
         let stdin_str = String::from_utf8_lossy(&stdin_bytes);
-        let stdin_targets = if mode == common::InputMode::Target {
+        let stdin_targets = if mode == crate::args::InputMode::Target {
             Some(stdin_str.as_ref())
         } else {
             None
         };
 
-        let mut set = self.resolution_args.set_with_stdin(stdin_targets).await?;
-        if set.is_empty() {
-            set.insert(Target::from_str("local:")?);
-        }
-        let targets = common::normalize_targets(set);
-
-        let specs = common::build_task_specs(targets, &self.command, mode, &stdin_bytes);
+        let targets = self.resolution_args.set_with_default(stdin_targets).await?;
+        let specs = crate::args::build_task_specs(targets, &self.command, mode, &stdin_bytes);
         let target_count = specs.len();
-        common::require_confirm(self.action_args.confirm, target_count)?;
+        self.action_args.require_confirm(target_count)?;
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
 
@@ -64,17 +58,12 @@ impl Run for ExecArgs {
                 .to_string_lossy()
                 .to_string()
         });
-        let spool = common::maybe_spool_stdin(&data_dir, &job_id, mode, &stdin_bytes)?;
+        let spool =
+            crate::args::ActionArgs::maybe_spool_stdin(&data_dir, &job_id, mode, &stdin_bytes)?;
 
-        common::run_tasks(
-            db.clone(),
-            &job_id,
-            specs,
-            &self.auth_args,
-            &self.action_args,
-            spool,
-        )
-        .await?;
+        self.action_args
+            .run_tasks(db.clone(), &job_id, specs, &self.auth_args, spool)
+            .await?;
 
         let DbImpl::Duck(db) = db;
         let rows = db.freq(DbField::Error, &job_id, None).await?;

@@ -63,10 +63,6 @@ impl ResolutionArgs {
         Ok(targets)
     }
 
-    pub async fn set(&self) -> anyhow::Result<BTreeSet<Target>> {
-        self.set_with_stdin(None).await
-    }
-
     pub async fn set_with_stdin(
         &self,
         stdin_targets: Option<&str>,
@@ -76,6 +72,17 @@ impl ResolutionArgs {
             .bulk_resolve_set(self.seed_targets(stdin_targets).await?)
             .await;
         Ok(set)
+    }
+
+    pub async fn set_with_default(
+        &self,
+        stdin_targets: Option<&str>,
+    ) -> anyhow::Result<Vec<Target>> {
+        let mut set = self.set_with_stdin(stdin_targets).await?;
+        if set.is_empty() {
+            set.insert(Target::from_str("local:")?);
+        }
+        Ok(set.into_iter().collect())
     }
 
     pub async fn _graph(self) -> anyhow::Result<TargetGraph> {

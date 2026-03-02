@@ -1,4 +1,3 @@
-mod common;
 mod exec;
 mod freq;
 mod gc;
