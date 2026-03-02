@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Serialize;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
@@ -16,7 +17,7 @@ pub struct TraceArgs {
     target: Option<String>,
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug, Serialize, Tabled)]
 struct TraceRowView {
     task_id: String,
     target: String,
@@ -46,6 +47,10 @@ impl Run for TraceArgs {
                 exec_ms: row.exec_ms,
             })
             .collect::<Vec<_>>();
+        if matches!(runtime.output(), crate::args::OutputFormat::Json) {
+            println!("{}", serde_json::to_string_pretty(&view)?);
+            return Ok(());
+        }
         let rendered = crate::cmd::render::modern_table(view);
         crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
         Ok(())

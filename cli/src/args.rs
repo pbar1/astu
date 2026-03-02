@@ -12,5 +12,6 @@ pub use action::InputMode;
 pub use action::TaskSpec;
 pub use auth::AuthArgs;
 pub use global::GlobalArgs;
+pub use global::OutputFormat;
 pub use job::JobArgs;
 pub use resolution::ResolutionArgs;

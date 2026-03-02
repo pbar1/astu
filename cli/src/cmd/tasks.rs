@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Serialize;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
@@ -13,7 +14,7 @@ pub struct TasksArgs {
     job_args: crate::args::JobArgs,
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug, Serialize, Tabled)]
 struct TaskRowView {
     task_id: String,
     target: String,
@@ -39,6 +40,10 @@ impl Run for TasksArgs {
                 exit_code: row.exit_code.map_or_else(String::new, |x| x.to_string()),
             })
             .collect::<Vec<_>>();
+        if matches!(runtime.output(), crate::args::OutputFormat::Json) {
+            println!("{}", serde_json::to_string_pretty(&view)?);
+            return Ok(());
+        }
         let rendered = crate::cmd::render::modern_table(view);
         crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
         Ok(())

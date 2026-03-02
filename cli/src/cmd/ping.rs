@@ -39,7 +39,7 @@ impl Run for PingArgs {
             )
             .await?;
 
-        crate::report::print_error_freq_summary(runtime.db(), &job_id).await?;
+        crate::report::print_error_freq_summary(runtime.db(), &job_id, runtime.output()).await?;
         Ok(())
     }
 }

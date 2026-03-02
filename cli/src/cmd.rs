@@ -64,7 +64,7 @@ pub async fn run() -> anyhow::Result<()> {
     let id = UuidV7Generator.id_now();
     let _guards = cli.global_args.init_tracing(&id.to_string())?;
     let db = cli.global_args.get_db().await?;
-    let runtime = Runtime::new(cli.global_args.data_dir.clone(), db);
+    let runtime = Runtime::new(cli.global_args.data_dir.clone(), db, cli.global_args.output);
     cli.command.run(id, &runtime).await
 }
 
@@ -128,6 +128,14 @@ mod tests {
     fn parses_global_output_flag() {
         let cli = Cli::try_parse_from(["astu", "-o", "json", "lookup"]).expect("parse");
         let debug = format!("{cli:?}");
+        assert!(debug.contains("Json"), "{debug}");
+    }
+
+    #[test]
+    fn parses_global_output_flag_after_subcommand() {
+        let cli = Cli::try_parse_from(["astu", "f", "--output", "json"]).expect("parse");
+        let debug = format!("{cli:?}");
+        assert!(debug.contains("Freq"), "{debug}");
         assert!(debug.contains("Json"), "{debug}");
     }
 

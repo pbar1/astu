@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Serialize;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
@@ -20,7 +21,7 @@ pub struct FreqArgs {
     contains: Option<String>,
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug, Serialize, Tabled)]
 struct FreqRowView {
     count: i64,
     value: String,
@@ -42,6 +43,26 @@ impl Run for FreqArgs {
         } else {
             self.fields.clone()
         };
+
+        if matches!(runtime.output(), crate::args::OutputFormat::Json) {
+            let mut out = serde_json::Map::new();
+            for field in fields {
+                let rows = runtime
+                    .db()
+                    .freq(field.into_db(), &job_id, self.contains.as_deref())
+                    .await?;
+                let view = rows
+                    .into_iter()
+                    .map(|row| FreqRowView {
+                        count: row.count,
+                        value: row.value,
+                    })
+                    .collect::<Vec<_>>();
+                out.insert(field.freq_title().to_owned(), serde_json::to_value(view)?);
+            }
+            println!("{}", serde_json::to_string_pretty(&out)?);
+            return Ok(());
+        }
 
         let mut rendered = String::new();
         for (idx, field) in fields.into_iter().enumerate() {

@@ -61,7 +61,7 @@ impl Run for ExecArgs {
             .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, spool)
             .await?;
 
-        crate::report::print_error_freq_summary(runtime.db(), &job_id).await?;
+        crate::report::print_error_freq_summary(runtime.db(), &job_id, runtime.output()).await?;
 
         Ok(())
     }

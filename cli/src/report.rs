@@ -1,16 +1,21 @@
 use anyhow::Result;
+use serde::Serialize;
 use std::io::Write;
 use tabled::settings::Style;
 use tabled::Table;
 use tabled::Tabled;
 
-#[derive(Debug, Tabled)]
+#[derive(Debug, Serialize, Tabled)]
 struct ErrorFreqRow {
     count: i64,
     value: String,
 }
 
-pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Result<()> {
+pub async fn print_error_freq_summary(
+    db: &astu::db::DuckDb,
+    job_id: &str,
+    output: crate::args::OutputFormat,
+) -> Result<()> {
     let rows = db.freq(astu::db::DbField::Error, job_id, None).await?;
     let view = rows
         .into_iter()
@@ -19,6 +24,12 @@ pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Re
             value: row.value,
         })
         .collect::<Vec<_>>();
+
+    if matches!(output, crate::args::OutputFormat::Json) {
+        let value = serde_json::json!({ "error-freq": view });
+        println!("{}", serde_json::to_string_pretty(&value)?);
+        return Ok(());
+    }
 
     println!("error-freq");
     if view.is_empty() {

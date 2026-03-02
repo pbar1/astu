@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Serialize;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
@@ -23,7 +24,7 @@ pub struct OutputArgs {
     target: Option<String>,
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug, Serialize, Tabled)]
 struct OutputRowView {
     task_id: String,
     target: String,
@@ -50,6 +51,38 @@ impl Run for OutputArgs {
         let needs_vars = fields
             .iter()
             .any(|field| matches!(field, ResultFieldArg::Stdout | ResultFieldArg::Stderr));
+
+        if matches!(runtime.output(), crate::args::OutputFormat::Json) {
+            let mut out = serde_json::Map::new();
+            for field in fields {
+                let rows = runtime
+                    .db()
+                    .output(
+                        field.into_db(),
+                        &job_id,
+                        self.contains.as_deref(),
+                        self.target.as_deref(),
+                    )
+                    .await?;
+                let mut view = Vec::with_capacity(rows.len());
+                for row in rows {
+                    let vars_for_task = if needs_vars {
+                        runtime.db().task_vars_for_task(&row.task_id).await?
+                    } else {
+                        Vec::new()
+                    };
+                    view.push(OutputRowView {
+                        task_id: row.task_id.clone(),
+                        target: row.target,
+                        value: denormalize_value(&row.value, Some(&vars_for_task)),
+                    });
+                }
+                out.insert(field.output_title().to_owned(), serde_json::to_value(view)?);
+            }
+            println!("{}", serde_json::to_string_pretty(&out)?);
+            return Ok(());
+        }
+
         let mut rendered = String::new();
         for (idx, field) in fields.into_iter().enumerate() {
             if idx > 0 {

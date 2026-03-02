@@ -78,6 +78,21 @@ fn run_astu_with_flag_data_dir(
     cmd.assert()
 }
 
+fn run_astu_json(
+    data_dir: &std::path::Path,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> assert_cmd::assert::Assert {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("astu"));
+    cmd.env("ASTU_DATA_DIR", data_dir)
+        .args(["--output", "json"])
+        .args(args);
+    if let Some(stdin) = stdin {
+        cmd.write_stdin(stdin);
+    }
+    cmd.assert()
+}
+
 #[test]
 #[serial_test::serial]
 fn run_local_and_output_stdout() {
@@ -149,6 +164,54 @@ fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
         .success()
         .stdout(predicates::str::contains("user={user} host={host} val=42"))
         .stdout(predicates::str::contains("2"));
+}
+
+#[test]
+#[serial_test::serial]
+fn freq_respects_json_output_format() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(
+        dir.path(),
+        &[
+            "run",
+            "-T",
+            "dummy://fixture?stdout=mock-ok&exitcode=0",
+            "--confirm=1",
+            "ignored",
+        ],
+        None,
+    )
+    .success();
+
+    let assert = run_astu_json(dir.path(), &["freq", "stdout"], None).success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("json");
+    assert!(value.get("stdout").is_some(), "missing stdout key: {value}");
+}
+
+#[test]
+#[serial_test::serial]
+fn freq_alias_respects_json_output_when_flag_is_after_subcommand() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(
+        dir.path(),
+        &[
+            "run",
+            "-T",
+            "dummy://fixture?stdout=alias-ok&exitcode=0",
+            "--confirm=1",
+            "ignored",
+        ],
+        None,
+    )
+    .success();
+
+    let assert = run_astu(dir.path(), &["f", "stdout", "--output=json"], None).success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("json");
+    assert!(value.get("stdout").is_some(), "missing stdout key: {value}");
 }
 
 #[test]

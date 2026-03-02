@@ -13,8 +13,17 @@ pub struct ResolveArgs {
 }
 
 impl Run for ResolveArgs {
-    async fn run(&self, _id: Id, _runtime: &Runtime) -> Result<()> {
-        for target in self.resolution_args.set_with_default(None).await? {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
+        let targets = self.resolution_args.set_with_default(None).await?;
+        if matches!(runtime.output(), crate::args::OutputFormat::Json) {
+            let values = targets
+                .into_iter()
+                .map(|target| target.to_string())
+                .collect::<Vec<_>>();
+            println!("{}", serde_json::to_string_pretty(&values)?);
+            return Ok(());
+        }
+        for target in targets {
             println!("{target}");
         }
 
