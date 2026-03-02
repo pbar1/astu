@@ -1,1 +1,1 @@
-# doctor
+# `astu doctor`
