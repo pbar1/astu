@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
 use tokio::sync::Semaphore;
+use tracing::Instrument;
 use uuid::Uuid;
 
 use super::AuthArgs;
@@ -273,14 +274,13 @@ impl ActionArgs {
             let client_factory = client_factory.clone();
             let operation = operation.clone();
 
-            tasks.spawn(async move {
-                let target_uri = spec.target.to_string();
-                let task_span = match &operation {
-                    ActionOperation::Exec { .. } => tracing::info_span!("exec", %target_uri),
-                    ActionOperation::Ping => tracing::info_span!("ping", %target_uri),
-                };
-                let _task_enter = task_span.enter();
-
+            let target_uri = spec.target.to_string();
+            let task_span = match &operation {
+                ActionOperation::Exec { .. } => tracing::info_span!("exec", %target_uri),
+                ActionOperation::Ping => tracing::info_span!("ping", %target_uri),
+            };
+            tasks.spawn(
+                async move {
                 let _permit = permit;
                 let Some(mut client) = client_factory.client(&spec.target) else {
                     db.finish_task(
@@ -408,7 +408,9 @@ impl ActionArgs {
                 }
 
                 Ok::<(), anyhow::Error>(())
-            });
+                }
+                .instrument(task_span),
+            );
         }
 
         while let Some(result) = tasks.join_next().await {

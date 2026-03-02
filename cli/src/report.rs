@@ -29,6 +29,7 @@ pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Re
         println!("{table}");
     }
     let _ = std::io::stdout().flush();
+    eprintln!();
     eprintln!("Use `astu output` or `astu freq` for result analysis");
     Ok(())
 }
