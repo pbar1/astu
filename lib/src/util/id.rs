@@ -83,7 +83,7 @@ fn machine_id_from_hostname() -> Result<u16, Box<dyn std::error::Error + Send + 
     use std::hash::Hasher;
 
     let mut hasher = std::hash::DefaultHasher::new();
-    whoami::fallible::hostname()?.hash(&mut hasher);
+    whoami::hostname()?.hash(&mut hasher);
     let hash = hasher.finish();
 
     // Fold the 64-bit hash down to 16 bits by XORing the upper and lower parts.
