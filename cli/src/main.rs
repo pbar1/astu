@@ -4,6 +4,7 @@
 
 mod args;
 mod cmd;
+mod report;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, bail};
 use astu::action::client;
 use astu::action::transport;
 use astu::action::AuthPayload;
@@ -217,7 +217,12 @@ impl ActionArgs {
         };
         let DbImpl::Duck(db) = db;
 
-        let command = specs.first().map(|x| x.command.clone()).unwrap_or_default();
+        let command = match operation {
+            ActionOperation::Ping => "astu ping".to_owned(),
+            ActionOperation::Exec { .. } => {
+                specs.first().map(|x| x.command.clone()).unwrap_or_default()
+            }
+        };
         db.create_job(
             job_id,
             &command,
@@ -299,9 +304,22 @@ impl ActionArgs {
 
             tasks.spawn(async move {
                 let _permit = permit;
-                let mut client = client_factory
-                    .client(&spec.target)
-                    .context("failed getting client for target")?;
+                let Some(mut client) = client_factory.client(&spec.target) else {
+                    db.finish_task(
+                        &task_id,
+                        DbTaskStatus::Failed,
+                        None,
+                        Some("failed getting client for target"),
+                        0,
+                        0,
+                        0,
+                    )
+                    .await?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.pb_inc(1);
+                    }
+                    return Ok::<(), anyhow::Error>(());
+                };
 
                 let t_connect = Instant::now();
                 let connect_result = client.connect().await;
@@ -441,20 +459,6 @@ pub async fn read_stdin_all_if_piped() -> Result<Option<Vec<u8>>> {
     let mut buf = Vec::new();
     tokio::io::stdin().read_to_end(&mut buf).await?;
     Ok(Some(buf))
-}
-
-pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Result<()> {
-    let rows = db.freq(astu::db::DbField::Error, job_id, None).await?;
-    if rows.is_empty() {
-        println!("error-freq\n(no rows)");
-    } else {
-        println!("error-freq");
-        for row in rows {
-            println!("{}\t{}", row.count, row.value);
-        }
-    }
-    eprintln!("Use `astu output` or `astu freq` for result analysis");
-    Ok(())
 }
 
 pub fn build_task_specs(

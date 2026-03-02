@@ -98,6 +98,16 @@ fn run_dummy_target() {
 }
 
 #[test]
+fn ping_prints_error_freq_section() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(dir.path(), &["ping", "-T", "10.0.0.1", "--confirm=1"], None)
+        .success()
+        .stdout(predicates::str::contains("error-freq"))
+        .stdout(predicates::str::contains("count | value"));
+}
+
+#[test]
 fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
     let dir = tempdir().expect("tmpdir");
 

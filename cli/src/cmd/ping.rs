@@ -40,7 +40,7 @@ impl Run for PingArgs {
             .await?;
 
         let DbImpl::Duck(db) = db;
-        crate::args::print_error_freq_summary(&db, &job_id).await?;
+        crate::report::print_error_freq_summary(&db, &job_id).await?;
         Ok(())
     }
 }
