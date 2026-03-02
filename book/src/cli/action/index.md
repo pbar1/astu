@@ -1,6 +1,23 @@
 # Action
 
-Actions resolve targets and perform an operation on that target set.
+Actions resolve targets and perform operations on that target set.
+
+The general sequence goes like this:
+
+1. Resolve input target queries into into a set of unique targets
+2. Present an action plan and require either interactive approval or
+   `--confirm=<targets>` with the exact number of targets that the action will
+   affect
+3. Perform the sequence of actions defined by the subcommand for each target in
+   concurrently, bounded by `--concurrency`, displaying progress using
+   `indicatif` as tasks complete
+4. Display freq info for errors only (ie, automatically run `astu freq error`)
+   and suggestions for the command to run next, ie `astu freq` or `astu output`.
+
+If `astu` receives a `ctrl-c` interrupt during a run: currently running tasks
+will wait for completion, while not-yet-started tasks will be persisted as
+canceled. Canceled jobs may be resumed with `astu resume`. A second `ctrl-c`
+will forcefully kill the run without waiting for running tasks to complete.
 
 ## Options
 
@@ -41,3 +58,9 @@ own).
 
 `pipe` multiplexes stdin to each of the tasks by writing to a spool file where
 each task has a cursor, guaranteeing delivery.
+
+#### `--timeout`
+
+Default: `30s`
+
+Per-task timeout value in humantime. 0 indicates no timeout.

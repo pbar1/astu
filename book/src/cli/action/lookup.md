@@ -2,7 +2,10 @@
 
 Alias: `l`, `resolve`
 
-Resolves and expands input targets into a set of actionable targets.
+Resolves targets.
+
+Expands a set of input targets into a set of actionable targets. Does not
+display a plan, and no actual actions are performed on targets.
 
 ## Examples
 
