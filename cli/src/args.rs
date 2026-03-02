@@ -5,8 +5,10 @@ mod job;
 mod resolution;
 
 pub use action::build_task_specs;
+pub use action::print_error_freq_summary;
 pub use action::read_stdin_all_if_piped;
 pub use action::ActionArgs;
+pub use action::ActionOperation;
 pub use action::InputMode;
 pub use action::TaskSpec;
 pub use auth::AuthArgs;

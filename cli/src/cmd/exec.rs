@@ -1,5 +1,4 @@
 use anyhow::Result;
-use astu::db::DbField;
 use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
@@ -65,16 +64,7 @@ impl Run for ExecArgs {
             .await?;
 
         let DbImpl::Duck(db) = db;
-        let rows = db.freq(DbField::Error, &job_id, None).await?;
-        if rows.is_empty() {
-            println!("error-freq\n(no rows)");
-        } else {
-            println!("error-freq");
-            for row in rows {
-                println!("{}\t{}", row.count, row.value);
-            }
-        }
-        eprintln!("Use `astu output` or `astu freq` for result analysis");
+        crate::args::print_error_freq_summary(&db, &job_id).await?;
 
         Ok(())
     }

@@ -73,6 +73,24 @@ pub struct TaskSpec {
     pub param: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub enum ActionOperation {
+    Exec {
+        auth: AuthArgs,
+        pipe_stdin: Option<PathBuf>,
+    },
+    Ping,
+}
+
+impl ActionOperation {
+    const fn progress_message(&self) -> &'static str {
+        match self {
+            Self::Exec { .. } => "executing",
+            Self::Ping => "pinging",
+        }
+    }
+}
+
 #[derive(Debug)]
 struct SpoolCleanup(Option<PathBuf>);
 
@@ -173,7 +191,30 @@ impl ActionArgs {
         auth: &AuthArgs,
         pipe_stdin: Option<PathBuf>,
     ) -> Result<()> {
-        let _spool_cleanup = SpoolCleanup(pipe_stdin.clone());
+        self.run_tasks_for_operation(
+            db,
+            job_id,
+            specs,
+            ActionOperation::Exec {
+                auth: auth.clone(),
+                pipe_stdin,
+            },
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub async fn run_tasks_for_operation(
+        &self,
+        db: DbImpl,
+        job_id: &str,
+        specs: Vec<TaskSpec>,
+        operation: ActionOperation,
+    ) -> Result<()> {
+        let _spool_cleanup = match &operation {
+            ActionOperation::Exec { pipe_stdin, .. } => SpoolCleanup(pipe_stdin.clone()),
+            ActionOperation::Ping => SpoolCleanup(None),
+        };
         let DbImpl::Duck(db) = db;
 
         let command = specs.first().map(|x| x.command.clone()).unwrap_or_default();
@@ -211,12 +252,12 @@ impl ActionArgs {
         let client_factory = self.client_factory()?;
         let mut tasks = tokio::task::JoinSet::new();
         let progress = if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
-            let span = info_span!("run");
+            let span = info_span!("action");
             let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}")
                 .unwrap_or_else(|_| ProgressStyle::default_bar());
             span.pb_set_style(&style);
             span.pb_set_length(u64::try_from(total_tasks).unwrap_or(u64::MAX));
-            span.pb_set_message("executing");
+            span.pb_set_message(operation.progress_message());
             Some(span)
         } else {
             None
@@ -253,8 +294,7 @@ impl ActionArgs {
 
             let db = db.clone();
             let client_factory = client_factory.clone();
-            let auth = auth.clone();
-            let pipe_stdin = pipe_stdin.clone();
+            let operation = operation.clone();
             let progress = progress.clone();
 
             tasks.spawn(async move {
@@ -277,65 +317,103 @@ impl ActionArgs {
                         0,
                     )
                     .await?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.pb_inc(1);
+                    }
                     return Ok::<(), anyhow::Error>(());
                 }
 
-                let t_auth = Instant::now();
-                if let Some(user) = spec.target.user().or(Some(auth.user.as_str())) {
-                    let _ = client.auth(&AuthPayload::User(user.to_string())).await;
-                }
-                if let Some(socket) = auth.ssh_agent.clone() {
-                    let _ = client
-                        .auth(&AuthPayload::SshAgent {
-                            socket: socket.to_string(),
-                        })
-                        .await;
-                }
-                let auth_ms = i64::try_from(t_auth.elapsed().as_millis()).unwrap_or(i64::MAX);
-                let stdin_input = pipe_stdin.map(ExecStdin::SpoolFile);
+                match operation {
+                    ActionOperation::Exec { auth, pipe_stdin } => {
+                        let t_auth = Instant::now();
+                        if let Some(user) = spec.target.user().or(Some(auth.user.as_str())) {
+                            let _ = client.auth(&AuthPayload::User(user.to_string())).await;
+                        }
+                        if let Some(socket) = auth.ssh_agent {
+                            let _ = client
+                                .auth(&AuthPayload::SshAgent {
+                                    socket: socket.to_string(),
+                                })
+                                .await;
+                        }
+                        let auth_ms =
+                            i64::try_from(t_auth.elapsed().as_millis()).unwrap_or(i64::MAX);
+                        let stdin_input = pipe_stdin.map(ExecStdin::SpoolFile);
 
-                let t_exec = Instant::now();
-                let result = client.exec(&spec.command, stdin_input).await;
-                let exec_ms = i64::try_from(t_exec.elapsed().as_millis()).unwrap_or(i64::MAX);
+                        let t_exec = Instant::now();
+                        let result = client.exec(&spec.command, stdin_input).await;
+                        let exec_ms =
+                            i64::try_from(t_exec.elapsed().as_millis()).unwrap_or(i64::MAX);
 
-                match result {
-                    Ok(output) => {
-                        let normalizer = Normalizer::from_token_values(task_template_values(
-                            &spec.target,
-                            spec.param.as_deref(),
-                        ));
-                        let stdout = normalize_stream_bytes(&normalizer, &output.stdout);
-                        let stderr = normalize_stream_bytes(&normalizer, &output.stderr);
+                        match result {
+                            Ok(output) => {
+                                let normalizer = Normalizer::from_token_values(
+                                    task_template_values(&spec.target, spec.param.as_deref()),
+                                );
+                                let stdout = normalize_stream_bytes(&normalizer, &output.stdout);
+                                let stderr = normalize_stream_bytes(&normalizer, &output.stderr);
 
-                        db.append_stream_blob(&task_id, "stdout", &stdout).await?;
-                        db.append_stream_blob(&task_id, "stderr", &stderr).await?;
-                        let status = if output.exit_status == 0 {
-                            DbTaskStatus::Complete
-                        } else {
-                            DbTaskStatus::Failed
-                        };
-                        db.finish_task(
-                            &task_id,
-                            status,
-                            Some(i64::from(output.exit_status)),
-                            None,
-                            connect_ms,
-                            auth_ms,
-                            exec_ms,
-                        )
-                        .await?;
+                                db.append_stream_blob(&task_id, "stdout", &stdout).await?;
+                                db.append_stream_blob(&task_id, "stderr", &stderr).await?;
+                                let status = if output.exit_status == 0 {
+                                    DbTaskStatus::Complete
+                                } else {
+                                    DbTaskStatus::Failed
+                                };
+                                db.finish_task(
+                                    &task_id,
+                                    status,
+                                    Some(i64::from(output.exit_status)),
+                                    None,
+                                    connect_ms,
+                                    auth_ms,
+                                    exec_ms,
+                                )
+                                .await?;
+                            }
+                            Err(error) => {
+                                db.finish_task(
+                                    &task_id,
+                                    DbTaskStatus::Failed,
+                                    None,
+                                    Some(&format!("{error:#}")),
+                                    connect_ms,
+                                    auth_ms,
+                                    exec_ms,
+                                )
+                                .await?;
+                            }
+                        }
                     }
-                    Err(error) => {
-                        db.finish_task(
-                            &task_id,
-                            DbTaskStatus::Failed,
-                            None,
-                            Some(&format!("{error:#}")),
-                            connect_ms,
-                            auth_ms,
-                            exec_ms,
-                        )
-                        .await?;
+                    ActionOperation::Ping => {
+                        let t_ping = Instant::now();
+                        match client.ping().await {
+                            Ok(stdout) => {
+                                db.append_stream_blob(&task_id, "stdout", &stdout).await?;
+                                db.finish_task(
+                                    &task_id,
+                                    DbTaskStatus::Complete,
+                                    Some(0),
+                                    None,
+                                    connect_ms,
+                                    0,
+                                    i64::try_from(t_ping.elapsed().as_millis()).unwrap_or(i64::MAX),
+                                )
+                                .await?;
+                            }
+                            Err(error) => {
+                                db.finish_task(
+                                    &task_id,
+                                    DbTaskStatus::Failed,
+                                    None,
+                                    Some(&format!("{error:#}")),
+                                    connect_ms,
+                                    0,
+                                    i64::try_from(t_ping.elapsed().as_millis()).unwrap_or(i64::MAX),
+                                )
+                                .await?;
+                            }
+                        }
                     }
                 }
 
@@ -363,6 +441,20 @@ pub async fn read_stdin_all_if_piped() -> Result<Option<Vec<u8>>> {
     let mut buf = Vec::new();
     tokio::io::stdin().read_to_end(&mut buf).await?;
     Ok(Some(buf))
+}
+
+pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Result<()> {
+    let rows = db.freq(astu::db::DbField::Error, job_id, None).await?;
+    if rows.is_empty() {
+        println!("error-freq\n(no rows)");
+    } else {
+        println!("error-freq");
+        for row in rows {
+            println!("{}\t{}", row.count, row.value);
+        }
+    }
+    eprintln!("Use `astu output` or `astu freq` for result analysis");
+    Ok(())
 }
 
 pub fn build_task_specs(

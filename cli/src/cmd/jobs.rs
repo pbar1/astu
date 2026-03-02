@@ -17,7 +17,6 @@ pub struct JobsArgs {
 struct JobRowView {
     job_id: String,
     started_at: String,
-    finished_at: String,
     task_count: i64,
     command: String,
 }
@@ -31,7 +30,6 @@ impl Run for JobsArgs {
             .map(|row| JobRowView {
                 job_id: row.job_id,
                 started_at: row.started_at,
-                finished_at: row.finished_at,
                 task_count: row.task_count,
                 command: row.command,
             })
