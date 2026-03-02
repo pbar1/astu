@@ -274,6 +274,13 @@ impl ActionArgs {
             let operation = operation.clone();
 
             tasks.spawn(async move {
+                let target_uri = spec.target.to_string();
+                let task_span = match &operation {
+                    ActionOperation::Exec { .. } => tracing::info_span!("exec", %target_uri),
+                    ActionOperation::Ping => tracing::info_span!("ping", %target_uri),
+                };
+                let _task_enter = task_span.enter();
+
                 let _permit = permit;
                 let Some(mut client) = client_factory.client(&spec.target) else {
                     db.finish_task(

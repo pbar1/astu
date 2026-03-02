@@ -56,6 +56,14 @@ impl GlobalArgs {
         let mut guard = TracingGuard::default();
 
         let indicatif_layer = IndicatifLayer::new();
+        let stderr_filter = EnvFilter::builder().parse_lossy("error");
+        let stderr_writer = indicatif_layer.get_stderr_writer();
+        let stderr_layer = tracing_subscriber::fmt::layer()
+            .event_format(Glog::default().with_timer(LocalTime::default()))
+            .fmt_fields(GlogFields::default())
+            .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
+            .with_writer(stderr_writer)
+            .with_filter(stderr_filter);
 
         let logs_dir = self.data_dir.join("logs");
         std::fs::create_dir_all(&logs_dir)?;
@@ -82,7 +90,10 @@ impl GlobalArgs {
             .with_filter(file_filter);
         guard.guards.push(Box::new(file_writer_guard));
 
-        let subscriber = Registry::default().with(file_layer).with(indicatif_layer);
+        let subscriber = Registry::default()
+            .with(stderr_layer)
+            .with(file_layer)
+            .with(indicatif_layer);
         tracing::subscriber::set_global_default(subscriber)?;
 
         debug!("Initialized tracing");
