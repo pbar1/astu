@@ -7,8 +7,17 @@ one.
 
 ## Examples
 
-Execute a command on an SSH target
+### Execute a command on an SSH target
 
 ```sh
 astu run -T ssh://user@host 'whoami'
 ```
+
+<details>
+<summary>Output</summary>
+
+```
+TODO
+```
+
+</details>

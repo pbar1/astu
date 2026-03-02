@@ -7,14 +7,32 @@ automatically be used if job is not explicitly passed.
 
 ## Examples
 
-Display all tasks in the last job
+### Display all tasks in the last job
 
 ```sh
 astu tasks
 ```
 
-Display all tasks in an explicit job
+<details>
+<summary>Output</summary>
+
+```
+TODO
+```
+
+</details>
+
+### Display all tasks in an explicit job
 
 ```sh
 astu tasks --job=746677e7-b6f9-458b-857e-aa6a8638e101
 ```
+
+<details>
+<summary>Output</summary>
+
+```
+TODO
+```
+
+</details>

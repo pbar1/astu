@@ -5,8 +5,17 @@ errors for tasks in a job.
 
 ## Examples
 
-Trace an SSH target
+### Trace an SSH target
 
 ```sh
 astu trace -T ssh://user@host
 ```
+
+<details>
+<summary>Output</summary>
+
+```
+TODO
+```
+
+</details>
