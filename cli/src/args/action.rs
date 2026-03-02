@@ -16,11 +16,14 @@ use clap::ValueEnum;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
 use tokio::sync::Semaphore;
+use tracing::info_span;
+use tracing_indicatif::span_ext::IndicatifSpanExt;
+use tracing_indicatif::style::ProgressStyle;
 use uuid::Uuid;
 
 use super::AuthArgs;
@@ -207,11 +210,18 @@ impl ActionArgs {
         let sem = Arc::new(Semaphore::new(self.concurrency.max(1)));
         let client_factory = self.client_factory()?;
         let mut tasks = tokio::task::JoinSet::new();
-        let progress_tty = std::io::IsTerminal::is_terminal(&std::io::stderr());
-        let completed = Arc::new(AtomicUsize::new(0));
-        if progress_tty {
-            eprintln!("Progress: 0/{total_tasks}");
-        }
+        let progress = if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
+            let span = info_span!("run");
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}")
+                .unwrap_or_else(|_| ProgressStyle::default_bar());
+            span.pb_set_style(&style);
+            span.pb_set_length(u64::try_from(total_tasks).unwrap_or(u64::MAX));
+            span.pb_set_message("executing");
+            Some(span)
+        } else {
+            None
+        };
+        let _progress_enter = progress.as_ref().map(tracing::Span::enter);
 
         for spec in specs {
             let task_id = Uuid::now_v7().hyphenated().to_string();
@@ -230,12 +240,8 @@ impl ActionArgs {
                     0,
                 )
                 .await?;
-                if progress_tty {
-                    let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
-                    eprint!("\rProgress: {done}/{total_tasks}");
-                    if done == total_tasks {
-                        eprintln!();
-                    }
+                if let Some(progress) = progress.as_ref() {
+                    progress.pb_inc(1);
                 }
                 continue;
             }
@@ -249,7 +255,7 @@ impl ActionArgs {
             let client_factory = client_factory.clone();
             let auth = auth.clone();
             let pipe_stdin = pipe_stdin.clone();
-            let completed = completed.clone();
+            let progress = progress.clone();
 
             tasks.spawn(async move {
                 let _permit = permit;
@@ -333,12 +339,8 @@ impl ActionArgs {
                     }
                 }
 
-                if progress_tty {
-                    let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
-                    eprint!("\rProgress: {done}/{total_tasks}");
-                    if done == total_tasks {
-                        eprintln!();
-                    }
+                if let Some(progress) = progress.as_ref() {
+                    progress.pb_inc(1);
                 }
                 Ok::<(), anyhow::Error>(())
             });

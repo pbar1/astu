@@ -16,7 +16,9 @@ pub fn print_section_table<T: Tabled>(title: &str, rows: Vec<T>) {
     println!("{title}");
     if rows.is_empty() {
         println!("(no rows)");
+        println!();
         return;
     }
     print_markdown_table(rows);
+    println!();
 }

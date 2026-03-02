@@ -123,6 +123,28 @@ fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
 }
 
 #[test]
+fn freq_sections_are_separated_by_blank_lines() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(
+        dir.path(),
+        &[
+            "run",
+            "-T",
+            "dummy://fixture?stdout=ok&stderr=bad",
+            "--confirm=1",
+            "ignored",
+        ],
+        None,
+    )
+    .success();
+
+    run_astu(dir.path(), &["freq"], None)
+        .success()
+        .stdout(predicates::str::contains("\n\nstderr\n"));
+}
+
+#[test]
 fn noninteractive_without_confirm_fails() {
     let dir = tempdir().expect("tmpdir");
 
