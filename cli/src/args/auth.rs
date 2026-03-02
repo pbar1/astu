@@ -15,7 +15,7 @@ pub struct AuthArgs {
     pub password_file: Option<Utf8PathBuf>,
 
     /// Path to SSH agent socket.
-    #[arg(long, help_heading = HEADING)]
+    #[arg(long, env = "SSH_AUTH_SOCK", help_heading = HEADING)]
     pub ssh_agent: Option<Utf8PathBuf>,
 
     /// Path to SSH credential file.
