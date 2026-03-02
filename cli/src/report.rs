@@ -25,7 +25,7 @@ pub async fn print_error_freq_summary(db: &astu::db::DuckDb, job_id: &str) -> Re
         println!("(no rows)");
     } else {
         let mut table = Table::new(view);
-        table.with(Style::markdown());
+        table.with(Style::modern());
         println!("{table}");
     }
     let _ = std::io::stdout().flush();

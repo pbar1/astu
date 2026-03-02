@@ -8,12 +8,12 @@ use tabled::settings::Style;
 use tabled::Table;
 use tabled::Tabled;
 
-pub fn markdown_table<T: Tabled>(rows: Vec<T>) -> String {
+pub fn modern_table<T: Tabled>(rows: Vec<T>) -> String {
     if rows.is_empty() {
         return "(no rows)\n".to_owned();
     }
     let mut table = Table::new(rows);
-    table.with(Style::markdown());
+    table.with(Style::modern());
     format!("{table}\n")
 }
 
@@ -21,7 +21,7 @@ pub fn section_table<T: Tabled>(title: &str, rows: Vec<T>) -> String {
     let mut out = String::new();
     out.push_str(title);
     out.push('\n');
-    out.push_str(&markdown_table(rows));
+    out.push_str(&modern_table(rows));
     out
 }
 

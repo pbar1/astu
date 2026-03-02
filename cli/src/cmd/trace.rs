@@ -46,7 +46,7 @@ impl Run for TraceArgs {
                 exec_ms: row.exec_ms,
             })
             .collect::<Vec<_>>();
-        let rendered = crate::cmd::render::markdown_table(view);
+        let rendered = crate::cmd::render::modern_table(view);
         crate::cmd::render::emit_with_optional_pager(&rendered, true)?;
         Ok(())
     }
