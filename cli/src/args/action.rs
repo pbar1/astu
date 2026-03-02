@@ -8,10 +8,12 @@ use astu::action::ClientFactory;
 use astu::action::ExecStdin;
 use astu::db::DbImpl;
 use astu::db::DbTaskStatus;
+use astu::normalize::Normalizer;
 use astu::resolve::Host;
 use astu::resolve::Target;
 use clap::Args;
 use clap::ValueEnum;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -216,9 +218,8 @@ impl ActionArgs {
             if cancel.load(Ordering::SeqCst) {
                 db.create_task(&task_id, job_id, &spec.target.to_string(), &spec.command)
                     .await?;
-                if let Some(param) = &spec.param {
-                    db.append_task_var(&task_id, "{param}", param).await?;
-                }
+                append_task_template_vars(&db, &task_id, &spec.target, spec.param.as_deref())
+                    .await?;
                 db.finish_task(
                     &task_id,
                     DbTaskStatus::Canceled,
@@ -242,9 +243,7 @@ impl ActionArgs {
             let permit = sem.clone().acquire_owned().await?;
             db.create_task(&task_id, job_id, &spec.target.to_string(), &spec.command)
                 .await?;
-            if let Some(param) = &spec.param {
-                db.append_task_var(&task_id, "{param}", param).await?;
-            }
+            append_task_template_vars(&db, &task_id, &spec.target, spec.param.as_deref()).await?;
 
             let db = db.clone();
             let client_factory = client_factory.clone();
@@ -295,10 +294,15 @@ impl ActionArgs {
 
                 match result {
                     Ok(output) => {
-                        db.append_stream_blob(&task_id, "stdout", &output.stdout)
-                            .await?;
-                        db.append_stream_blob(&task_id, "stderr", &output.stderr)
-                            .await?;
+                        let normalizer = Normalizer::from_token_values(task_template_values(
+                            &spec.target,
+                            spec.param.as_deref(),
+                        ));
+                        let stdout = normalize_stream_bytes(&normalizer, &output.stdout);
+                        let stderr = normalize_stream_bytes(&normalizer, &output.stderr);
+
+                        db.append_stream_blob(&task_id, "stdout", &stdout).await?;
+                        db.append_stream_blob(&task_id, "stderr", &stderr).await?;
                         let status = if output.exit_status == 0 {
                             DbTaskStatus::Complete
                         } else {
@@ -426,4 +430,46 @@ pub fn render_command(template: &str, target: &Target, param: Option<&str>) -> S
     vars.insert("param".to_owned(), param);
 
     strfmt::strfmt(template, &vars).unwrap_or_else(|_| template.to_owned())
+}
+
+fn task_template_values(target: &Target, param: Option<&str>) -> BTreeMap<String, String> {
+    let mut vars = BTreeMap::new();
+    if let Some(host) = target.host() {
+        let host = match host {
+            Host::Ip(ip) => ip.to_string(),
+            Host::Domain(domain) => domain,
+        };
+        vars.insert("{host}".to_owned(), host);
+    }
+    if let Some(user) = target.user() {
+        vars.insert("{user}".to_owned(), user.to_owned());
+    }
+    if let Some(ip) = target.ip() {
+        vars.insert("{ip}".to_owned(), ip.to_string());
+    }
+    if let Some(param) = param {
+        vars.insert("{param}".to_owned(), param.to_owned());
+    }
+    vars
+}
+
+async fn append_task_template_vars(
+    db: &astu::db::DuckDb,
+    task_id: &str,
+    target: &Target,
+    param: Option<&str>,
+) -> Result<()> {
+    for (token, value) in task_template_values(target, param) {
+        db.append_task_var(task_id, &token, &value).await?;
+    }
+    Ok(())
+}
+
+fn normalize_stream_bytes(normalizer: &Normalizer, bytes: &[u8]) -> Vec<u8> {
+    let text = String::from_utf8_lossy(bytes);
+    text.lines()
+        .map(|line| normalizer.normalize(line))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .into_bytes()
 }

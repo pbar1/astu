@@ -98,6 +98,31 @@ fn run_dummy_target() {
 }
 
 #[test]
+fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(
+        dir.path(),
+        &[
+            "run",
+            "-T",
+            "dummy://alice@host-a?stdout=user=alice%20host=host-a%20val=42",
+            "-T",
+            "dummy://bob@host-b?stdout=user=bob%20host=host-b%20val=42",
+            "--confirm=2",
+            "ignored",
+        ],
+        None,
+    )
+    .success();
+
+    run_astu(dir.path(), &["freq", "stdout"], None)
+        .success()
+        .stdout(predicates::str::contains("user={user} host={host} val=42"))
+        .stdout(predicates::str::contains("| 2     |"));
+}
+
+#[test]
 fn noninteractive_without_confirm_fails() {
     let dir = tempdir().expect("tmpdir");
 

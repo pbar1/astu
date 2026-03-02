@@ -4,6 +4,7 @@ use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use clap::ValueEnum;
+use std::collections::HashMap;
 use tabled::Tabled;
 
 use crate::cmd::Run;
@@ -77,6 +78,15 @@ impl Run for OutputArgs {
             self.fields.clone()
         };
 
+        let needs_vars = fields
+            .iter()
+            .any(|field| matches!(field, FieldArg::Stdout | FieldArg::Stderr));
+        let vars_by_task = if needs_vars {
+            db.task_vars_for_job(&job_id).await?
+        } else {
+            HashMap::new()
+        };
+
         for field in fields {
             let rows = db
                 .output(
@@ -89,9 +99,9 @@ impl Run for OutputArgs {
             let view = rows
                 .into_iter()
                 .map(|row| OutputRowView {
-                    task_id: row.task_id,
+                    task_id: row.task_id.clone(),
                     target: row.target,
-                    value: row.value,
+                    value: denormalize_value(&row.value, vars_by_task.get(&row.task_id)),
                 })
                 .collect::<Vec<_>>();
             crate::cmd::render::print_section_table(field.as_str(), view);
@@ -99,4 +109,14 @@ impl Run for OutputArgs {
 
         Ok(())
     }
+}
+
+fn denormalize_value(value: &str, vars: Option<&Vec<(String, String)>>) -> String {
+    let mut out = value.to_owned();
+    if let Some(vars) = vars {
+        for (token, raw) in vars {
+            out = out.replace(token, raw);
+        }
+    }
+    out
 }
