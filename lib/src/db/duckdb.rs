@@ -3,13 +3,18 @@
 #![allow(clippy::too_many_lines)]
 #![allow(clippy::unused_async)]
 
+mod compat;
+mod gc;
+mod queries;
+mod schema;
+mod writer;
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -100,22 +105,6 @@ pub struct DuckDb {
 }
 
 #[derive(Debug)]
-struct PendingJob {
-    started_at: String,
-    command: String,
-    concurrency: i64,
-    task_count: i64,
-}
-
-#[derive(Debug)]
-struct PendingTask {
-    job_id: Vec<u8>,
-    started_at: String,
-    target_uri: String,
-    command: String,
-}
-
-#[derive(Debug)]
 enum WriteEvent {
     JobStart {
         job_id: Vec<u8>,
@@ -170,7 +159,7 @@ impl DuckDb {
 
         let thread_path = path.clone();
         thread::spawn(move || {
-            if let Err(error) = run_writer_loop(&thread_path, &mut rx) {
+            if let Err(error) = writer::run_writer_loop(&thread_path, &mut rx) {
                 eprintln!("duckdb writer loop failed: {error:#}");
             }
         });
@@ -377,75 +366,7 @@ impl DuckDb {
         job_id: &str,
         contains: Option<&str>,
     ) -> Result<Vec<FreqRow>> {
-        let limit = 200_i64;
-        let job_blob = uuid_string_to_blob(job_id)?;
-        self.sync().await?;
-        let conn = self.read_conn()?;
-        let contains = contains.unwrap_or("");
-
-        let sql = match field {
-            DbField::Stdout => {
-                "WITH assembled AS (
-                    SELECT tl.task_id, string_agg(ld.line_text, '\n' ORDER BY tl.seq) AS value
-                    FROM task_lines tl
-                    JOIN tasks t ON t.task_id = tl.task_id
-                    JOIN line_dict ld ON ld.line_hash = tl.line_hash
-                    WHERE tl.stream = 'stdout' AND t.job_id = ?
-                    GROUP BY tl.task_id
-                )
-                SELECT value, COUNT(*) AS count
-                FROM assembled
-                WHERE (? = '' OR value LIKE '%' || ? || '%')
-                GROUP BY value
-                ORDER BY count DESC, value ASC
-                LIMIT ?"
-            }
-            DbField::Stderr => {
-                "WITH assembled AS (
-                    SELECT tl.task_id, string_agg(ld.line_text, '\n' ORDER BY tl.seq) AS value
-                    FROM task_lines tl
-                    JOIN tasks t ON t.task_id = tl.task_id
-                    JOIN line_dict ld ON ld.line_hash = tl.line_hash
-                    WHERE tl.stream = 'stderr' AND t.job_id = ?
-                    GROUP BY tl.task_id
-                )
-                SELECT value, COUNT(*) AS count
-                FROM assembled
-                WHERE (? = '' OR value LIKE '%' || ? || '%')
-                GROUP BY value
-                ORDER BY count DESC, value ASC
-                LIMIT ?"
-            }
-            DbField::Error => {
-                "SELECT error as value, COUNT(*) as count
-                 FROM tasks
-                 WHERE job_id=? AND error IS NOT NULL AND error <> ''
-                   AND (? = '' OR error LIKE '%' || ? || '%')
-                 GROUP BY value
-                 ORDER BY count DESC, value ASC
-                 LIMIT ?"
-            }
-            DbField::Exitcode => {
-                "SELECT CAST(COALESCE(exit_code, -1) AS VARCHAR) as value, COUNT(*) as count
-                 FROM tasks
-                 WHERE job_id=?
-                   AND (? = '' OR CAST(COALESCE(exit_code, -1) AS VARCHAR) LIKE '%' || ? || '%')
-                 GROUP BY value
-                 ORDER BY count DESC, value ASC
-                 LIMIT ?"
-            }
-        };
-
-        let mut stmt = conn.prepare(sql)?;
-        let mut rows = stmt.query(params![job_blob, contains, contains, limit])?;
-        let mut out = Vec::new();
-        while let Some(row) = rows.next()? {
-            out.push(FreqRow {
-                value: row.get(0)?,
-                count: row.get(1)?,
-            });
-        }
-        Ok(out)
+        queries::freq(self, field, job_id, contains).await
     }
 
     pub async fn output(
@@ -455,72 +376,7 @@ impl DuckDb {
         contains: Option<&str>,
         target_filter: Option<&str>,
     ) -> Result<Vec<OutputRow>> {
-        let job_blob = uuid_string_to_blob(job_id)?;
-        let contains = contains.unwrap_or("");
-        let target = target_filter.unwrap_or("");
-        self.sync().await?;
-        let conn = self.read_conn()?;
-
-        let sql = match field {
-            DbField::Stdout => {
-                "WITH assembled AS (
-                    SELECT tl.task_id, string_agg(ld.line_text, '\n' ORDER BY tl.seq) AS value
-                    FROM task_lines tl
-                    JOIN tasks t ON t.task_id = tl.task_id
-                    JOIN line_dict ld ON ld.line_hash = tl.line_hash
-                    WHERE tl.stream='stdout' AND t.job_id=?
-                    GROUP BY tl.task_id
-                )
-                SELECT t.task_id, t.target_uri, a.value
-                FROM assembled a JOIN tasks t ON t.task_id=a.task_id
-                WHERE (? = '' OR a.value LIKE '%' || ? || '%')
-                  AND (? = '' OR t.target_uri = ?)
-                ORDER BY t.started_at ASC"
-            }
-            DbField::Stderr => {
-                "WITH assembled AS (
-                    SELECT tl.task_id, string_agg(ld.line_text, '\n' ORDER BY tl.seq) AS value
-                    FROM task_lines tl
-                    JOIN tasks t ON t.task_id = tl.task_id
-                    JOIN line_dict ld ON ld.line_hash = tl.line_hash
-                    WHERE tl.stream='stderr' AND t.job_id=?
-                    GROUP BY tl.task_id
-                )
-                SELECT t.task_id, t.target_uri, a.value
-                FROM assembled a JOIN tasks t ON t.task_id=a.task_id
-                WHERE (? = '' OR a.value LIKE '%' || ? || '%')
-                  AND (? = '' OR t.target_uri = ?)
-                ORDER BY t.started_at ASC"
-            }
-            DbField::Error => {
-                "SELECT task_id, target_uri, error
-                 FROM tasks
-                 WHERE job_id=? AND error IS NOT NULL AND error <> ''
-                   AND (? = '' OR error LIKE '%' || ? || '%')
-                   AND (? = '' OR target_uri = ?)
-                 ORDER BY started_at ASC"
-            }
-            DbField::Exitcode => {
-                "SELECT task_id, target_uri, CAST(COALESCE(exit_code, -1) AS VARCHAR)
-                 FROM tasks
-                 WHERE job_id=?
-                   AND (? = '' OR CAST(COALESCE(exit_code, -1) AS VARCHAR) LIKE '%' || ? || '%')
-                   AND (? = '' OR target_uri = ?)
-                 ORDER BY started_at ASC"
-            }
-        };
-
-        let mut stmt = conn.prepare(sql)?;
-        let mut rows = stmt.query(params![job_blob, contains, contains, target, target])?;
-        let mut out = Vec::new();
-        while let Some(row) = rows.next()? {
-            out.push(OutputRow {
-                task_id: uuid_blob_to_string(&row.get::<_, Vec<u8>>(0)?)?,
-                target: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
-                value: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-            });
-        }
-        Ok(out)
+        queries::output(self, field, job_id, contains, target_filter).await
     }
 
     pub async fn trace(&self, job_id: &str, target_filter: Option<&str>) -> Result<Vec<TraceRow>> {
@@ -551,30 +407,7 @@ impl DuckDb {
     }
 
     pub async fn gc_before(&self, before: Duration) -> Result<()> {
-        self.sync().await?;
-        let cutoff = (Utc::now() - before).to_rfc3339();
-        let conn = self.read_conn()?;
-
-        let mut old_jobs = Vec::<Vec<u8>>::new();
-        let mut stmt = conn.prepare("SELECT job_id FROM jobs WHERE started_at <= ?")?;
-        let mut rows = stmt.query(params![cutoff])?;
-        while let Some(row) = rows.next()? {
-            old_jobs.push(row.get(0)?);
-        }
-
-        for job_blob in old_jobs {
-            conn.execute("DELETE FROM task_lines WHERE task_id IN (SELECT task_id FROM tasks WHERE job_id=?)", params![job_blob.clone()])?;
-            conn.execute(
-                "DELETE FROM task_vars WHERE task_id IN (SELECT task_id FROM tasks WHERE job_id=?)",
-                params![job_blob.clone()],
-            )?;
-            conn.execute(
-                "DELETE FROM tasks WHERE job_id=?",
-                params![job_blob.clone()],
-            )?;
-            conn.execute("DELETE FROM jobs WHERE job_id=?", params![job_blob])?;
-        }
-        Ok(())
+        gc::gc_before(self, before).await
     }
 
     pub async fn command_for_job(&self, job_id: &str) -> Result<Option<String>> {
@@ -631,262 +464,22 @@ impl DuckDb {
         }
         Ok(map)
     }
-}
 
-fn run_writer_loop(path: &Path, rx: &mut mpsc::Receiver<WriteEvent>) -> Result<()> {
-    let conn = Connection::open(path).context("open duckdb")?;
-    init_schema(&conn)?;
-
-    let mut jobs = conn
-        .appender_with_columns(
-            "jobs",
-            &[
-                "job_id",
-                "started_at",
-                "finished_at",
-                "command",
-                "concurrency",
-                "task_count",
-            ],
-        )
-        .context("open jobs appender")?;
-    let mut tasks = conn
-        .appender_with_columns(
-            "tasks",
-            &[
-                "task_id",
-                "job_id",
-                "started_at",
-                "finished_at",
-                "target_uri",
-                "command",
-                "status",
-                "exit_code",
-                "error",
-                "connect_ms",
-                "auth_ms",
-                "exec_ms",
-            ],
-        )
-        .context("open tasks appender")?;
-    let mut task_vars = conn
-        .appender_with_columns("task_vars", &["task_id", "key", "value"])
-        .context("open task_vars appender")?;
-    let mut task_lines = conn
-        .appender_with_columns("task_lines", &["task_id", "stream", "seq", "line_hash"])
-        .context("open task_lines appender")?;
-
-    let mut pending_jobs: HashMap<Vec<u8>, PendingJob> = HashMap::new();
-    let mut pending_tasks: HashMap<Vec<u8>, PendingTask> = HashMap::new();
-    let mut line_dict_batch: HashMap<[u8; 16], String> = HashMap::new();
-
-    while let Some(event) = rx.blocking_recv() {
-        match event {
-            WriteEvent::JobStart {
-                job_id,
-                started_at,
-                command,
-                concurrency,
-                task_count,
-            } => {
-                pending_jobs.insert(
-                    job_id,
-                    PendingJob {
-                        started_at,
-                        command,
-                        concurrency,
-                        task_count,
-                    },
-                );
-            }
-            WriteEvent::JobEnd {
-                job_id,
-                finished_at,
-            } => {
-                let Some(job) = pending_jobs.remove(&job_id) else {
-                    return Err(anyhow!("missing JobStart for JobEnd"));
-                };
-                jobs.append_row(params![
-                    job_id.clone(),
-                    job.started_at,
-                    finished_at,
-                    job.command,
-                    job.concurrency,
-                    job.task_count
-                ])
-                .context("append job row")?;
-                conn.execute(
-                    "INSERT INTO meta(key, value) VALUES ('last_job_id', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                    params![job_id],
-                )
-                .context("update last_job_id")?;
-            }
-            WriteEvent::TaskStart {
-                task_id,
-                job_id,
-                started_at,
-                target_uri,
-                command,
-            } => {
-                pending_tasks.insert(
-                    task_id,
-                    PendingTask {
-                        job_id,
-                        started_at,
-                        target_uri,
-                        command,
-                    },
-                );
-            }
-            WriteEvent::TaskEnd {
-                task_id,
-                finished_at,
-                status,
-                exit_code,
-                error,
-                connect_ms,
-                auth_ms,
-                exec_ms,
-            } => {
-                let Some(task) = pending_tasks.remove(&task_id) else {
-                    return Err(anyhow!("missing TaskStart for TaskEnd"));
-                };
-                tasks
-                    .append_row(params![
-                        task_id,
-                        task.job_id,
-                        task.started_at,
-                        finished_at,
-                        task.target_uri,
-                        task.command,
-                        status,
-                        exit_code,
-                        error,
-                        connect_ms,
-                        auth_ms,
-                        exec_ms,
-                    ])
-                    .context("append task row")?;
-            }
-            WriteEvent::TaskVar {
-                task_id,
-                key,
-                value,
-            } => {
-                task_vars
-                    .append_row(params![task_id, key, value])
-                    .context("append task var")?;
-            }
-            WriteEvent::TaskLines {
-                task_id,
-                stream,
-                lines,
-            } => {
-                for (seq, line_hash, line_text) in lines {
-                    task_lines
-                        .append_row(params![
-                            task_id.clone(),
-                            stream.as_str(),
-                            seq,
-                            line_hash.to_vec()
-                        ])
-                        .context("append task line")?;
-                    line_dict_batch.entry(line_hash).or_insert(line_text);
-                }
-                if line_dict_batch.len() >= 100_000 {
-                    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
-                }
-            }
-            WriteEvent::Sync { ack } => {
-                let result = (|| -> Result<()> {
-                    jobs.flush().context("flush jobs")?;
-                    tasks.flush().context("flush tasks")?;
-                    task_vars.flush().context("flush task_vars")?;
-                    task_lines.flush().context("flush task_lines")?;
-                    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
-                    Ok(())
-                })();
-                let _ = ack.send(result);
-            }
+    pub async fn task_vars_for_task(&self, task_id: &str) -> Result<Vec<(String, String)>> {
+        let task_hex = task_id.replace('-', "").to_uppercase();
+        self.sync().await?;
+        let conn = self.read_conn()?;
+        let mut stmt =
+            conn.prepare("SELECT key, value FROM task_vars WHERE hex(task_id)=? ORDER BY key ASC")?;
+        let mut rows = stmt.query(params![task_hex])?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            let key = row.get::<_, Option<String>>(0)?.unwrap_or_default();
+            let value = row.get::<_, Option<String>>(1)?.unwrap_or_default();
+            out.push((key, value));
         }
+        Ok(out)
     }
-
-    jobs.flush().context("flush jobs at shutdown")?;
-    tasks.flush().context("flush tasks at shutdown")?;
-    task_vars.flush().context("flush task_vars at shutdown")?;
-    task_lines.flush().context("flush task_lines at shutdown")?;
-    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
-    Ok(())
-}
-
-fn flush_line_dict_batch(conn: &Connection, batch: &mut HashMap<[u8; 16], String>) -> Result<()> {
-    if batch.is_empty() {
-        return Ok(());
-    }
-
-    let tx = conn.unchecked_transaction().context("begin line_dict tx")?;
-    let mut stmt = tx
-        .prepare("INSERT INTO line_dict(line_hash, line_text) VALUES (?, ?) ON CONFLICT(line_hash) DO NOTHING")
-        .context("prepare line_dict insert")?;
-    for (line_hash, line_text) in batch.drain() {
-        stmt.execute(params![line_hash.to_vec(), line_text])
-            .context("insert line_dict")?;
-    }
-    drop(stmt);
-    tx.commit().context("commit line_dict tx")?;
-    Ok(())
-}
-
-fn init_schema(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "
-CREATE TABLE IF NOT EXISTS jobs (
-  job_id BLOB PRIMARY KEY,
-  started_at TIMESTAMP,
-  finished_at TIMESTAMP,
-  command TEXT,
-  concurrency BIGINT,
-  task_count BIGINT
-);
-CREATE TABLE IF NOT EXISTS tasks (
-  task_id BLOB PRIMARY KEY,
-  job_id BLOB,
-  started_at TIMESTAMP,
-  finished_at TIMESTAMP,
-  target_uri TEXT,
-  command TEXT,
-  status TEXT,
-  exit_code BIGINT,
-  error TEXT,
-  connect_ms BIGINT,
-  auth_ms BIGINT,
-  exec_ms BIGINT
-);
-CREATE TABLE IF NOT EXISTS task_vars (
-  task_id BLOB,
-  key TEXT,
-  value TEXT,
-  PRIMARY KEY(task_id, key)
-);
-CREATE TABLE IF NOT EXISTS task_lines (
-  task_id BLOB,
-  stream TEXT,
-  seq BIGINT,
-  line_hash BLOB,
-  PRIMARY KEY(task_id, stream, seq)
-);
-CREATE TABLE IF NOT EXISTS line_dict (
-  line_hash BLOB PRIMARY KEY,
-  line_text TEXT
-);
-CREATE TABLE IF NOT EXISTS meta (
-  key TEXT PRIMARY KEY,
-  value BLOB
-);
-",
-    )
-    .context("init schema")?;
-    Ok(())
 }
 
 #[async_trait]
@@ -896,72 +489,11 @@ impl Db for DuckDb {
     }
 
     async fn save(&self, entry: &ResultEntry) -> Result<()> {
-        // Compatibility path: map legacy result rows into tasks table.
-        let task_id = Uuid::now_v7().hyphenated().to_string();
-        self.create_task(&task_id, &entry.job_id, &entry.target, "")
-            .await?;
-
-        if let Some(stdout) = &entry.stdout {
-            self.append_stream_blob(&task_id, "stdout", stdout).await?;
-        }
-        if let Some(stderr) = &entry.stderr {
-            self.append_stream_blob(&task_id, "stderr", stderr).await?;
-        }
-
-        let status = if entry.error.is_some() || entry.exit_status.unwrap_or(0) != 0 {
-            DbTaskStatus::Failed
-        } else {
-            DbTaskStatus::Complete
-        };
-
-        self.finish_task(
-            &task_id,
-            status,
-            entry.exit_status.map(i64::from),
-            entry.error.as_deref(),
-            0,
-            0,
-            0,
-        )
-        .await
+        compat::save_compat(self, entry).await
     }
 
     async fn load(&self, job_id: &str) -> Result<Vec<ResultEntry>> {
-        let rows = self.output(DbField::Stdout, job_id, None, None).await?;
-        let stderr_map = self
-            .output(DbField::Stderr, job_id, None, None)
-            .await?
-            .into_iter()
-            .map(|x| (x.task_id, x.value))
-            .collect::<HashMap<_, _>>();
-        let exit_map = self
-            .output(DbField::Exitcode, job_id, None, None)
-            .await?
-            .into_iter()
-            .map(|x| (x.task_id, x.value))
-            .collect::<HashMap<_, _>>();
-        let err_map = self
-            .output(DbField::Error, job_id, None, None)
-            .await?
-            .into_iter()
-            .map(|x| (x.task_id, x.value))
-            .collect::<HashMap<_, _>>();
-
-        let mut out = Vec::new();
-        for row in rows {
-            let exit_status = exit_map
-                .get(&row.task_id)
-                .and_then(|x| x.parse::<u32>().ok());
-            out.push(ResultEntry {
-                job_id: job_id.to_owned(),
-                target: row.target,
-                error: err_map.get(&row.task_id).cloned(),
-                exit_status,
-                stdout: Some(row.value.into_bytes()),
-                stderr: stderr_map.get(&row.task_id).map(|x| x.clone().into_bytes()),
-            });
-        }
-        Ok(out)
+        compat::load_compat(self, job_id).await
     }
 }
 

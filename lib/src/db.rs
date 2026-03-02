@@ -16,7 +16,15 @@ pub use self::duckdb::TraceRow;
 #[async_trait]
 #[enum_dispatch]
 pub trait Db {
+    /// Compatibility API for legacy callers.
+    ///
+    /// Stream payloads are line-oriented and lossy with respect to arbitrary
+    /// bytes (internally represented as UTF-8 text).
     async fn save(&self, entry: &ResultEntry) -> Result<()>;
+    /// Compatibility API for legacy callers.
+    ///
+    /// Returned stream payloads are reconstructed from line storage and are
+    /// therefore text-oriented (lossy for non-UTF8 binary data).
     async fn load(&self, job_id: &str) -> Result<Vec<ResultEntry>>;
     async fn migrate(&self) -> Result<()> {
         Ok(())
