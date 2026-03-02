@@ -6,8 +6,8 @@ use std::string::ToString;
 
 use anyhow::bail;
 use anyhow::Context;
-use camino::Utf8Path;
 use camino::Utf8PathBuf;
+use std::collections::BTreeMap;
 use fluent_uri::encoding::encoder::Path;
 use fluent_uri::encoding::Split;
 use fluent_uri::Uri;
@@ -15,6 +15,7 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use serde::Serialize;
 use strum::EnumString;
+use form_urlencoded;
 
 /// Hostnames may be either IP addresses or domain names.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -44,11 +45,12 @@ impl FromStr for Host {
 pub enum TargetKind {
     Cidr,
     Dns,
-    File,
     Ip,
     Ssh,
     Tcp,
     K8s,
+    Local,
+    Dummy,
 }
 
 /// A generic address that may be targeted by actions.
@@ -143,6 +145,16 @@ impl Target {
     }
 
     #[must_use]
+    pub fn query_pairs(&self) -> Option<BTreeMap<String, String>> {
+        let query = self.uri.query()?.as_str();
+        let mut pairs = BTreeMap::new();
+        for (k, v) in form_urlencoded::parse(query.as_bytes()) {
+            pairs.insert(k.into_owned(), v.into_owned());
+        }
+        Some(pairs)
+    }
+
+    #[must_use]
     pub fn ip(&self) -> Option<IpAddr> {
         match self.host()? {
             Host::Ip(ip) => ip.into(),
@@ -211,18 +223,6 @@ impl Target {
 
 /// Constructors
 impl Target {
-    /// # Errors
-    ///
-    /// If the URI is malformed
-    pub fn new_file(path: &Utf8Path) -> anyhow::Result<Self> {
-        let uri = if path.is_absolute() {
-            format!("file://{path}")
-        } else {
-            format!("file:{path}")
-        };
-        Self::from_str(&uri)
-    }
-
     /// # Errors
     ///
     /// If the URI is malformed
@@ -367,8 +367,8 @@ mod tests {
     #[case("0.0.0.0:0",                                  K::Ip,   "ip://0.0.0.0:0")]
     #[case("[::]:0",                                     K::Ip,   "ip://[::]:0")]
     #[case("localhost",                                  K::Dns,  "dns://localhost")]
-    #[case("file:relative.txt",                          K::File, "file:relative.txt")]
-    #[case("file:///absolute.txt",                       K::File, "file:///absolute.txt")]
+    #[case("local:",                                     K::Local, "local:")]
+    #[case("dummy://fixture?stdout=ok&exitcode=7",       K::Dummy, "dummy://fixture?stdout=ok&exitcode=7")]
     #[case("cidr://user@0.0.0.0:0/0",                    K::Cidr, "cidr://user@0.0.0.0:0/0")]
     #[case("ip://user@0.0.0.0:0",                        K::Ip,   "ip://user@0.0.0.0:0")]
     #[case("dns://user@localhost:0",                     K::Dns,  "dns://user@localhost:0")]
@@ -380,16 +380,6 @@ mod tests {
         assert_eq!(target.kind(), kind_should);
         let output = target.to_string();
         assert_eq!(output, output_should);
-    }
-
-    #[rustfmt::skip::attributes(case)]
-    #[rstest]
-    #[case("file:relative/file.txt",    "relative/file.txt")]
-    #[case("file:///absolute/file.txt", "/absolute/file.txt")]
-    fn file_works(#[case] uri: &str, #[case] path_should: &str) {
-        let target = Target::from_str(uri).unwrap();
-        let path = target.path().unwrap();
-        assert_eq!(path, path_should);
     }
 
     #[rustfmt::skip::attributes(case)]

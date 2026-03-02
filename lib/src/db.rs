@@ -1,28 +1,23 @@
-mod sqlite;
+mod duckdb;
 
-use anyhow::bail;
 use anyhow::Result;
 use async_trait::async_trait;
 use enum_dispatch::enum_dispatch;
 
-pub use self::sqlite::SqliteDb;
+pub use self::duckdb::DbField;
+pub use self::duckdb::DbTaskStatus;
+pub use self::duckdb::DuckDb;
+pub use self::duckdb::FreqRow;
+pub use self::duckdb::JobRow;
+pub use self::duckdb::OutputRow;
+pub use self::duckdb::TaskRow;
+pub use self::duckdb::TraceRow;
 
 #[async_trait]
 #[enum_dispatch]
 pub trait Db {
-    // Required
-
-    /// Saves an action result to the database.
     async fn save(&self, entry: &ResultEntry) -> Result<()>;
-
-    /// Loads action results from the dataabse for a job.
     async fn load(&self, job_id: &str) -> Result<Vec<ResultEntry>>;
-
-    // Defaults
-
-    /// Migrates the database to the newest schema.
-    ///
-    /// By default this does nothing. Override this if needed.
     async fn migrate(&self) -> Result<()> {
         Ok(())
     }
@@ -31,24 +26,20 @@ pub trait Db {
 #[enum_dispatch(Db)]
 #[derive(Clone)]
 pub enum DbImpl {
-    Sqlite(SqliteDb),
+    Duck(DuckDb),
 }
 
 impl DbImpl {
     /// # Errors
     ///
-    /// If any db connection fails.
+    /// If db connection fails.
     pub async fn try_new(connection_string: &str) -> Result<Self> {
-        if connection_string.contains("sqlite") || connection_string.contains(".db") {
-            let db = SqliteDb::try_new(connection_string).await?;
-            return Ok(db.into());
-        }
-        bail!("unable to build a db impl");
+        Ok(DuckDb::try_new(connection_string).await?.into())
     }
 }
 
 /// Outcome of an action.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResultEntry {
     pub job_id: String,
     pub target: String,

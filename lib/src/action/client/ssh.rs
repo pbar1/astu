@@ -124,7 +124,7 @@ impl Client for SshClient {
         }
     }
 
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    async fn exec(&mut self, command: &str, _stdin: Option<&[u8]>) -> anyhow::Result<ExecOutput> {
         self.exec_inner(command).await
     }
 }
@@ -340,7 +340,7 @@ mod tests {
         client.auth_user(user).await.unwrap();
         client.auth_ssh_agent(&sshagent).await.unwrap();
 
-        let output = client.exec("uname -a").await.unwrap();
+        let output = client.exec("uname -a", None).await.unwrap();
         assert_eq!(output.exit_status, 0);
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("GNU/Linux"));

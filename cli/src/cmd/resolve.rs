@@ -1,53 +1,28 @@
 use anyhow::Result;
 use astu::db::DbImpl;
+use astu::resolve::Target;
 use astu::util::id::Id;
 use clap::Args;
-use clap::ValueEnum;
+use std::str::FromStr;
 
 use crate::cmd::Run;
 
-/// Resolve targets
+/// Resolve targets.
 #[derive(Debug, Args)]
 pub struct ResolveArgs {
     #[clap(flatten)]
     resolution_args: crate::args::ResolutionArgs,
-
-    /// Output mode
-    #[clap(short = 'm', long, value_enum, default_value_t = OutputMode::default())]
-    mode: OutputMode,
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-enum OutputMode {
-    #[default]
-    Targets,
-    Buckets,
-    Graph,
 }
 
 impl Run for ResolveArgs {
     async fn run(&self, _id: Id, _db: DbImpl) -> Result<()> {
-        let res_args = self.resolution_args.clone();
+        let mut set = self.resolution_args.set().await?;
+        if set.is_empty() {
+            set.insert(Target::from_str("local:")?);
+        }
 
-        match self.mode {
-            OutputMode::Targets => {
-                for target in res_args.set().await? {
-                    println!("{target}");
-                }
-            }
-            OutputMode::Buckets => {
-                let buckets = res_args.graph_full().await?.buckets();
-                for (group, targets) in buckets {
-                    println!("{group}");
-                    for target in targets {
-                        println!("\t{target}");
-                    }
-                }
-            }
-            OutputMode::Graph => {
-                let graphviz = res_args.graph_full().await?.graphviz();
-                println!("{graphviz}");
-            }
+        for target in set {
+            println!("{target}");
         }
 
         Ok(())

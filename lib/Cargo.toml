@@ -15,7 +15,9 @@ bon = "3"
 borrow-or-share = "0.2"
 bstr = { version = "1", default-features = false }
 camino = "1"
+chrono = "0.4"
 dirs = { version = "6", default-features = false }
+duckdb = { version = "1", features = ["bundled"] }
 enum_dispatch = "0.3"
 fluent-uri = { version = "0.3", features = ["net", "serde"] }
 futures = "0.3"
@@ -34,6 +36,8 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v7"] }
 whoami = "2"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+form_urlencoded = "1.2"
 
 [dev-dependencies]
 ahash = "0.8"

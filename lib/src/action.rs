@@ -24,7 +24,7 @@ pub trait Client {
     async fn auth(&mut self, auth_type: &AuthPayload) -> Result<()>;
 
     /// Execute commands on a target.
-    async fn exec(&mut self, command: &str) -> Result<ExecOutput>;
+    async fn exec(&mut self, command: &str, stdin: Option<&[u8]>) -> Result<ExecOutput>;
 }
 
 /// All types of action clients.
@@ -32,6 +32,8 @@ pub trait Client {
 pub enum ClientImpl {
     Tcp(client::TcpClient),
     Ssh(client::SshClient),
+    Local(client::LocalClient),
+    Dummy(client::DummyClient),
 }
 
 /// Factory for building clients.
@@ -46,6 +48,8 @@ pub trait ClientFactory {
 pub enum ClientFactoryImpl {
     Tcp(client::TcpClientFactory),
     Ssh(client::SshClientFactory),
+    Local(client::LocalClientFactory),
+    Dummy(client::DummyClientFactory),
 }
 
 /// Assortment of auth payloads that can be used with auth.

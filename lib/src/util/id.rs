@@ -10,12 +10,14 @@ pub struct Id {
 
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes = match self.inner {
-            IdInner::Uuid(u) => u.as_bytes().to_vec(),
-            IdInner::Sonyflake(s) => s.to_be_bytes().to_vec(),
-        };
-        let s = base32::encode(base32::Alphabet::Crockford, &bytes);
-        write!(f, "{s}")
+        match self.inner {
+            IdInner::Uuid(u) => write!(f, "{}", u.hyphenated()),
+            IdInner::Sonyflake(s) => {
+                let bytes = s.to_be_bytes().to_vec();
+                let encoded = base32::encode(base32::Alphabet::Crockford, &bytes);
+                write!(f, "{encoded}")
+            }
+        }
     }
 }
 

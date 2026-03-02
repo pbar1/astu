@@ -26,3 +26,5 @@ tracing-appender = "0.2"
 tracing-glog = { version = "0.4", features = ["local-time"] }
 tracing-indicatif = { version = "0.3", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v7"] }
+chrono = "0.4"

@@ -1,3 +1,4 @@
+mod common;
 mod exec;
 mod freq;
 mod gc;
@@ -13,7 +14,7 @@ use anyhow::Result;
 use astu::db::DbImpl;
 use astu::util::id::Id;
 use astu::util::id::IdGenerator;
-use astu::util::id::SonyflakeGenerator;
+use astu::util::id::UuidV7Generator;
 use clap::Parser;
 use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
@@ -60,9 +61,9 @@ enum Command {
 
 pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let _guards = cli.global_args.init_tracing()?;
+    let id = UuidV7Generator.id_now();
+    let _guards = cli.global_args.init_tracing(&id.to_string())?;
 
-    let id = SonyflakeGenerator::from_hostname()?.id_now();
     let db = cli.global_args.get_db().await?;
 
     cli.command.run(id, db).await
@@ -113,7 +114,7 @@ mod tests {
         let cli = Cli::try_parse_from(["astu", "task"]).expect("parse");
         assert!(format!("{:?}", cli.command).contains("Tasks"));
 
-        let cli = Cli::try_parse_from(["astu", "gc"]).expect("parse");
+        let cli = Cli::try_parse_from(["astu", "gc", "--before", "30d"]).expect("parse");
         assert!(format!("{:?}", cli.command).contains("Gc"));
     }
 

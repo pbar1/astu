@@ -1,22 +1,21 @@
-use std::time::Duration;
+use std::str::FromStr;
+use std::time::Instant;
 
 use anyhow::Context;
 use anyhow::Result;
-use astu::action::client::DynamicClientFactory;
 use astu::action::Client;
 use astu::action::ClientFactory;
-use astu::db::Db;
 use astu::db::DbImpl;
-use astu::db::ResultEntry;
+use astu::db::DbTaskStatus;
 use astu::resolve::Target;
 use astu::util::id::Id;
-use astu::util::tokio::spawn_timeout;
 use clap::Args;
-use futures::StreamExt;
-use tracing::instrument;
-use tracing::warn;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
+use uuid::Uuid;
 
 use crate::cmd::Run;
+use crate::cmd::common;
 
 /// Connect to targets
 #[derive(Debug, Args)]
@@ -29,70 +28,97 @@ pub struct PingArgs {
 }
 
 impl Run for PingArgs {
-    async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
-        println!("Job ID: {id}");
+    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
+        let mut set = self.resolution_args.set().await?;
+        if set.is_empty() {
+            set.insert(Target::from_str("local:")?);
+        }
+        common::require_confirm(self.action_args.confirm, set.len())?;
 
-        let job_id = id.to_string();
-        let timeout = self.action_args.timeout.into();
+        let job_id = Uuid::now_v7().hyphenated().to_string();
+        let db = match db {
+            DbImpl::Duck(db) => db,
+        };
+        db.create_job(
+            &job_id,
+            "astu ping",
+            i64::try_from(self.action_args.concurrency).unwrap_or(i64::MAX),
+            i64::try_from(set.len()).unwrap_or(i64::MAX),
+        )
+        .await?;
 
-        let targets = self.resolution_args.set().await?;
-        let client_factory = self.action_args.client_factory()?;
+        let sem = Arc::new(Semaphore::new(self.action_args.concurrency.max(1)));
+        let factory = self.action_args.client_factory()?;
+        let mut joins = tokio::task::JoinSet::new();
 
-        let _db = futures::stream::iter(targets)
-            .map(|target| ping(target, client_factory.clone(), job_id.clone(), timeout))
-            .buffer_unordered(self.action_args.concurrency)
-            .fold(db, save)
-            .await;
+        for target in set {
+            let permit = sem.clone().acquire_owned().await?;
+            let target_s = target.to_string();
+            let db = db.clone();
+            let factory = factory.clone();
+            let job_id_for_task = job_id.clone();
+            joins.spawn(async move {
+                let _permit = permit;
+                let task_id = Uuid::now_v7().hyphenated().to_string();
+                db.create_task(&task_id, &job_id_for_task, &target_s, "ping")
+                    .await?;
 
+                let mut client = factory.client(&target).context("failed getting client")?;
+
+                let t_connect = Instant::now();
+                if let Err(error) = client.connect().await {
+                    db.finish_task(
+                        &task_id,
+                        DbTaskStatus::Failed,
+                        None,
+                        Some(&format!("{error:#}")),
+                        i64::try_from(t_connect.elapsed().as_millis()).unwrap_or(i64::MAX),
+                        0,
+                        0,
+                    )
+                    .await?;
+                    return Ok::<(), anyhow::Error>(());
+                }
+                let connect_ms = i64::try_from(t_connect.elapsed().as_millis()).unwrap_or(i64::MAX);
+
+                let t_ping = Instant::now();
+                match client.ping().await {
+                    Ok(stdout) => {
+                        db.append_stream_blob(&task_id, "stdout", &stdout).await?;
+                        db.finish_task(
+                            &task_id,
+                            DbTaskStatus::Complete,
+                            Some(0),
+                            None,
+                            connect_ms,
+                            0,
+                            i64::try_from(t_ping.elapsed().as_millis()).unwrap_or(i64::MAX),
+                        )
+                        .await?;
+                    }
+                    Err(error) => {
+                        db.finish_task(
+                            &task_id,
+                            DbTaskStatus::Failed,
+                            None,
+                            Some(&format!("{error:#}")),
+                            connect_ms,
+                            0,
+                            i64::try_from(t_ping.elapsed().as_millis()).unwrap_or(i64::MAX),
+                        )
+                        .await?;
+                    }
+                }
+
+                Ok::<(), anyhow::Error>(())
+            });
+        }
+
+        while let Some(done) = joins.join_next().await {
+            done??;
+        }
+
+        db.finish_job(&job_id).await?;
         Ok(())
     }
-}
-
-#[instrument(skip_all, fields(%target))]
-async fn ping(
-    target: Target,
-    client_factory: DynamicClientFactory,
-    job_id: String,
-    timeout: Duration,
-) -> ResultEntry {
-    // TODO: Maybe a better way to flatten
-    let result = spawn_timeout(timeout, ping_inner(target.clone(), client_factory)).await;
-
-    match result {
-        Ok(Ok(message)) => ResultEntry {
-            job_id: job_id.clone(),
-            target: target.to_string(),
-            error: None,
-            exit_status: None,
-            stdout: Some(message),
-            stderr: None,
-        },
-        Ok(Err(error)) | Err(error) => ResultEntry {
-            job_id: job_id.clone(),
-            target: target.to_string(),
-            error: Some(format!("{error:?}")),
-            exit_status: None,
-            stdout: None,
-            stderr: None,
-        },
-    }
-}
-
-async fn ping_inner(target: Target, client_factory: DynamicClientFactory) -> Result<Vec<u8>> {
-    let mut client = client_factory
-        .client(&target)
-        .context("failed getting client for target")?;
-
-    client.connect().await.context("unable to connect")?;
-
-    let output = client.ping().await.context("unable to ping")?;
-
-    Ok(output)
-}
-
-async fn save(db: DbImpl, entry: ResultEntry) -> DbImpl {
-    if let Err(error) = db.save(&entry).await {
-        warn!(?error, ?entry, "failed saving entry to db");
-    }
-    db
 }

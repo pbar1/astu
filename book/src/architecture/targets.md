@@ -108,17 +108,22 @@ Secure Shell (SSH) address.
   - `ssh://root@localhost:2222`
 - Short form: n/a
 
-### File
+### Local
 
-Local file.
+Local executor target.
 
-- URI form: `file:[//]<path>`
-  - `file:///absolute/file.txt`
-  - `file://relative/file.txt`
-  - `file:relative/file.txt`
-- Short form: `<path>` (if path exists locally)
-  - `/absolute/file.txt`
-  - `relative/file.txt`
+- URI form: `local:`
+  - `local:`
+- Short form: n/a
+
+### Dummy
+
+Mock executor target for tests.
+
+- URI form: `dummy://<name>[?stdout][&stderr][&exitcode]`
+  - `dummy://fixture?stdout=ok`
+  - `dummy://fixture?stderr=oops&exitcode=1`
+- Short form: n/a
 
 ### Kubernetes
 

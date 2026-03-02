@@ -1,24 +1,15 @@
-use std::time::Duration;
+use std::str::FromStr;
 
-use anyhow::Context;
 use anyhow::Result;
-use astu::action::client::DynamicClientFactory;
-use astu::action::AuthPayload;
-use astu::action::Client;
-use astu::action::ClientFactory;
-use astu::action::ExecOutput;
-use astu::db::Db;
+use astu::db::DbField;
 use astu::db::DbImpl;
-use astu::db::ResultEntry;
 use astu::resolve::Target;
 use astu::util::id::Id;
-use astu::util::tokio::spawn_timeout;
 use clap::Args;
-use futures::StreamExt;
-use tracing::instrument;
-use tracing::warn;
+use uuid::Uuid;
 
 use crate::cmd::Run;
+use crate::cmd::common;
 
 /// Execute commands on targets.
 #[derive(Debug, Args)]
@@ -37,106 +28,65 @@ pub struct ExecArgs {
 }
 
 impl Run for ExecArgs {
-    async fn run(&self, id: Id, db: DbImpl) -> Result<()> {
-        let job_id = id.to_string();
-        let timeout = self.action_args.timeout.into();
-        let command = self.command.clone();
+    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
+        let stdin_bytes = common::read_stdin_all_if_piped().await?.unwrap_or_default();
+        let has_stdin_target_file = self
+            .resolution_args
+            .target_files
+            .iter()
+            .any(|x| x == "-" || x == "/dev/stdin");
 
-        let targets = self.resolution_args.set().await?;
-        let client_factory = self.action_args.client_factory()?;
+        let mode = common::infer_input_mode(&self.action_args, &self.command, has_stdin_target_file);
 
-        // TODO: move auth to own arg group
-        let mut auths = Vec::new();
-        auths.push(AuthPayload::User(self.auth_args.user.clone()));
-        if let Some(socket) = &self.auth_args.ssh_agent {
-            auths.push(AuthPayload::SshAgent {
-                socket: socket.to_string(),
-            });
+        let stdin_str = String::from_utf8_lossy(&stdin_bytes);
+        let stdin_targets = if mode == common::InputMode::Target {
+            Some(stdin_str.as_ref())
+        } else {
+            None
+        };
+
+        let mut set = self.resolution_args.set_with_stdin(stdin_targets).await?;
+        if set.is_empty() {
+            set.insert(Target::from_str("local:")?);
         }
+        let targets = common::normalize_targets(set);
 
-        let _db = futures::stream::iter(targets)
-            .map(|target| {
-                exec(
-                    target,
-                    client_factory.clone(),
-                    job_id.clone(),
-                    timeout,
-                    command.clone(),
-                    auths.clone(),
-                )
-            })
-            .buffer_unordered(self.action_args.concurrency)
-            .fold(db, save)
-            .await;
+        let specs = common::build_task_specs(targets, &self.command, mode, &stdin_bytes);
+        let target_count = specs.len();
+        common::require_confirm(self.action_args.confirm, target_count)?;
+
+        let job_id = Uuid::now_v7().hyphenated().to_string();
+
+        let data_dir = std::env::var("ASTU_DATA_DIR").unwrap_or_else(|_| {
+            std::env::temp_dir()
+                .join("astu")
+                .to_string_lossy()
+                .to_string()
+        });
+        let spool = common::maybe_spool_stdin(&data_dir, &job_id, mode, &stdin_bytes)?;
+
+        common::run_tasks(
+            db.clone(),
+            &job_id,
+            specs,
+            &self.auth_args,
+            &self.action_args,
+            spool,
+        )
+        .await?;
+
+        let DbImpl::Duck(db) = db;
+        let rows = db.freq(DbField::Error, &job_id, None).await?;
+        if rows.is_empty() {
+            println!("error-freq\n(no rows)");
+        } else {
+            println!("error-freq");
+            for row in rows {
+                println!("{}\t{}", row.count, row.value);
+            }
+        }
+        eprintln!("Use `astu output` or `astu freq` for result analysis");
 
         Ok(())
     }
-}
-
-#[instrument(skip_all, fields(%target))]
-async fn exec(
-    target: Target,
-    client_factory: DynamicClientFactory,
-    job_id: String,
-    timeout: Duration,
-    command: String,
-    auths: Vec<AuthPayload>,
-) -> ResultEntry {
-    // TODO: Maybe a better way to flatten
-    let result = spawn_timeout(
-        timeout,
-        exec_inner(target.clone(), client_factory, command, auths),
-    )
-    .await;
-
-    match result {
-        Ok(Ok(output)) => ResultEntry {
-            job_id: job_id.clone(),
-            target: target.to_string(),
-            error: None,
-            exit_status: Some(output.exit_status),
-            stdout: Some(output.stdout),
-            stderr: Some(output.stderr),
-        },
-        Ok(Err(error)) | Err(error) => ResultEntry {
-            job_id: job_id.clone(),
-            target: target.to_string(),
-            error: Some(format!("{error:?}")),
-            exit_status: None,
-            stdout: None,
-            stderr: None,
-        },
-    }
-}
-
-async fn exec_inner(
-    target: Target,
-    client_factory: DynamicClientFactory,
-    command: String,
-    auths: Vec<AuthPayload>,
-) -> Result<ExecOutput> {
-    let mut client = client_factory
-        .client(&target)
-        .context("failed getting client for target")?;
-
-    client.connect().await.context("unable to connect")?;
-
-    // TODO: clowntown
-    for auth in auths {
-        client.auth(&auth).await?;
-    }
-
-    let output = client
-        .exec(&command, None)
-        .await
-        .context("unable to run command")?;
-
-    Ok(output)
-}
-
-async fn save(db: DbImpl, entry: ResultEntry) -> DbImpl {
-    if let Err(error) = db.save(&entry).await {
-        warn!(?error, ?entry, "failed saving entry to db");
-    }
-    db
 }

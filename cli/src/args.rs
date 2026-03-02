@@ -4,6 +4,7 @@ mod global;
 mod resolution;
 
 pub use action::ActionArgs;
+pub use action::StdinMode;
 pub use auth::AuthArgs;
 pub use global::GlobalArgs;
 pub use resolution::ResolutionArgs;

@@ -5,7 +5,7 @@
 DNS queries return all IPs that are found:
 
 ```sh
-astu resolve -T something.com
+astu lookup -T something.com
 104.21.59.206
 172.67.183.168
 ```
@@ -13,12 +13,12 @@ astu resolve -T something.com
 Ports are also supported and preserved:
 
 ```sh
-astu resolve -T localhost:22
+astu lookup -T localhost:22
 127.0.0.1:22
 ```
 
 ### Ping targets
 
 ```sh
-astu ping -T localhost:22
+astu ping -T localhost:22 --confirm=1
 ```

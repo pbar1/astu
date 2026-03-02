@@ -54,7 +54,7 @@ pub struct TracingGuard {
 
 impl GlobalArgs {
     /// Initializes all [`tracing`] config.
-    pub fn init_tracing(&self) -> Result<TracingGuard> {
+    pub fn init_tracing(&self, run_id: &str) -> Result<TracingGuard> {
         let mut guard = TracingGuard::default();
 
         let indicatif_layer = IndicatifLayer::new();
@@ -68,13 +68,21 @@ impl GlobalArgs {
             .with_writer(stderr_writer)
             .with_filter(stderr_filter);
 
-        let log_file_path = self.data_dir.join("last.log");
+        let logs_dir = self.data_dir.join("logs");
+        std::fs::create_dir_all(&logs_dir)?;
+        let log_file_path = logs_dir.join(format!("{run_id}.log"));
         let log_file = OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
             .open(&log_file_path)
             .context("unable to create log file")?;
+        let latest_link = logs_dir.join("latest.log");
+        let _ = std::fs::remove_file(&latest_link);
+        #[cfg(unix)]
+        let _ = std::os::unix::fs::symlink(&log_file_path, &latest_link);
+        #[cfg(windows)]
+        let _ = std::os::windows::fs::symlink_file(&log_file_path, &latest_link);
         let (file_writer, file_writer_guard) = non_blocking(log_file);
         let file_filter = EnvFilter::builder().parse_lossy("astu=debug,astu_cli=debug");
         let file_layer = tracing_subscriber::fmt::layer()
@@ -98,7 +106,7 @@ impl GlobalArgs {
 
     /// Gets a ready database connection.
     pub async fn get_db(&self) -> Result<DbImpl> {
-        let db_file = self.data_dir.join("astu.db");
+        let db_file = self.data_dir.join("astu.duckdb");
         DbImpl::try_new(db_file.as_str())
             .await
             .context("unable to connect to a db")

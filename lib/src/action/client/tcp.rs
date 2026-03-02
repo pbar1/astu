@@ -99,7 +99,7 @@ impl Client for TcpClient {
         bail!("TcpClient::auth not supported");
     }
 
-    async fn exec(&mut self, _command: &str) -> Result<ExecOutput> {
+    async fn exec(&mut self, _command: &str, _stdin: Option<&[u8]>) -> Result<ExecOutput> {
         bail!("TcpClient::exec not supported");
     }
 }
