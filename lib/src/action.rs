@@ -2,6 +2,7 @@ pub mod client;
 pub mod transport;
 
 use std::fmt;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -24,7 +25,7 @@ pub trait Client {
     async fn auth(&mut self, auth_type: &AuthPayload) -> Result<()>;
 
     /// Execute commands on a target.
-    async fn exec(&mut self, command: &str, stdin: Option<&[u8]>) -> Result<ExecOutput>;
+    async fn exec(&mut self, command: &str, stdin: Option<ExecStdin>) -> Result<ExecOutput>;
 }
 
 /// All types of action clients.
@@ -68,6 +69,12 @@ pub struct ExecOutput {
     pub exit_status: u32,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExecStdin {
+    Bytes(Vec<u8>),
+    SpoolFile(PathBuf),
 }
 
 impl fmt::Debug for ExecOutput {

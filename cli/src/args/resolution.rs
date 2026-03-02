@@ -89,6 +89,7 @@ impl ResolutionArgs {
         Ok(graph)
     }
 
+    #[allow(dead_code)]
     pub async fn graph_full(self) -> anyhow::Result<TargetGraph> {
         let fwd = forward_chain()?;
         let rev = reverse_chain()?;

@@ -26,14 +26,13 @@ pub struct ResumeArgs {
 impl Run for ResumeArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(duck) = db.clone();
-        let job_id = match &self.job {
-            Some(job) => job.clone(),
-            None => {
-                let Some(job) = duck.last_job_id().await? else {
-                    return Ok(());
-                };
-                job
-            }
+        let job_id = if let Some(job) = &self.job {
+            job.clone()
+        } else {
+            let Some(job) = duck.last_job_id().await? else {
+                return Ok(());
+            };
+            job
         };
 
         let canceled = duck.canceled_tasks_for_job(&job_id).await?;

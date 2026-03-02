@@ -2,17 +2,19 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::bail;
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use astu::action::AuthPayload;
 use astu::action::Client;
 use astu::action::ClientFactory;
+use astu::action::ExecStdin;
 use astu::db::DbImpl;
 use astu::db::DbTaskStatus;
 use astu::resolve::Host;
@@ -37,6 +39,17 @@ pub struct TaskSpec {
     pub target: Target,
     pub command: String,
     pub param: Option<String>,
+}
+
+#[derive(Debug)]
+struct SpoolCleanup(Option<PathBuf>);
+
+impl Drop for SpoolCleanup {
+    fn drop(&mut self) {
+        if let Some(path) = self.0.take() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 pub async fn read_stdin_all_if_piped() -> Result<Option<Vec<u8>>> {
@@ -150,6 +163,7 @@ pub fn render_command(template: &str, target: &Target, param: Option<&str>) -> S
     out
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn run_tasks(
     db: DbImpl,
     job_id: &str,
@@ -158,9 +172,9 @@ pub async fn run_tasks(
     action: &ActionArgs,
     pipe_stdin: Option<PathBuf>,
 ) -> Result<()> {
-    let db = match db {
-        DbImpl::Duck(db) => db,
-    };
+    let _spool_cleanup = SpoolCleanup(pipe_stdin.clone());
+
+    let DbImpl::Duck(db) = db;
 
     let command = specs.first().map(|x| x.command.clone()).unwrap_or_default();
     db.create_job(
@@ -181,22 +195,55 @@ pub async fn run_tasks(
         }
         planned.push((task_id, spec));
     }
+    let total_tasks = planned.len();
 
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let cancel = cancel.clone();
         tokio::spawn(async move {
-            let _ = tokio::signal::ctrl_c().await;
-            cancel.store(true, Ordering::SeqCst);
+            let mut interrupts = 0_u8;
+            loop {
+                let _ = tokio::signal::ctrl_c().await;
+                interrupts = interrupts.saturating_add(1);
+                if interrupts == 1 {
+                    eprintln!("Received interrupt. Stopping new task starts (press Ctrl-C again to force exit).");
+                    cancel.store(true, Ordering::SeqCst);
+                    continue;
+                }
+                eprintln!("Received second interrupt. Forcing exit.");
+                std::process::exit(130);
+            }
         });
     }
 
     let sem = Arc::new(Semaphore::new(action.concurrency.max(1)));
     let client_factory = action.client_factory()?;
     let mut tasks = tokio::task::JoinSet::new();
+    let progress_tty = std::io::IsTerminal::is_terminal(&std::io::stderr());
+    let completed = Arc::new(AtomicUsize::new(0));
+    if progress_tty {
+        eprintln!("Progress: 0/{total_tasks}");
+    }
 
     for (task_id, spec) in planned {
         if cancel.load(Ordering::SeqCst) {
+            db.finish_task(
+                &task_id,
+                DbTaskStatus::Canceled,
+                None,
+                Some("canceled by interrupt"),
+                0,
+                0,
+                0,
+            )
+            .await?;
+            if progress_tty {
+                let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
+                eprint!("\rProgress: {done}/{total_tasks}");
+                if done == total_tasks {
+                    eprintln!();
+                }
+            }
             continue;
         }
 
@@ -205,6 +252,7 @@ pub async fn run_tasks(
         let client_factory = client_factory.clone();
         let auth = auth.clone();
         let pipe_stdin = pipe_stdin.clone();
+        let completed = completed.clone();
 
         tasks.spawn(async move {
             let _permit = permit;
@@ -243,14 +291,10 @@ pub async fn run_tasks(
             }
             let auth_ms = i64::try_from(t_auth.elapsed().as_millis()).unwrap_or(i64::MAX);
 
-            let stdin_bytes = if let Some(path) = pipe_stdin {
-                std::fs::read(path).ok()
-            } else {
-                None
-            };
+            let stdin_input = pipe_stdin.map(ExecStdin::SpoolFile);
 
             let t_exec = Instant::now();
-            let result = client.exec(&spec.command, stdin_bytes.as_deref()).await;
+            let result = client.exec(&spec.command, stdin_input).await;
             let exec_ms = i64::try_from(t_exec.elapsed().as_millis()).unwrap_or(i64::MAX);
 
             match result {
@@ -286,6 +330,14 @@ pub async fn run_tasks(
                         exec_ms,
                     )
                     .await?;
+                }
+            }
+
+            if progress_tty {
+                let done = completed.fetch_add(1, Ordering::SeqCst) + 1;
+                eprint!("\rProgress: {done}/{total_tasks}");
+                if done == total_tasks {
+                    eprintln!();
                 }
             }
 

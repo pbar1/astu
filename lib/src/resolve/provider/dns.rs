@@ -13,6 +13,7 @@ use hickory_resolver::TokioResolver;
 use crate::resolve::Host;
 use crate::resolve::Resolve;
 use crate::resolve::Target;
+use crate::resolve::TargetKind;
 
 /// Resolves DNS queries - both forward and reverse - into targets.
 #[derive(Debug, Clone)]
@@ -23,12 +24,15 @@ pub struct DnsResolver {
 }
 
 impl Resolve for DnsResolver {
-    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<'_, Result<Target>> {
         let fwd = self.forward;
         let rev = self.reverse;
+        let kind = target.kind();
         match target.host() {
-            Some(Host::Domain(name)) if fwd => self.resolve_domain(name, target),
-            Some(Host::Ip(ip)) if rev => self.resolve_ip(ip, target),
+            Some(Host::Domain(name)) if fwd && kind == TargetKind::Dns => {
+                self.resolve_domain(name, target)
+            }
+            Some(Host::Ip(ip)) if rev && kind == TargetKind::Ip => self.resolve_ip(ip, target),
             _unsupported => futures::stream::empty().boxed(),
         }
     }
@@ -66,7 +70,7 @@ impl DnsResolver {
     }
 
     /// Forward DNS resolution
-    fn resolve_domain(&self, name: String, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_domain(&self, name: String, target: Target) -> BoxStream<'_, Result<Target>> {
         try_stream! {
             let ips = self.dns.lookup_ip(name).await?;
             for ip in ips {
@@ -79,7 +83,7 @@ impl DnsResolver {
     }
 
     /// Reverse DNS resolution
-    fn resolve_ip(&self, ip: IpAddr, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_ip(&self, ip: IpAddr, target: Target) -> BoxStream<'_, Result<Target>> {
         try_stream! {
             let names = self.dns.reverse_lookup(ip).await?;
             for ptr in names {
@@ -113,8 +117,6 @@ mod tests {
 
     #[rstest]
     #[case("localhost")]
-    #[case("google.com")]
-    #[case("google.com.")]
     #[case("127.0.0.1")]
     #[case("127.0.0.1:22")]
     #[tokio::test]

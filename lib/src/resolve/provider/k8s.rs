@@ -15,10 +15,11 @@ use crate::resolve::Target;
 
 /// Resolves DNS queries - both forward and reverse - into targets.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct K8sResolver {}
 
 impl Resolve for K8sResolver {
-    fn resolve_fallible(&self, _target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, _target: Target) -> BoxStream<'_, Result<Target>> {
         todo!()
     }
 }

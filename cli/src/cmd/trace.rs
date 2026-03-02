@@ -18,14 +18,13 @@ pub struct TraceArgs {
 impl Run for TraceArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(db) = db;
-        let job_id = match &self.job {
-            Some(job) => job.clone(),
-            None => {
-                let Some(job) = db.last_job_id().await? else {
-                    return Ok(());
-                };
-                job
-            }
+        let job_id = if let Some(job) = &self.job {
+            job.clone()
+        } else {
+            let Some(job) = db.last_job_id().await? else {
+                return Ok(());
+            };
+            job
         };
 
         let rows = db.trace(&job_id, self.target.as_deref()).await?;

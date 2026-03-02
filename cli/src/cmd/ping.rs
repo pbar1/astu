@@ -36,9 +36,7 @@ impl Run for PingArgs {
         common::require_confirm(self.action_args.confirm, set.len())?;
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
-        let db = match db {
-            DbImpl::Duck(db) => db,
-        };
+        let DbImpl::Duck(db) = db;
         db.create_job(
             &job_id,
             "astu ping",

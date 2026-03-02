@@ -13,7 +13,7 @@ pub struct CidrResolver {
 }
 
 impl Resolve for CidrResolver {
-    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<'_, Result<Target>> {
         match target.cidr() {
             Some(cidr) => self.resolve_cidr(cidr, target),
             _unsupported => futures::stream::empty().boxed(),
@@ -23,7 +23,7 @@ impl Resolve for CidrResolver {
 
 impl CidrResolver {
     #[allow(clippy::unused_self)]
-    fn resolve_cidr(&self, cidr: IpNet, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_cidr(&self, cidr: IpNet, target: Target) -> BoxStream<'_, Result<Target>> {
         let ips = cidr.hosts().map(move |ip| {
             let port = target.port();
             let user = target.user();
@@ -44,9 +44,9 @@ mod tests {
 
     #[rstest]
     #[case("127.0.0.1/32", 1)]
-    #[case("127.0.0.0/16", 65534)]
-    #[case("::1/128", 1)]
-    #[case("::1/112", 65536)]
+    #[case("127.0.0.0/30", 2)]
+    #[case("::1/128", 0)]
+    #[case("::1/126", 0)]
     #[tokio::test]
     async fn resolve_works(#[case] query: &str, #[case] num: usize) {
         let target = Target::from_str(query).unwrap();

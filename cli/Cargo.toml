@@ -28,3 +28,9 @@ tracing-indicatif = { version = "0.3", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v7"] }
 chrono = "0.4"
+
+[dev-dependencies]
+assert_cmd = "2"
+duckdb = { version = "1", features = ["bundled"] }
+predicates = "3"
+tempfile = "3"

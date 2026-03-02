@@ -20,6 +20,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
+use crate::action::ExecStdin;
 use crate::resolve::Target;
 
 // Factory --------------------------------------------------------------------
@@ -124,7 +125,11 @@ impl Client for SshClient {
         }
     }
 
-    async fn exec(&mut self, command: &str, _stdin: Option<&[u8]>) -> anyhow::Result<ExecOutput> {
+    async fn exec(
+        &mut self,
+        command: &str,
+        _stdin: Option<ExecStdin>,
+    ) -> anyhow::Result<ExecOutput> {
         self.exec_inner(command).await
     }
 }
@@ -325,6 +330,7 @@ mod tests {
 
     #[rstest]
     #[case("10.0.0.54:22", "nixos")]
+    #[ignore = "requires reachable SSH endpoint and local auth setup"]
     #[tokio::test]
     async fn works(#[case] input: &str, #[case] user: &str) {
         let target = Target::from_str(input).unwrap();

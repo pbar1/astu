@@ -1,3 +1,7 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::unused_async)]
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -24,6 +28,7 @@ pub enum DbTaskStatus {
 }
 
 impl DbTaskStatus {
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Complete => "complete",

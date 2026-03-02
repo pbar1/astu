@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn parses_global_output_flag() {
         let cli = Cli::try_parse_from(["astu", "-o", "json", "lookup"]).expect("parse");
-        let debug = format!("{:?}", cli);
+        let debug = format!("{cli:?}");
         assert!(debug.contains("Json"), "{debug}");
     }
 
@@ -146,7 +146,7 @@ mod tests {
             "hi",
         ])
         .expect("parse");
-        let debug = format!("{:?}", cli);
+        let debug = format!("{cli:?}");
         assert!(debug.contains("Target"), "{debug}");
         assert!(debug.contains("/tmp/targets.txt"), "{debug}");
     }

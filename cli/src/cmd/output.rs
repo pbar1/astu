@@ -54,14 +54,13 @@ impl FieldArg {
 impl Run for OutputArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(db) = db;
-        let job_id = match &self.job {
-            Some(job) => job.clone(),
-            None => {
-                let Some(job) = db.last_job_id().await? else {
-                    return Ok(());
-                };
-                job
-            }
+        let job_id = if let Some(job) = &self.job {
+            job.clone()
+        } else {
+            let Some(job) = db.last_job_id().await? else {
+                return Ok(());
+            };
+            job
         };
 
         let fields = if self.fields.is_empty() {

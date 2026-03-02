@@ -7,6 +7,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
+use crate::action::ExecStdin;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
 
@@ -49,7 +50,7 @@ impl Client for DummyClient {
         Ok(())
     }
 
-    async fn exec(&mut self, _command: &str, _stdin: Option<&[u8]>) -> Result<ExecOutput> {
+    async fn exec(&mut self, _command: &str, _stdin: Option<ExecStdin>) -> Result<ExecOutput> {
         let query = self.target.query_pairs().unwrap_or_default();
 
         let stdout = query

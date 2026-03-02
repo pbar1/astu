@@ -1,6 +1,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
+use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
@@ -9,6 +10,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
+use crate::action::ExecStdin;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
 
@@ -54,7 +56,7 @@ impl Client for LocalClient {
         Ok(())
     }
 
-    async fn exec(&mut self, command: &str, stdin: Option<&[u8]>) -> Result<ExecOutput> {
+    async fn exec(&mut self, command: &str, stdin: Option<ExecStdin>) -> Result<ExecOutput> {
         let mut child = Command::new("sh")
             .arg("-c")
             .arg(command)
@@ -64,17 +66,39 @@ impl Client for LocalClient {
             .spawn()
             .context("unable to spawn local process")?;
 
-        if let Some(stdin_buf) = stdin {
-            if let Some(mut child_stdin) = child.stdin.take() {
-                child_stdin
-                    .write_all(stdin_buf)
-                    .await
-                    .context("unable to write local stdin")?;
-                child_stdin
-                    .shutdown()
-                    .await
-                    .context("unable to close local stdin")?;
+        if let Some(mut child_stdin) = child.stdin.take() {
+            match stdin {
+                Some(ExecStdin::Bytes(stdin_buf)) => {
+                    child_stdin
+                        .write_all(&stdin_buf)
+                        .await
+                        .context("unable to write local stdin bytes")?;
+                }
+                Some(ExecStdin::SpoolFile(path)) => {
+                    let mut file = tokio::fs::File::open(path)
+                        .await
+                        .context("unable to open spool file")?;
+                    let mut buf = [0_u8; 16 * 1024];
+                    loop {
+                        let n = file
+                            .read(&mut buf)
+                            .await
+                            .context("unable to read spool file")?;
+                        if n == 0 {
+                            break;
+                        }
+                        child_stdin
+                            .write_all(&buf[..n])
+                            .await
+                            .context("unable to write local stdin stream")?;
+                    }
+                }
+                None => {}
             }
+            child_stdin
+                .shutdown()
+                .await
+                .context("unable to close local stdin")?;
         }
 
         let output = child

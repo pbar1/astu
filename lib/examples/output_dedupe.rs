@@ -46,11 +46,6 @@ impl TokenizerContext {
         self.cwd = Some(cwd);
         self
     }
-
-    fn with_custom(mut self, key: String, value: String) -> Self {
-        self.custom.insert(key, value);
-        self
-    }
 }
 
 struct OutputTokenizer {

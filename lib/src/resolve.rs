@@ -19,10 +19,10 @@ pub use self::target::TargetKind;
 /// erroring.
 pub trait Resolve {
     /// Resolve a target query.
-    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>>;
+    fn resolve_fallible(&self, target: Target) -> BoxStream<'_, Result<Target>>;
 
     /// Like [`Resolve::resolve_fallible`], but ignores all errors.
-    fn resolve(&self, target: Target) -> BoxStream<Target> {
+    fn resolve(&self, target: Target) -> BoxStream<'_, Target> {
         self.resolve_fallible(target)
             .map(futures::stream::iter)
             .flatten()
@@ -33,7 +33,7 @@ pub trait Resolve {
     ///
     /// The default implementation simply resolves in serial. Override this if a
     /// more efficient implementation exists.
-    fn bulk_resolve_fallible(&self, targets: Vec<Target>) -> BoxStream<Result<Target>>
+    fn bulk_resolve_fallible(&self, targets: Vec<Target>) -> BoxStream<'_, Result<Target>>
     where
         Self: Sync,
     {
@@ -44,7 +44,7 @@ pub trait Resolve {
     }
 
     /// Like [`Resolve::bulk_resolve_fallible`], but ignores all errors.
-    fn bulk_resolve(&self, targets: Vec<Target>) -> BoxStream<Target>
+    fn bulk_resolve(&self, targets: Vec<Target>) -> BoxStream<'_, Target>
     where
         Self: Sync,
     {
