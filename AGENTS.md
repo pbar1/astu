@@ -314,41 +314,41 @@ Verification:
 
 ## Execution Checklist (All Findings)
 
-- [ ] F1: add runtime context carrying `data_dir` and remove ad-hoc env/default data-dir recomputation.
-- [ ] F1: add integration test proving DB and spool are co-located under `--data-dir`.
+- [x] F1: add runtime context carrying `data_dir` and remove ad-hoc env/default data-dir recomputation.
+- [x] F1: add integration test proving DB and spool are co-located under `--data-dir`.
 
-- [ ] F2: replace ignored auth results with explicit error handling.
-- [ ] F2: ensure auth failure leads to deterministic failed task status and error text.
-- [ ] F2: add tests for invalid auth path and failed auth behavior.
+- [x] F2: replace ignored auth results with explicit error handling.
+- [x] F2: ensure auth failure leads to deterministic failed task status and error text.
+- [x] F2: add tests for invalid auth path and failed auth behavior.
 
-- [ ] F3: decide fate of legacy `Db::save/load` API (retain + fix or remove).
-- [ ] F3: if retained, fix stdout-anchored loss behavior and byte-fidelity ambiguities.
-- [ ] F3: add stderr-only/no-output/non-UTF8 coverage.
+- [x] F3: decide fate of legacy `Db::save/load` API (retain + fix or remove).
+- [x] F3: if retained, fix stdout-anchored loss behavior and byte-fidelity ambiguities.
+- [x] F3: add stderr-only/no-output/non-UTF8 coverage.
 
-- [ ] F4: split `ActionArgs` responsibilities into focused modules.
-- [ ] F4: keep CLI behavior stable while shrinking orchestration surface.
-- [ ] F4: add unit tests for each extracted responsibility.
+- [x] F4: split `ActionArgs` responsibilities into focused modules.
+- [x] F4: keep CLI behavior stable while shrinking orchestration surface.
+- [x] F4: add unit tests for each extracted responsibility.
 
-- [ ] F5: enforce one DB boundary model in CLI (explicit DuckDb or expanded trait).
-- [ ] F5: remove inconsistent pattern of repeated downcasts in command modules.
+- [x] F5: enforce one DB boundary model in CLI (explicit DuckDb or expanded trait).
+- [x] F5: remove inconsistent pattern of repeated downcasts in command modules.
 
-- [ ] F6: split `lib/src/db/duckdb.rs` into schema/writer/queries/gc/compat modules.
-- [ ] F6: ensure behavior and tests remain intact after module split.
+- [x] F6: split `lib/src/db/duckdb.rs` into schema/writer/queries/gc/compat modules.
+- [x] F6: ensure behavior and tests remain intact after module split.
 
-- [ ] F7: flatten task runner control flow and deduplicate finalize paths.
-- [ ] F7: add regression tests around interrupt/cancel/resume state transitions.
+- [x] F7: flatten task runner control flow and deduplicate finalize paths.
+- [x] F7: add regression tests around interrupt/cancel/resume state transitions.
 
-- [ ] F8: reduce normalization and writer-loop cloning/allocation overhead.
-- [ ] F8: add large-output workload test/benchmark for before-vs-after comparison.
+- [x] F8: reduce normalization and writer-loop cloning/allocation overhead.
+- [x] F8: add large-output workload test/benchmark for before-vs-after comparison.
 
-- [ ] F9: add/validate indexes and assess query plans for `freq`/`output`.
-- [ ] F9: evaluate materialization only if indexes are insufficient.
+- [x] F9: add/validate indexes and assess query plans for `freq`/`output`.
+- [x] F9: evaluate materialization only if indexes are insufficient.
 
-- [ ] F10: deduplicate field mapping/rendering logic and align style with `main` conventions.
-- [ ] F10: verify output consistency via tests.
+- [x] F10: deduplicate field mapping/rendering logic and align style with `main` conventions.
+- [x] F10: verify output consistency via tests.
 
-- [ ] Run `cargo test -p astu`.
-- [ ] Run `cargo test -p astu-cli`.
-- [ ] Run `cargo test -p astu-cli --test revamp_integration`.
-- [ ] Run `cargo clippy --workspace --all-targets`.
-- [ ] Perform manual smoke run across `run`, `ping`, `resume`, `freq`, `output`, `trace`, `jobs`, `tasks`, and `gc`.
+- [x] Run `cargo test -p astu`.
+- [x] Run `cargo test -p astu-cli`.
+- [x] Run `cargo test -p astu-cli --test revamp_integration`.
+- [x] Run `cargo clippy --workspace --all-targets`.
+- [x] Perform manual smoke run across `run`, `ping`, `resume`, `freq`, `output`, `trace`, `jobs`, `tasks`, and `gc`.
