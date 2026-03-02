@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::bail;
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use astu::action::AuthPayload;
@@ -318,11 +319,27 @@ pub fn maybe_spool_stdin(
 }
 
 pub fn require_confirm(confirm: Option<usize>, target_count: usize) -> Result<()> {
-    let Some(confirm) = confirm else {
-        bail!("--confirm={target_count} is required");
-    };
-    if confirm != target_count {
-        bail!("--confirm expected {target_count}, got {confirm}");
+    if let Some(confirm) = confirm {
+        if confirm != target_count {
+            bail!("--confirm expected {target_count}, got {confirm}");
+        }
+        return Ok(());
+    }
+
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!("--confirm={target_count} is required in non-interactive mode");
+    }
+
+    eprintln!("Plan affects {target_count} targets.");
+    eprint!("Enter target count to confirm: ");
+    let mut answer = String::new();
+    std::io::stdin().read_line(&mut answer)?;
+    let parsed = answer
+        .trim()
+        .parse::<usize>()
+        .map_err(|_| anyhow!("invalid confirmation input"))?;
+    if parsed != target_count {
+        bail!("confirmation failed: expected {target_count}, got {parsed}");
     }
     Ok(())
 }
