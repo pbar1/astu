@@ -1,10 +1,10 @@
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use uuid::Uuid;
 
 use crate::cmd::Run;
+use crate::runtime::Runtime;
 
 /// Connect to targets
 #[derive(Debug, Args)]
@@ -17,7 +17,7 @@ pub struct PingArgs {
 }
 
 impl Run for PingArgs {
-    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
         let targets = self.resolution_args.set_with_default(None).await?;
         self.action_args.require_confirm(targets.len())?;
 
@@ -32,15 +32,14 @@ impl Run for PingArgs {
             .collect::<Vec<_>>();
         self.action_args
             .run_tasks_for_operation(
-                db.clone(),
+                runtime.db().clone(),
                 &job_id,
                 specs,
                 crate::args::ActionOperation::Ping,
             )
             .await?;
 
-        let DbImpl::Duck(db) = db;
-        crate::report::print_error_freq_summary(&db, &job_id).await?;
+        crate::report::print_error_freq_summary(runtime.db(), &job_id).await?;
         Ok(())
     }
 }

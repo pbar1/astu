@@ -1,10 +1,10 @@
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
 
 use crate::cmd::Run;
+use crate::runtime::Runtime;
 
 /// Display tasks metadata for a job.
 #[derive(Debug, Args)]
@@ -23,13 +23,12 @@ struct TaskRowView {
 }
 
 impl Run for TasksArgs {
-    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
-        let DbImpl::Duck(db) = db;
-        let Some(job_id) = self.job_args.resolve(&db).await? else {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
+        let Some(job_id) = self.job_args.resolve(runtime.db()).await? else {
             return Ok(());
         };
 
-        let rows = db.tasks(&job_id).await?;
+        let rows = runtime.db().tasks(&job_id).await?;
         let view = rows
             .into_iter()
             .map(|row| TaskRowView {

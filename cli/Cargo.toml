@@ -35,4 +35,5 @@ chrono = "0.4"
 assert_cmd = "2"
 duckdb = { version = "1", features = ["bundled"] }
 predicates = "3"
+serial_test = "3"
 tempfile = "3"

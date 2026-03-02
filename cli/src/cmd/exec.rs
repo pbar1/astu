@@ -1,10 +1,10 @@
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use uuid::Uuid;
 
 use crate::cmd::Run;
+use crate::runtime::Runtime;
 
 /// Execute commands on targets.
 #[derive(Debug, Args)]
@@ -23,7 +23,7 @@ pub struct ExecArgs {
 }
 
 impl Run for ExecArgs {
-    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
         let stdin_bytes = crate::args::read_stdin_all_if_piped()
             .await?
             .unwrap_or_default();
@@ -50,21 +50,18 @@ impl Run for ExecArgs {
         self.action_args.require_confirm(target_count)?;
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
-
-        let data_dir = std::env::var("ASTU_DATA_DIR").unwrap_or_else(|_| {
-            astu::util::dirs::data_dir("astu")
-                .to_string_lossy()
-                .to_string()
-        });
-        let spool =
-            crate::args::ActionArgs::maybe_spool_stdin(&data_dir, &job_id, mode, &stdin_bytes)?;
+        let spool = crate::args::ActionArgs::maybe_spool_stdin(
+            runtime.data_dir().as_str(),
+            &job_id,
+            mode,
+            &stdin_bytes,
+        )?;
 
         self.action_args
-            .run_tasks(db.clone(), &job_id, specs, &self.auth_args, spool)
+            .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, spool)
             .await?;
 
-        let DbImpl::Duck(db) = db;
-        crate::report::print_error_freq_summary(&db, &job_id).await?;
+        crate::report::print_error_freq_summary(runtime.db(), &job_id).await?;
 
         Ok(())
     }

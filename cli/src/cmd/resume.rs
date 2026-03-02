@@ -1,13 +1,12 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::resolve::Target;
 use astu::util::id::Id;
 use clap::Args;
-use uuid::Uuid;
 
 use crate::cmd::Run;
+use crate::runtime::Runtime;
 
 /// Resume a canceled job.
 #[derive(Debug, Args)]
@@ -23,9 +22,9 @@ pub struct ResumeArgs {
 }
 
 impl Run for ResumeArgs {
-    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
-        let DbImpl::Duck(duck) = db.clone();
-        let Some(job_id) = self.job.resolve(&duck).await? else {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
+        let duck = runtime.db();
+        let Some(job_id) = self.job.resolve(duck).await? else {
             return Ok(());
         };
 
@@ -56,9 +55,48 @@ impl Run for ResumeArgs {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let new_job = Uuid::now_v7().hyphenated().to_string();
-        self.action_args
-            .run_tasks(db, &new_job, specs, &self.auth_args, None)
-            .await
+        let mut by_command: std::collections::BTreeMap<String, Vec<String>> =
+            std::collections::BTreeMap::new();
+        for spec in specs {
+            by_command
+                .entry(spec.command)
+                .or_default()
+                .push(spec.target.to_string());
+        }
+
+        let exe = std::env::current_exe()?;
+        for (command, targets) in by_command {
+            let mut child = tokio::process::Command::new(&exe);
+            child
+                .arg("--data-dir")
+                .arg(runtime.data_dir().as_str())
+                .arg("run");
+
+            for target in &targets {
+                child.arg("-T").arg(target);
+            }
+
+            child
+                .arg(format!("--confirm={}", targets.len()))
+                .arg("-u")
+                .arg(&self.auth_args.user);
+
+            if let Some(socket) = &self.auth_args.ssh_agent {
+                child.arg("--ssh-agent").arg(socket);
+            }
+            if let Some(path) = &self.auth_args.password_file {
+                child.arg("--password-file").arg(path);
+            }
+            if let Some(path) = &self.auth_args.ssh_key {
+                child.arg("--ssh-key").arg(path);
+            }
+
+            child.arg(command);
+            let status = child.status().await?;
+            if !status.success() {
+                anyhow::bail!("resume failed executing replacement run command");
+            }
+        }
+        Ok(())
     }
 }

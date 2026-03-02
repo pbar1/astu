@@ -11,7 +11,6 @@ mod tasks;
 mod trace;
 
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::util::id::Id;
 use astu::util::id::IdGenerator;
 use astu::util::id::UuidV7Generator;
@@ -20,6 +19,7 @@ use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 
 use crate::args::GlobalArgs;
+use crate::runtime::Runtime;
 
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -34,7 +34,7 @@ struct Cli {
 /// Subcommands must implement [`Run`] to be executed at runtime.
 #[enum_dispatch]
 pub trait Run {
-    async fn run(&self, id: Id, db: DbImpl) -> Result<()>;
+    async fn run(&self, id: Id, runtime: &Runtime) -> Result<()>;
 }
 
 #[enum_dispatch(Run)]
@@ -63,10 +63,9 @@ pub async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let id = UuidV7Generator.id_now();
     let _guards = cli.global_args.init_tracing(&id.to_string())?;
-
     let db = cli.global_args.get_db().await?;
-
-    cli.command.run(id, db).await
+    let runtime = Runtime::new(cli.global_args.data_dir.clone(), db);
+    cli.command.run(id, &runtime).await
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use anyhow::Context;
 use anyhow::Result;
-use astu::db::DbImpl;
+use astu::db::DuckDb;
 use astu::util::dirs;
 use camino::Utf8PathBuf;
 use clap::Args;
@@ -102,9 +102,9 @@ impl GlobalArgs {
     }
 
     /// Gets a ready database connection.
-    pub async fn get_db(&self) -> Result<DbImpl> {
+    pub async fn get_db(&self) -> Result<DuckDb> {
         let db_file = self.data_dir.join("astu.duckdb");
-        DbImpl::try_new(db_file.as_str())
+        DuckDb::try_new(db_file.as_str())
             .await
             .context("unable to connect to a db")
     }

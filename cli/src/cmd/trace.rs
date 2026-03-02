@@ -1,10 +1,10 @@
 use anyhow::Result;
-use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use tabled::Tabled;
 
 use crate::cmd::Run;
+use crate::runtime::Runtime;
 
 /// Display task trace timings and errors.
 #[derive(Debug, Args)]
@@ -28,13 +28,12 @@ struct TraceRowView {
 }
 
 impl Run for TraceArgs {
-    async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
-        let DbImpl::Duck(db) = db;
-        let Some(job_id) = self.job_args.resolve(&db).await? else {
+    async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
+        let Some(job_id) = self.job_args.resolve(runtime.db()).await? else {
             return Ok(());
         };
 
-        let rows = db.trace(&job_id, self.target.as_deref()).await?;
+        let rows = runtime.db().trace(&job_id, self.target.as_deref()).await?;
         let view = rows
             .into_iter()
             .map(|row| TraceRowView {

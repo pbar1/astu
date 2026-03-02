@@ -64,7 +64,22 @@ fn run_astu(
     cmd.assert()
 }
 
+fn run_astu_with_flag_data_dir(
+    data_dir: &std::path::Path,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> assert_cmd::assert::Assert {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("astu"));
+    cmd.args(["--data-dir", data_dir.to_string_lossy().as_ref()])
+        .args(args);
+    if let Some(stdin) = stdin {
+        cmd.write_stdin(stdin);
+    }
+    cmd.assert()
+}
+
 #[test]
+#[serial_test::serial]
 fn run_local_and_output_stdout() {
     let dir = tempdir().expect("tmpdir");
 
@@ -76,6 +91,7 @@ fn run_local_and_output_stdout() {
 }
 
 #[test]
+#[serial_test::serial]
 fn run_dummy_target() {
     let dir = tempdir().expect("tmpdir");
 
@@ -98,6 +114,7 @@ fn run_dummy_target() {
 }
 
 #[test]
+#[serial_test::serial]
 fn ping_prints_error_freq_section() {
     let dir = tempdir().expect("tmpdir");
 
@@ -108,6 +125,7 @@ fn ping_prints_error_freq_section() {
 }
 
 #[test]
+#[serial_test::serial]
 fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
     let dir = tempdir().expect("tmpdir");
 
@@ -133,6 +151,7 @@ fn freq_stdout_uses_normalized_placeholders_for_dedupe() {
 }
 
 #[test]
+#[serial_test::serial]
 fn freq_sections_are_separated_by_blank_lines() {
     let dir = tempdir().expect("tmpdir");
 
@@ -155,6 +174,7 @@ fn freq_sections_are_separated_by_blank_lines() {
 }
 
 #[test]
+#[serial_test::serial]
 fn noninteractive_without_confirm_fails() {
     let dir = tempdir().expect("tmpdir");
 
@@ -164,6 +184,7 @@ fn noninteractive_without_confirm_fails() {
 }
 
 #[test]
+#[serial_test::serial]
 fn stdin_param_mode_works() {
     let dir = tempdir().expect("tmpdir");
 
@@ -181,6 +202,7 @@ fn stdin_param_mode_works() {
 }
 
 #[test]
+#[serial_test::serial]
 fn lookup_reads_target_file_from_stdin() {
     let dir = tempdir().expect("tmpdir");
 
@@ -195,6 +217,7 @@ fn lookup_reads_target_file_from_stdin() {
 }
 
 #[test]
+#[serial_test::serial]
 fn stdin_pipe_mode_works() {
     let dir = tempdir().expect("tmpdir");
 
@@ -212,6 +235,7 @@ fn stdin_pipe_mode_works() {
 }
 
 #[test]
+#[serial_test::serial]
 fn stdin_pipe_mode_delivers_identical_bytes_to_multiple_tasks() {
     let dir = tempdir().expect("tmpdir");
     let command = "sh -c 'while IFS= read -r line; do echo \"$line\"; sleep 0.01; done'";
@@ -242,6 +266,49 @@ fn stdin_pipe_mode_delivers_identical_bytes_to_multiple_tasks() {
 }
 
 #[test]
+#[serial_test::serial]
+fn run_respects_data_dir_flag_for_db_and_spool_root() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu_with_flag_data_dir(
+        dir.path(),
+        &["run", "--stdin", "pipe", "--confirm=1", "cat"],
+        Some("line-one\n"),
+    )
+    .success();
+
+    assert!(dir.path().join("astu.duckdb").exists(), "db file missing");
+    assert!(dir.path().join("spool").is_dir(), "spool dir missing");
+}
+
+#[test]
+#[serial_test::serial]
+fn invalid_ssh_agent_path_fails_task_with_auth_error() {
+    let dir = tempdir().expect("tmpdir");
+    let bad_sock = dir.path().join("missing.sock");
+
+    run_astu(
+        dir.path(),
+        &[
+            "run",
+            "-T",
+            "local:",
+            "--ssh-agent",
+            bad_sock.to_string_lossy().as_ref(),
+            "--confirm=1",
+            "echo ok",
+        ],
+        None,
+    )
+    .success();
+
+    run_astu(dir.path(), &["freq", "error"], None)
+        .success()
+        .stdout(predicates::str::contains("ssh-agent socket does not exist"));
+}
+
+#[test]
+#[serial_test::serial]
 fn resume_runs_canceled_task() {
     let dir = tempdir().expect("tmpdir");
     let db_path = dir.path().join("astu.duckdb");
