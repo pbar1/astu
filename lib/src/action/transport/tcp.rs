@@ -24,9 +24,7 @@ impl TransportFactory {
 #[async_trait]
 impl super::TransportFactory for TransportFactory {
     async fn setup(&self, target: &Target) -> Result<super::Transport> {
-        let addr = target
-            .socket_addr()
-            .with_context(|| format!("unsupported target: {target}"))?;
+        let addr = super::socket_addr_for_target(target).await?;
 
         let tcp = timeout(self.connect_timeout, TcpStream::connect(addr))
             .await

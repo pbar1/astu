@@ -22,6 +22,7 @@ use crate::action::ClientImpl;
 use crate::action::ExecOutput;
 use crate::action::ExecStdin;
 use crate::resolve::Target;
+use crate::resolve::TargetKind;
 
 // Factory --------------------------------------------------------------------
 
@@ -40,11 +41,10 @@ impl SshClientFactory {
 
 impl ClientFactory for SshClientFactory {
     fn client(&self, target: &Target) -> Option<ClientImpl> {
-        let client = match target.socket_addr() {
-            Some(_addr) => SshClient::new(self.transport.clone(), target),
-            _other => return None,
-        };
-        Some(client.into())
+        if target.kind() != TargetKind::Ssh && target.socket_addr().is_none() {
+            return None;
+        }
+        Some(SshClient::new(self.transport.clone(), target).into())
     }
 }
 

@@ -1,10 +1,15 @@
 //! Underlying transport used by clients.
 
+use std::net::SocketAddr;
+
+use anyhow::Context;
+use anyhow::bail;
 use anyhow::Result;
 use async_trait::async_trait;
 use enum_dispatch::enum_dispatch;
 
 use crate::resolve::Target;
+use crate::resolve::TargetKind;
 
 pub mod opaque;
 pub mod tcp;
@@ -35,4 +40,30 @@ pub enum TransportFactoryImpl {
     Opaque(opaque::TransportFactory),
     Tcp(tcp::TransportFactory),
     TcpReuse(tcp_reuse::TransportFactory),
+}
+
+pub(crate) async fn socket_addr_for_target(target: &Target) -> Result<SocketAddr> {
+    if let Some(addr) = target.socket_addr() {
+        return Ok(addr);
+    }
+
+    if target.kind() != TargetKind::Ssh {
+        bail!("unsupported target: {target}");
+    }
+
+    let port = target.port().unwrap_or(22);
+    if let Some(ip) = target.ip() {
+        return Ok(SocketAddr::new(ip, port));
+    }
+
+    if let Some(domain) = target.domain() {
+        let mut addrs = tokio::net::lookup_host((domain, port))
+            .await
+            .with_context(|| format!("failed resolving ssh target: {target}"))?;
+        if let Some(addr) = addrs.next() {
+            return Ok(addr);
+        }
+    }
+
+    bail!("unsupported target: {target}")
 }

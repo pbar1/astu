@@ -44,9 +44,7 @@ impl TransportFactory {
 #[async_trait]
 impl super::TransportFactory for TransportFactory {
     async fn setup(&self, target: &Target) -> Result<super::Transport> {
-        let addr = target
-            .socket_addr()
-            .with_context(|| format!("unsupported target: {target}"))?;
+        let addr = super::socket_addr_for_target(target).await?;
 
         let local_addr = match addr {
             SocketAddr::V4(_) => self
