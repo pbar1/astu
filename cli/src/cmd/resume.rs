@@ -12,8 +12,8 @@ use crate::cmd::Run;
 /// Resume a canceled job.
 #[derive(Debug, Args)]
 pub struct ResumeArgs {
-    #[arg(short = 'j', long)]
-    job: Option<String>,
+    #[command(flatten)]
+    job: crate::args::JobArgs,
 
     #[command(flatten)]
     auth_args: crate::args::AuthArgs,
@@ -25,13 +25,8 @@ pub struct ResumeArgs {
 impl Run for ResumeArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(duck) = db.clone();
-        let job_id = if let Some(job) = &self.job {
-            job.clone()
-        } else {
-            let Some(job) = duck.last_job_id().await? else {
-                return Ok(());
-            };
-            job
+        let Some(job_id) = self.job.resolve(&duck).await? else {
+            return Ok(());
         };
 
         let canceled = duck.canceled_tasks_for_job(&job_id).await?;

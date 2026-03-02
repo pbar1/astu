@@ -419,6 +419,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strfmt",
+ "tabled",
  "tempfile",
  "tokio",
  "tracing",

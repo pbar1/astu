@@ -4,6 +4,7 @@ use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
 use clap::ValueEnum;
+use tabled::Tabled;
 
 use crate::cmd::Run;
 
@@ -13,8 +14,8 @@ pub struct FreqArgs {
     #[arg(value_enum)]
     fields: Vec<FieldArg>,
 
-    #[arg(short = 'j', long)]
-    job: Option<String>,
+    #[command(flatten)]
+    job_args: crate::args::JobArgs,
 
     #[arg(long)]
     contains: Option<String>,
@@ -26,6 +27,12 @@ enum FieldArg {
     Stderr,
     Exitcode,
     Error,
+}
+
+#[derive(Debug, Tabled)]
+struct FreqRowView {
+    count: i64,
+    value: String,
 }
 
 impl FieldArg {
@@ -51,13 +58,8 @@ impl FieldArg {
 impl Run for FreqArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(db) = db;
-        let job_id = if let Some(job) = &self.job {
-            job.clone()
-        } else {
-            let Some(job) = db.last_job_id().await? else {
-                return Ok(());
-            };
-            job
+        let Some(job_id) = self.job_args.resolve(&db).await? else {
+            return Ok(());
         };
 
         let fields = if self.fields.is_empty() {
@@ -72,17 +74,17 @@ impl Run for FreqArgs {
         };
 
         for field in fields {
-            println!("{}", field.as_str());
             let rows = db
                 .freq(field.into_db(), &job_id, self.contains.as_deref())
                 .await?;
-            if rows.is_empty() {
-                println!("(no rows)");
-                continue;
-            }
-            for row in rows {
-                println!("{}\t{}", row.count, row.value);
-            }
+            let view = rows
+                .into_iter()
+                .map(|row| FreqRowView {
+                    count: row.count,
+                    value: row.value,
+                })
+                .collect::<Vec<_>>();
+            crate::cmd::render::print_section_table(field.as_str(), view);
         }
 
         Ok(())

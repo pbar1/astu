@@ -2,6 +2,7 @@ use anyhow::Result;
 use astu::db::DbImpl;
 use astu::util::id::Id;
 use clap::Args;
+use tabled::Tabled;
 
 use crate::cmd::Run;
 
@@ -12,17 +13,30 @@ pub struct JobsArgs {
     limit: i64,
 }
 
+#[derive(Debug, Tabled)]
+struct JobRowView {
+    job_id: String,
+    started_at: String,
+    finished_at: String,
+    task_count: i64,
+    command: String,
+}
+
 impl Run for JobsArgs {
     async fn run(&self, _id: Id, db: DbImpl) -> Result<()> {
         let DbImpl::Duck(db) = db;
         let rows = db.jobs(self.limit).await?;
-        println!("job_id\tstarted_at\tfinished_at\ttask_count\tcommand");
-        for row in rows {
-            println!(
-                "{}\t{}\t{}\t{}\t{}",
-                row.job_id, row.started_at, row.finished_at, row.task_count, row.command
-            );
-        }
+        let view = rows
+            .into_iter()
+            .map(|row| JobRowView {
+                job_id: row.job_id,
+                started_at: row.started_at,
+                finished_at: row.finished_at,
+                task_count: row.task_count,
+                command: row.command,
+            })
+            .collect::<Vec<_>>();
+        crate::cmd::render::print_markdown_table(view);
         Ok(())
     }
 }

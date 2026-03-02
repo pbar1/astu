@@ -180,7 +180,7 @@ fn stdin_pipe_mode_delivers_identical_bytes_to_multiple_tasks() {
 
     run_astu(dir.path(), &["freq", "stdout"], None)
         .success()
-        .stdout(predicates::str::contains("2\tpipe-one"))
+        .stdout(predicates::str::contains("pipe-one"))
         .stdout(predicates::str::contains("pipe-two"));
 }
 

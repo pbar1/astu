@@ -53,8 +53,7 @@ impl Run for ExecArgs {
         let job_id = Uuid::now_v7().hyphenated().to_string();
 
         let data_dir = std::env::var("ASTU_DATA_DIR").unwrap_or_else(|_| {
-            std::env::temp_dir()
-                .join("astu")
+            astu::util::dirs::data_dir("astu")
                 .to_string_lossy()
                 .to_string()
         });
