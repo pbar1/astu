@@ -4,6 +4,53 @@ use duckdb::Connection;
 use tempfile::tempdir;
 use uuid::Uuid;
 
+const TEST_SCHEMA_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS jobs (
+  job_id BLOB PRIMARY KEY,
+  started_at TIMESTAMP,
+  finished_at TIMESTAMP,
+  command TEXT,
+  concurrency BIGINT,
+  task_count BIGINT
+);
+CREATE TABLE IF NOT EXISTS tasks (
+  task_id BLOB PRIMARY KEY,
+  job_id BLOB,
+  started_at TIMESTAMP,
+  finished_at TIMESTAMP,
+  target_uri TEXT,
+  command TEXT,
+  status TEXT,
+  exit_code BIGINT,
+  error TEXT,
+  connect_ms BIGINT,
+  auth_ms BIGINT,
+  exec_ms BIGINT
+);
+CREATE TABLE IF NOT EXISTS task_vars (
+  task_id BLOB,
+  key TEXT,
+  value TEXT,
+  PRIMARY KEY(task_id, key)
+);
+CREATE TABLE IF NOT EXISTS task_lines (
+  task_id BLOB,
+  stream TEXT,
+  seq BIGINT,
+  line_hash BLOB,
+  PRIMARY KEY(task_id, stream, seq)
+);
+CREATE TABLE IF NOT EXISTS line_dict (
+  line_hash BLOB PRIMARY KEY,
+  line_text TEXT
+);
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB);
+"#;
+
+fn init_test_schema(conn: &Connection) {
+    conn.execute_batch(TEST_SCHEMA_SQL).expect("schema");
+}
+
 fn run_astu(
     data_dir: &std::path::Path,
     args: &[&str],
@@ -142,35 +189,7 @@ fn resume_runs_canceled_task() {
     let dir = tempdir().expect("tmpdir");
     let db_path = dir.path().join("astu.duckdb");
     let conn = Connection::open(&db_path).expect("open duckdb");
-
-    conn.execute_batch(
-        "
-CREATE TABLE IF NOT EXISTS jobs (
-  job_id BLOB PRIMARY KEY,
-  started_at TIMESTAMP,
-  finished_at TIMESTAMP,
-  command TEXT,
-  concurrency BIGINT,
-  task_count BIGINT
-);
-CREATE TABLE IF NOT EXISTS tasks (
-  task_id BLOB PRIMARY KEY,
-  job_id BLOB,
-  started_at TIMESTAMP,
-  finished_at TIMESTAMP,
-  target_uri TEXT,
-  command TEXT,
-  status TEXT,
-  exit_code BIGINT,
-  error TEXT,
-  connect_ms BIGINT,
-  auth_ms BIGINT,
-  exec_ms BIGINT
-);
-CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value BLOB);
-",
-    )
-    .expect("schema");
+    init_test_schema(&conn);
 
     let job_id = Uuid::now_v7();
     let task_id = Uuid::now_v7();

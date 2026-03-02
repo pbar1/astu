@@ -1,7 +1,3 @@
-use std::any::Any;
-use std::fs::OpenOptions;
-use std::io::IsTerminal;
-
 use anyhow::Context;
 use anyhow::Result;
 use astu::db::DbImpl;
@@ -9,6 +5,8 @@ use astu::util::dirs;
 use camino::Utf8PathBuf;
 use clap::Args;
 use clap::ValueEnum;
+use std::any::Any;
+use std::fs::OpenOptions;
 use tracing::debug;
 use tracing_appender::non_blocking;
 use tracing_glog::Glog;
@@ -25,7 +23,7 @@ const HEADING: Option<&str> = Some("Global Options");
 /// Global arguments that apply to every subcommand.
 #[derive(Debug, Args, Clone)]
 pub struct GlobalArgs {
-    /// Filter directive for stderr logs
+    /// Filter directive for debug log file
     #[clap(long, env = "ASTU_LOG", default_value = "debug", help_heading = HEADING, global = true)]
     pub log_level: String,
 
@@ -59,15 +57,6 @@ impl GlobalArgs {
 
         let indicatif_layer = IndicatifLayer::new();
 
-        let stderr_filter = EnvFilter::builder().parse_lossy(&self.log_level);
-        let stderr_writer = indicatif_layer.get_stderr_writer();
-        let stderr_layer = tracing_subscriber::fmt::layer()
-            .event_format(Glog::default().with_timer(LocalTime::default()))
-            .fmt_fields(GlogFields::default())
-            .with_ansi(std::io::stderr().is_terminal())
-            .with_writer(stderr_writer)
-            .with_filter(stderr_filter);
-
         let logs_dir = self.data_dir.join("logs");
         std::fs::create_dir_all(&logs_dir)?;
         let log_file_path = logs_dir.join(format!("{run_id}.log"));
@@ -84,7 +73,7 @@ impl GlobalArgs {
         #[cfg(windows)]
         let _ = std::os::windows::fs::symlink_file(&log_file_path, &latest_link);
         let (file_writer, file_writer_guard) = non_blocking(log_file);
-        let file_filter = EnvFilter::builder().parse_lossy("astu=debug,astu_cli=debug");
+        let file_filter = EnvFilter::builder().parse_lossy(&self.log_level);
         let file_layer = tracing_subscriber::fmt::layer()
             .event_format(Glog::default().with_timer(LocalTime::default()))
             .fmt_fields(GlogFields::default())
@@ -93,10 +82,7 @@ impl GlobalArgs {
             .with_filter(file_filter);
         guard.guards.push(Box::new(file_writer_guard));
 
-        let subscriber = Registry::default()
-            .with(stderr_layer)
-            .with(file_layer)
-            .with(indicatif_layer);
+        let subscriber = Registry::default().with(file_layer).with(indicatif_layer);
         tracing::subscriber::set_global_default(subscriber)?;
 
         debug!("Initialized tracing");

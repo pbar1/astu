@@ -4,7 +4,7 @@
 
 **Goal:** Converge Astu’s CLI/runtime to the book-defined desired state while preserving core library quality and behavior, removing obsolete CLI surface, and porting selected xec capabilities (`local:` executor, `dummy:` target/executor, durable stdin pipe fanout, and xec’s high-scale DuckDB schema/query model for deduplicated lines and fast `freq`).
 
-**Architecture:** Keep Astu’s core layering (`cli` -> `lib::resolve` + `lib::action` + `lib::db`) and perform an API-compatible CLI shell rewrite around it. Replace SQLite persistence with DuckDB behind Astu’s existing DB trait/impl abstraction. Introduce durable stdin spool for `--stdin=pipe` fanout and add `local`/`dummy` client implementations in `lib::action`.
+**Architecture:** Keep Astu’s core layering (`cli` -> `lib::resolve` + `lib::action` + `lib::db`) and perform an API-compatible CLI shell rewrite around it. Use DuckDB persistence behind Astu’s existing DB trait/impl abstraction. Introduce durable stdin spool for `--stdin=pipe` fanout and add `local`/`dummy` client implementations in `lib::action`.
 
 **Tech Stack:** Rust 2021, clap 4, tokio, tracing, Astu `lib`, DuckDB crate (single storage engine), existing resolver/client abstractions.
 
@@ -78,7 +78,7 @@
 
 ## Phase 6: Persistence Layer Convergence (DuckDB-Only, Abstracted)
 
-- [x] Replace SQLite implementation with DuckDB-backed implementation while preserving `Db` trait abstraction.
+- [x] Replace prior persistence implementation with DuckDB-backed implementation while preserving `Db` trait abstraction.
 - [x] Keep `DbImpl` enum abstraction but single variant for DuckDB storage engine.
 - [x] Port xec schema primitives as baseline data model (`jobs`, `tasks`, `task_vars`, `task_lines`, `line_dict`, `meta`) with append-oriented writes.
 - [x] Preserve dictionary-backed line dedupe model (`task_lines.line_hash` -> `line_dict.line_text`) to support high-cardinality, high-volume fanout outputs.

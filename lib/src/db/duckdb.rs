@@ -1,12 +1,15 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::too_many_lines)]
 #![allow(clippy::unused_async)]
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::thread;
 
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -14,6 +17,8 @@ use chrono::Duration;
 use chrono::Utc;
 use duckdb::params;
 use duckdb::Connection;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -90,24 +95,105 @@ pub struct TraceRow {
 
 #[derive(Debug, Clone)]
 pub struct DuckDb {
-    conn: Arc<Mutex<Connection>>,
+    path: Arc<PathBuf>,
+    sender: mpsc::Sender<WriteEvent>,
+}
+
+#[derive(Debug)]
+struct PendingJob {
+    started_at: String,
+    command: String,
+    concurrency: i64,
+    task_count: i64,
+}
+
+#[derive(Debug)]
+struct PendingTask {
+    job_id: Vec<u8>,
+    started_at: String,
+    target_uri: String,
+    command: String,
+}
+
+#[derive(Debug)]
+enum WriteEvent {
+    JobStart {
+        job_id: Vec<u8>,
+        started_at: String,
+        command: String,
+        concurrency: i64,
+        task_count: i64,
+    },
+    JobEnd {
+        job_id: Vec<u8>,
+        finished_at: String,
+    },
+    TaskStart {
+        task_id: Vec<u8>,
+        job_id: Vec<u8>,
+        started_at: String,
+        target_uri: String,
+        command: String,
+    },
+    TaskEnd {
+        task_id: Vec<u8>,
+        finished_at: String,
+        status: String,
+        exit_code: Option<i64>,
+        error: Option<String>,
+        connect_ms: i64,
+        auth_ms: i64,
+        exec_ms: i64,
+    },
+    TaskVar {
+        task_id: Vec<u8>,
+        key: String,
+        value: String,
+    },
+    TaskLines {
+        task_id: Vec<u8>,
+        stream: String,
+        lines: Vec<(i64, [u8; 16], String)>,
+    },
+    Sync {
+        ack: oneshot::Sender<Result<()>>,
+    },
 }
 
 impl DuckDb {
     pub async fn try_new(path: &str) -> Result<Self> {
-        if let Some(parent) = Path::new(path).parent() {
+        let path = PathBuf::from(path);
+        if let Some(parent) = Path::new(&path).parent() {
             std::fs::create_dir_all(parent).ok();
         }
-        let conn = Connection::open(path).context("open duckdb")?;
+        let (sender, mut rx) = mpsc::channel::<WriteEvent>(16_384);
+
+        let thread_path = path.clone();
+        thread::spawn(move || {
+            if let Err(error) = run_writer_loop(&thread_path, &mut rx) {
+                eprintln!("duckdb writer loop failed: {error:#}");
+            }
+        });
+
         let db = Self {
-            conn: Arc::new(Mutex::new(conn)),
+            path: Arc::new(path),
+            sender,
         };
-        db.migrate().await?;
+        db.sync().await?;
         Ok(db)
     }
 
-    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().expect("duckdb mutex poisoned")
+    async fn sync(&self) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sender
+            .send(WriteEvent::Sync { ack: tx })
+            .await
+            .context("send sync event")?;
+        rx.await.context("recv sync ack")?
+    }
+
+    fn read_conn(&self) -> Result<Connection> {
+        Connection::open(&*self.path).context("open duckdb read connection")
     }
 
     pub async fn create_job(
@@ -118,28 +204,28 @@ impl DuckDb {
         task_count: i64,
     ) -> Result<()> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let now = Utc::now().to_rfc3339();
-        let conn = self.conn();
-        conn.execute(
-            "INSERT INTO jobs(job_id, started_at, command, concurrency, task_count) VALUES (?, ?, ?, ?, ?)",
-            params![job_blob, now, command, concurrency, task_count],
-        )?;
-        Ok(())
+        self.sender
+            .send(WriteEvent::JobStart {
+                job_id: job_blob,
+                started_at: Utc::now().to_rfc3339(),
+                command: command.to_owned(),
+                concurrency,
+                task_count,
+            })
+            .await
+            .context("send JobStart")
     }
 
     pub async fn finish_job(&self, job_id: &str) -> Result<()> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let now = Utc::now().to_rfc3339();
-        let conn = self.conn();
-        conn.execute(
-            "UPDATE jobs SET finished_at = ? WHERE job_id = ?",
-            params![now, job_blob],
-        )?;
-        conn.execute(
-            "INSERT INTO meta(key, value) VALUES ('last_job_id', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-            params![job_blob],
-        )?;
-        Ok(())
+        self.sender
+            .send(WriteEvent::JobEnd {
+                job_id: job_blob,
+                finished_at: Utc::now().to_rfc3339(),
+            })
+            .await
+            .context("send JobEnd")?;
+        self.sync().await
     }
 
     pub async fn create_task(
@@ -151,13 +237,16 @@ impl DuckDb {
     ) -> Result<()> {
         let task_blob = uuid_string_to_blob(task_id)?;
         let job_blob = uuid_string_to_blob(job_id)?;
-        let now = Utc::now().to_rfc3339();
-        let conn = self.conn();
-        conn.execute(
-            "INSERT INTO tasks(task_id, job_id, started_at, target_uri, command, status) VALUES (?, ?, ?, ?, ?, ?)",
-            params![task_blob, job_blob, now, target_uri, command, DbTaskStatus::Canceled.as_str()],
-        )?;
-        Ok(())
+        self.sender
+            .send(WriteEvent::TaskStart {
+                task_id: task_blob,
+                job_id: job_blob,
+                started_at: Utc::now().to_rfc3339(),
+                target_uri: target_uri.to_owned(),
+                command: command.to_owned(),
+            })
+            .await
+            .context("send TaskStart")
     }
 
     pub async fn finish_task(
@@ -171,23 +260,31 @@ impl DuckDb {
         exec_ms: i64,
     ) -> Result<()> {
         let task_blob = uuid_string_to_blob(task_id)?;
-        let now = Utc::now().to_rfc3339();
-        let conn = self.conn();
-        conn.execute(
-            "UPDATE tasks SET finished_at=?, exit_code=?, error=?, status=?, connect_ms=?, auth_ms=?, exec_ms=? WHERE task_id=?",
-            params![now, exit_code, error, status.as_str(), connect_ms, auth_ms, exec_ms, task_blob],
-        )?;
-        Ok(())
+        self.sender
+            .send(WriteEvent::TaskEnd {
+                task_id: task_blob,
+                finished_at: Utc::now().to_rfc3339(),
+                status: status.as_str().to_owned(),
+                exit_code,
+                error: error.map(std::string::ToString::to_string),
+                connect_ms,
+                auth_ms,
+                exec_ms,
+            })
+            .await
+            .context("send TaskEnd")
     }
 
     pub async fn append_task_var(&self, task_id: &str, key: &str, value: &str) -> Result<()> {
         let task_blob = uuid_string_to_blob(task_id)?;
-        let conn = self.conn();
-        conn.execute(
-            "INSERT INTO task_vars(task_id, key, value) VALUES (?, ?, ?) ON CONFLICT(task_id, key) DO UPDATE SET value=excluded.value",
-            params![task_blob, key, value],
-        )?;
-        Ok(())
+        self.sender
+            .send(WriteEvent::TaskVar {
+                task_id: task_blob,
+                key: key.to_owned(),
+                value: value.to_owned(),
+            })
+            .await
+            .context("send TaskVar")
     }
 
     pub async fn append_stream_blob(
@@ -198,30 +295,32 @@ impl DuckDb {
     ) -> Result<()> {
         let task_blob = uuid_string_to_blob(task_id)?;
         let text = String::from_utf8_lossy(bytes);
-        let conn = self.conn();
-
+        let mut lines = Vec::new();
         for (seq, line) in text.lines().enumerate() {
-            let hash = xxh3_128(line.as_bytes()).to_be_bytes().to_vec();
-            conn.execute(
-                "INSERT INTO line_dict(line_hash, line_text) VALUES (?, ?) ON CONFLICT(line_hash) DO NOTHING",
-                params![hash.clone(), line],
-            )?;
-            conn.execute(
-                "INSERT INTO task_lines(task_id, stream, seq, line_hash) VALUES (?, ?, ?, ?)",
-                params![
-                    task_blob.clone(),
-                    stream,
-                    i64::try_from(seq).unwrap_or(i64::MAX),
-                    hash
-                ],
-            )?;
+            let hash = xxh3_128(line.as_bytes()).to_be_bytes();
+            lines.push((
+                i64::try_from(seq).unwrap_or(i64::MAX),
+                hash,
+                line.to_owned(),
+            ));
         }
-
+        if lines.is_empty() {
+            return Ok(());
+        }
+        self.sender
+            .send(WriteEvent::TaskLines {
+                task_id: task_blob,
+                stream: stream.to_owned(),
+                lines,
+            })
+            .await
+            .context("send TaskLines")?;
         Ok(())
     }
 
     pub async fn last_job_id(&self) -> Result<Option<String>> {
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare("SELECT value FROM meta WHERE key='last_job_id' LIMIT 1")?;
         let mut rows = stmt.query([])?;
         let Some(row) = rows.next()? else {
@@ -232,7 +331,8 @@ impl DuckDb {
     }
 
     pub async fn jobs(&self, limit: i64) -> Result<Vec<JobRow>> {
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
             "SELECT job_id, CAST(started_at AS VARCHAR), CAST(finished_at AS VARCHAR), command, task_count FROM jobs ORDER BY started_at DESC LIMIT ?",
         )?;
@@ -252,7 +352,8 @@ impl DuckDb {
 
     pub async fn tasks(&self, job_id: &str) -> Result<Vec<TaskRow>> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
             "SELECT task_id, target_uri, status, command, exit_code FROM tasks WHERE job_id=? ORDER BY started_at ASC",
         )?;
@@ -278,7 +379,8 @@ impl DuckDb {
     ) -> Result<Vec<FreqRow>> {
         let limit = 200_i64;
         let job_blob = uuid_string_to_blob(job_id)?;
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let contains = contains.unwrap_or("");
 
         let sql = match field {
@@ -356,7 +458,8 @@ impl DuckDb {
         let job_blob = uuid_string_to_blob(job_id)?;
         let contains = contains.unwrap_or("");
         let target = target_filter.unwrap_or("");
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
 
         let sql = match field {
             DbField::Stdout => {
@@ -423,7 +526,8 @@ impl DuckDb {
     pub async fn trace(&self, job_id: &str, target_filter: Option<&str>) -> Result<Vec<TraceRow>> {
         let job_blob = uuid_string_to_blob(job_id)?;
         let target = target_filter.unwrap_or("");
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
             "SELECT task_id, target_uri, status, COALESCE(error,''), COALESCE(connect_ms,0), COALESCE(auth_ms,0), COALESCE(exec_ms,0)
              FROM tasks
@@ -447,8 +551,9 @@ impl DuckDb {
     }
 
     pub async fn gc_before(&self, before: Duration) -> Result<()> {
+        self.sync().await?;
         let cutoff = (Utc::now() - before).to_rfc3339();
-        let conn = self.conn();
+        let conn = self.read_conn()?;
 
         let mut old_jobs = Vec::<Vec<u8>>::new();
         let mut stmt = conn.prepare("SELECT job_id FROM jobs WHERE started_at <= ?")?;
@@ -474,7 +579,8 @@ impl DuckDb {
 
     pub async fn command_for_job(&self, job_id: &str) -> Result<Option<String>> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare("SELECT command FROM jobs WHERE job_id=? LIMIT 1")?;
         let mut rows = stmt.query(params![job_blob])?;
         let Some(row) = rows.next()? else {
@@ -483,11 +589,15 @@ impl DuckDb {
         Ok(row.get::<_, Option<String>>(0)?)
     }
 
-    pub async fn canceled_tasks_for_job(&self, job_id: &str) -> Result<Vec<(String, String)>> {
+    pub async fn canceled_tasks_for_job(
+        &self,
+        job_id: &str,
+    ) -> Result<Vec<(String, String, String)>> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
-            "SELECT task_id, target_uri FROM tasks WHERE job_id=? AND status='canceled' ORDER BY started_at ASC",
+            "SELECT task_id, target_uri, command FROM tasks WHERE job_id=? AND status='canceled' ORDER BY started_at ASC",
         )?;
         let mut rows = stmt.query(params![job_blob])?;
         let mut out = Vec::new();
@@ -495,6 +605,7 @@ impl DuckDb {
             out.push((
                 uuid_blob_to_string(&row.get::<_, Vec<u8>>(0)?)?,
                 row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                row.get::<_, Option<String>>(2)?.unwrap_or_default(),
             ));
         }
         Ok(out)
@@ -505,7 +616,8 @@ impl DuckDb {
         job_id: &str,
     ) -> Result<HashMap<String, Vec<(String, String)>>> {
         let job_blob = uuid_string_to_blob(job_id)?;
-        let conn = self.conn();
+        self.sync().await?;
+        let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
             "SELECT tv.task_id, tv.key, tv.value FROM task_vars tv JOIN tasks t ON t.task_id=tv.task_id WHERE t.job_id=?",
         )?;
@@ -521,12 +633,213 @@ impl DuckDb {
     }
 }
 
-#[async_trait]
-impl Db for DuckDb {
-    async fn migrate(&self) -> Result<()> {
-        let conn = self.conn();
-        conn.execute_batch(
-            "
+fn run_writer_loop(path: &Path, rx: &mut mpsc::Receiver<WriteEvent>) -> Result<()> {
+    let conn = Connection::open(path).context("open duckdb")?;
+    init_schema(&conn)?;
+
+    let mut jobs = conn
+        .appender_with_columns(
+            "jobs",
+            &[
+                "job_id",
+                "started_at",
+                "finished_at",
+                "command",
+                "concurrency",
+                "task_count",
+            ],
+        )
+        .context("open jobs appender")?;
+    let mut tasks = conn
+        .appender_with_columns(
+            "tasks",
+            &[
+                "task_id",
+                "job_id",
+                "started_at",
+                "finished_at",
+                "target_uri",
+                "command",
+                "status",
+                "exit_code",
+                "error",
+                "connect_ms",
+                "auth_ms",
+                "exec_ms",
+            ],
+        )
+        .context("open tasks appender")?;
+    let mut task_vars = conn
+        .appender_with_columns("task_vars", &["task_id", "key", "value"])
+        .context("open task_vars appender")?;
+    let mut task_lines = conn
+        .appender_with_columns("task_lines", &["task_id", "stream", "seq", "line_hash"])
+        .context("open task_lines appender")?;
+
+    let mut pending_jobs: HashMap<Vec<u8>, PendingJob> = HashMap::new();
+    let mut pending_tasks: HashMap<Vec<u8>, PendingTask> = HashMap::new();
+    let mut line_dict_batch: HashMap<[u8; 16], String> = HashMap::new();
+
+    while let Some(event) = rx.blocking_recv() {
+        match event {
+            WriteEvent::JobStart {
+                job_id,
+                started_at,
+                command,
+                concurrency,
+                task_count,
+            } => {
+                pending_jobs.insert(
+                    job_id,
+                    PendingJob {
+                        started_at,
+                        command,
+                        concurrency,
+                        task_count,
+                    },
+                );
+            }
+            WriteEvent::JobEnd {
+                job_id,
+                finished_at,
+            } => {
+                let Some(job) = pending_jobs.remove(&job_id) else {
+                    return Err(anyhow!("missing JobStart for JobEnd"));
+                };
+                jobs.append_row(params![
+                    job_id.clone(),
+                    job.started_at,
+                    finished_at,
+                    job.command,
+                    job.concurrency,
+                    job.task_count
+                ])
+                .context("append job row")?;
+                conn.execute(
+                    "INSERT INTO meta(key, value) VALUES ('last_job_id', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    params![job_id],
+                )
+                .context("update last_job_id")?;
+            }
+            WriteEvent::TaskStart {
+                task_id,
+                job_id,
+                started_at,
+                target_uri,
+                command,
+            } => {
+                pending_tasks.insert(
+                    task_id,
+                    PendingTask {
+                        job_id,
+                        started_at,
+                        target_uri,
+                        command,
+                    },
+                );
+            }
+            WriteEvent::TaskEnd {
+                task_id,
+                finished_at,
+                status,
+                exit_code,
+                error,
+                connect_ms,
+                auth_ms,
+                exec_ms,
+            } => {
+                let Some(task) = pending_tasks.remove(&task_id) else {
+                    return Err(anyhow!("missing TaskStart for TaskEnd"));
+                };
+                tasks
+                    .append_row(params![
+                        task_id,
+                        task.job_id,
+                        task.started_at,
+                        finished_at,
+                        task.target_uri,
+                        task.command,
+                        status,
+                        exit_code,
+                        error,
+                        connect_ms,
+                        auth_ms,
+                        exec_ms,
+                    ])
+                    .context("append task row")?;
+            }
+            WriteEvent::TaskVar {
+                task_id,
+                key,
+                value,
+            } => {
+                task_vars
+                    .append_row(params![task_id, key, value])
+                    .context("append task var")?;
+            }
+            WriteEvent::TaskLines {
+                task_id,
+                stream,
+                lines,
+            } => {
+                for (seq, line_hash, line_text) in lines {
+                    task_lines
+                        .append_row(params![
+                            task_id.clone(),
+                            stream.as_str(),
+                            seq,
+                            line_hash.to_vec()
+                        ])
+                        .context("append task line")?;
+                    line_dict_batch.entry(line_hash).or_insert(line_text);
+                }
+                if line_dict_batch.len() >= 100_000 {
+                    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
+                }
+            }
+            WriteEvent::Sync { ack } => {
+                let result = (|| -> Result<()> {
+                    jobs.flush().context("flush jobs")?;
+                    tasks.flush().context("flush tasks")?;
+                    task_vars.flush().context("flush task_vars")?;
+                    task_lines.flush().context("flush task_lines")?;
+                    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
+                    Ok(())
+                })();
+                let _ = ack.send(result);
+            }
+        }
+    }
+
+    jobs.flush().context("flush jobs at shutdown")?;
+    tasks.flush().context("flush tasks at shutdown")?;
+    task_vars.flush().context("flush task_vars at shutdown")?;
+    task_lines.flush().context("flush task_lines at shutdown")?;
+    flush_line_dict_batch(&conn, &mut line_dict_batch)?;
+    Ok(())
+}
+
+fn flush_line_dict_batch(conn: &Connection, batch: &mut HashMap<[u8; 16], String>) -> Result<()> {
+    if batch.is_empty() {
+        return Ok(());
+    }
+
+    let tx = conn.unchecked_transaction().context("begin line_dict tx")?;
+    let mut stmt = tx
+        .prepare("INSERT INTO line_dict(line_hash, line_text) VALUES (?, ?) ON CONFLICT(line_hash) DO NOTHING")
+        .context("prepare line_dict insert")?;
+    for (line_hash, line_text) in batch.drain() {
+        stmt.execute(params![line_hash.to_vec(), line_text])
+            .context("insert line_dict")?;
+    }
+    drop(stmt);
+    tx.commit().context("commit line_dict tx")?;
+    Ok(())
+}
+
+fn init_schema(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
 CREATE TABLE IF NOT EXISTS jobs (
   job_id BLOB PRIMARY KEY,
   started_at TIMESTAMP,
@@ -571,8 +884,15 @@ CREATE TABLE IF NOT EXISTS meta (
   value BLOB
 );
 ",
-        )?;
-        Ok(())
+    )
+    .context("init schema")?;
+    Ok(())
+}
+
+#[async_trait]
+impl Db for DuckDb {
+    async fn migrate(&self) -> Result<()> {
+        self.sync().await
     }
 
     async fn save(&self, entry: &ResultEntry) -> Result<()> {

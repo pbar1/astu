@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
@@ -138,29 +139,26 @@ pub fn build_task_specs(
 }
 
 pub fn render_command(template: &str, target: &Target, param: Option<&str>) -> String {
-    let mut out = template.to_owned();
-
-    if let Some(param) = param {
-        out = out.replace("{param}", param);
-    }
-
-    if let Some(host) = target.host() {
-        let host = match host {
+    let host = target.host().map_or_else(
+        || "{host}".to_owned(),
+        |h| match h {
             Host::Ip(ip) => ip.to_string(),
             Host::Domain(domain) => domain,
-        };
-        out = out.replace("{host}", &host);
-    }
+        },
+    );
+    let user = target.user().unwrap_or("{user}").to_owned();
+    let ip = target
+        .ip()
+        .map_or_else(|| "{ip}".to_owned(), |x| x.to_string());
+    let param = param.unwrap_or("{param}").to_owned();
 
-    if let Some(user) = target.user() {
-        out = out.replace("{user}", user);
-    }
+    let mut vars: HashMap<String, String> = HashMap::new();
+    vars.insert("host".to_owned(), host);
+    vars.insert("user".to_owned(), user);
+    vars.insert("ip".to_owned(), ip);
+    vars.insert("param".to_owned(), param);
 
-    if let Some(ip) = target.ip() {
-        out = out.replace("{ip}", &ip.to_string());
-    }
-
-    out
+    strfmt::strfmt(template, &vars).unwrap_or_else(|_| template.to_owned())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -185,17 +183,7 @@ pub async fn run_tasks(
     )
     .await?;
 
-    let mut planned = Vec::new();
-    for spec in specs {
-        let task_id = Uuid::now_v7().hyphenated().to_string();
-        db.create_task(&task_id, job_id, &spec.target.to_string(), &spec.command)
-            .await?;
-        if let Some(param) = &spec.param {
-            db.append_task_var(&task_id, "{param}", param).await?;
-        }
-        planned.push((task_id, spec));
-    }
-    let total_tasks = planned.len();
+    let total_tasks = specs.len();
 
     let cancel = Arc::new(AtomicBool::new(false));
     {
@@ -225,8 +213,15 @@ pub async fn run_tasks(
         eprintln!("Progress: 0/{total_tasks}");
     }
 
-    for (task_id, spec) in planned {
+    for spec in specs {
+        let task_id = Uuid::now_v7().hyphenated().to_string();
+
         if cancel.load(Ordering::SeqCst) {
+            db.create_task(&task_id, job_id, &spec.target.to_string(), &spec.command)
+                .await?;
+            if let Some(param) = &spec.param {
+                db.append_task_var(&task_id, "{param}", param).await?;
+            }
             db.finish_task(
                 &task_id,
                 DbTaskStatus::Canceled,
@@ -248,6 +243,11 @@ pub async fn run_tasks(
         }
 
         let permit = sem.clone().acquire_owned().await?;
+        db.create_task(&task_id, job_id, &spec.target.to_string(), &spec.command)
+            .await?;
+        if let Some(param) = &spec.param {
+            db.append_task_var(&task_id, "{param}", param).await?;
+        }
         let db = db.clone();
         let client_factory = client_factory.clone();
         let auth = auth.clone();

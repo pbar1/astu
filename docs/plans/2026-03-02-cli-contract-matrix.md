@@ -49,7 +49,7 @@
 
 | Item | User direction | Current | Target |
 |---|---|---|---|
-| DB engine | DuckDB only (abstracted) | SQLite only | DuckDB only behind `Db` abstraction |
+| DB engine | DuckDB only (abstracted) | legacy DB engine only | DuckDB only behind `Db` abstraction |
 | High-scale schema | port xec schema for dedupe/freq speed | single `results` table | `jobs/tasks/task_vars/task_lines/line_dict/meta` baseline |
 | `freq` performance | SQL-side aggregation over deduped lines | not implemented | DuckDB SQL aggregation |
 
@@ -60,4 +60,3 @@
 | stdin pipe mode | durable spool/cursor per task | no stdin mode support | file-backed spool with guaranteed delivery |
 | ctrl-c behavior | graceful then forceful, resumable | not implemented | implemented |
 | run logging | per-run uuidv7 log + `latest.log` symlink | `last.log` only | per-run file + symlink |
-

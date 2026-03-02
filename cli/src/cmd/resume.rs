@@ -47,11 +47,16 @@ impl Run for ResumeArgs {
 
         let specs = canceled
             .into_iter()
-            .map(|(_task_id, target)| {
+            .map(|(_task_id, target, task_command)| {
                 let target = Target::from_str(&target)?;
+                let effective_command = if task_command.is_empty() {
+                    command.clone()
+                } else {
+                    task_command
+                };
                 Ok(common::TaskSpec {
                     target,
-                    command: command.clone(),
+                    command: effective_command,
                     param: None,
                 })
             })
