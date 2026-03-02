@@ -1,5 +1,5 @@
-use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::action::AuthPayload;
@@ -50,13 +50,18 @@ impl Client for DummyClient {
     }
 
     async fn exec(&mut self, _command: &str, _stdin: Option<&[u8]>) -> Result<ExecOutput> {
-        let query = self
-            .target
-            .query_pairs()
-            .unwrap_or_default();
+        let query = self.target.query_pairs().unwrap_or_default();
 
-        let stdout = query.get("stdout").cloned().unwrap_or_default().into_bytes();
-        let stderr = query.get("stderr").cloned().unwrap_or_default().into_bytes();
+        let stdout = query
+            .get("stdout")
+            .cloned()
+            .unwrap_or_default()
+            .into_bytes();
+        let stderr = query
+            .get("stderr")
+            .cloned()
+            .unwrap_or_default()
+            .into_bytes();
         let exit_status = query
             .get("exitcode")
             .map(|x| x.parse::<u32>())

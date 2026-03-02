@@ -6,9 +6,9 @@ use astu::resolve::provider::reverse_chain;
 use astu::resolve::ResolveExt;
 use astu::resolve::Target;
 use astu::resolve::TargetGraph;
+use clap::Args;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
-use clap::Args;
 
 const HEADING: Option<&str> = Some("Target Resolution Options");
 
@@ -67,9 +67,14 @@ impl ResolutionArgs {
         self.set_with_stdin(None).await
     }
 
-    pub async fn set_with_stdin(&self, stdin_targets: Option<&str>) -> anyhow::Result<BTreeSet<Target>> {
+    pub async fn set_with_stdin(
+        &self,
+        stdin_targets: Option<&str>,
+    ) -> anyhow::Result<BTreeSet<Target>> {
         let chain = forward_chain()?;
-        let set = chain.bulk_resolve_set(self.seed_targets(stdin_targets).await?).await;
+        let set = chain
+            .bulk_resolve_set(self.seed_targets(stdin_targets).await?)
+            .await;
         Ok(set)
     }
 

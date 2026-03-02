@@ -65,7 +65,12 @@ impl Run for OutputArgs {
         };
 
         let fields = if self.fields.is_empty() {
-            vec![FieldArg::Stdout, FieldArg::Stderr, FieldArg::Exitcode, FieldArg::Error]
+            vec![
+                FieldArg::Stdout,
+                FieldArg::Stderr,
+                FieldArg::Exitcode,
+                FieldArg::Error,
+            ]
         } else {
             self.fields.clone()
         };

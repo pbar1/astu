@@ -6,9 +6,9 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
 
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use anyhow::bail;
 use astu::action::AuthPayload;
 use astu::action::Client;
 use astu::action::ClientFactory;
@@ -48,7 +48,11 @@ pub async fn read_stdin_all_if_piped() -> Result<Option<Vec<u8>>> {
     Ok(Some(buf))
 }
 
-pub fn infer_input_mode(action: &ActionArgs, command: &str, has_stdin_target_file: bool) -> InputMode {
+pub fn infer_input_mode(
+    action: &ActionArgs,
+    command: &str,
+    has_stdin_target_file: bool,
+) -> InputMode {
     match action.stdin {
         StdinMode::Param => InputMode::Param,
         StdinMode::Target => InputMode::Target,
@@ -73,7 +77,12 @@ pub fn normalize_targets(set: BTreeSet<Target>) -> Vec<Target> {
     }
 }
 
-pub fn build_task_specs(targets: Vec<Target>, command: &str, mode: InputMode, stdin: &[u8]) -> Vec<TaskSpec> {
+pub fn build_task_specs(
+    targets: Vec<Target>,
+    command: &str,
+    mode: InputMode,
+    stdin: &[u8],
+) -> Vec<TaskSpec> {
     match mode {
         InputMode::Param => {
             let params = String::from_utf8_lossy(stdin)
@@ -152,10 +161,7 @@ pub async fn run_tasks(
         DbImpl::Duck(db) => db,
     };
 
-    let command = specs
-        .first()
-        .map(|x| x.command.clone())
-        .unwrap_or_default();
+    let command = specs.first().map(|x| x.command.clone()).unwrap_or_default();
     db.create_job(
         job_id,
         &command,
@@ -248,8 +254,10 @@ pub async fn run_tasks(
 
             match result {
                 Ok(output) => {
-                    db.append_stream_blob(&task_id, "stdout", &output.stdout).await?;
-                    db.append_stream_blob(&task_id, "stderr", &output.stderr).await?;
+                    db.append_stream_blob(&task_id, "stdout", &output.stdout)
+                        .await?;
+                    db.append_stream_blob(&task_id, "stderr", &output.stderr)
+                        .await?;
                     let status = if output.exit_status == 0 {
                         DbTaskStatus::Complete
                     } else {
@@ -292,7 +300,12 @@ pub async fn run_tasks(
     Ok(())
 }
 
-pub fn maybe_spool_stdin(data_dir: &str, job_id: &str, mode: InputMode, stdin: &[u8]) -> Result<Option<PathBuf>> {
+pub fn maybe_spool_stdin(
+    data_dir: &str,
+    job_id: &str,
+    mode: InputMode,
+    stdin: &[u8],
+) -> Result<Option<PathBuf>> {
     if mode != InputMode::Pipe || stdin.is_empty() {
         return Ok(None);
     }

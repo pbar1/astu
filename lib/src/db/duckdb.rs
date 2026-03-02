@@ -8,8 +8,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Duration;
 use chrono::Utc;
-use duckdb::Connection;
 use duckdb::params;
+use duckdb::Connection;
 use uuid::Uuid;
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -185,7 +185,12 @@ impl DuckDb {
         Ok(())
     }
 
-    pub async fn append_stream_blob(&self, task_id: &str, stream: &str, bytes: &[u8]) -> Result<()> {
+    pub async fn append_stream_blob(
+        &self,
+        task_id: &str,
+        stream: &str,
+        bytes: &[u8],
+    ) -> Result<()> {
         let task_blob = uuid_string_to_blob(task_id)?;
         let text = String::from_utf8_lossy(bytes);
         let conn = self.conn();
@@ -198,7 +203,12 @@ impl DuckDb {
             )?;
             conn.execute(
                 "INSERT INTO task_lines(task_id, stream, seq, line_hash) VALUES (?, ?, ?, ?)",
-                params![task_blob.clone(), stream, i64::try_from(seq).unwrap_or(i64::MAX), hash],
+                params![
+                    task_blob.clone(),
+                    stream,
+                    i64::try_from(seq).unwrap_or(i64::MAX),
+                    hash
+                ],
             )?;
         }
 
@@ -444,8 +454,14 @@ impl DuckDb {
 
         for job_blob in old_jobs {
             conn.execute("DELETE FROM task_lines WHERE task_id IN (SELECT task_id FROM tasks WHERE job_id=?)", params![job_blob.clone()])?;
-            conn.execute("DELETE FROM task_vars WHERE task_id IN (SELECT task_id FROM tasks WHERE job_id=?)", params![job_blob.clone()])?;
-            conn.execute("DELETE FROM tasks WHERE job_id=?", params![job_blob.clone()])?;
+            conn.execute(
+                "DELETE FROM task_vars WHERE task_id IN (SELECT task_id FROM tasks WHERE job_id=?)",
+                params![job_blob.clone()],
+            )?;
+            conn.execute(
+                "DELETE FROM tasks WHERE job_id=?",
+                params![job_blob.clone()],
+            )?;
             conn.execute("DELETE FROM jobs WHERE job_id=?", params![job_blob])?;
         }
         Ok(())
@@ -456,7 +472,9 @@ impl DuckDb {
         let conn = self.conn();
         let mut stmt = conn.prepare("SELECT command FROM jobs WHERE job_id=? LIMIT 1")?;
         let mut rows = stmt.query(params![job_blob])?;
-        let Some(row) = rows.next()? else { return Ok(None) };
+        let Some(row) = rows.next()? else {
+            return Ok(None);
+        };
         Ok(row.get::<_, Option<String>>(0)?)
     }
 
@@ -477,7 +495,10 @@ impl DuckDb {
         Ok(out)
     }
 
-    pub async fn task_vars_for_job(&self, job_id: &str) -> Result<HashMap<String, Vec<(String, String)>>> {
+    pub async fn task_vars_for_job(
+        &self,
+        job_id: &str,
+    ) -> Result<HashMap<String, Vec<(String, String)>>> {
         let job_blob = uuid_string_to_blob(job_id)?;
         let conn = self.conn();
         let mut stmt = conn.prepare(
@@ -552,7 +573,8 @@ CREATE TABLE IF NOT EXISTS meta (
     async fn save(&self, entry: &ResultEntry) -> Result<()> {
         // Compatibility path: map legacy result rows into tasks table.
         let task_id = Uuid::now_v7().hyphenated().to_string();
-        self.create_task(&task_id, &entry.job_id, &entry.target, "").await?;
+        self.create_task(&task_id, &entry.job_id, &entry.target, "")
+            .await?;
 
         if let Some(stdout) = &entry.stdout {
             self.append_stream_blob(&task_id, "stdout", stdout).await?;
@@ -602,7 +624,9 @@ CREATE TABLE IF NOT EXISTS meta (
 
         let mut out = Vec::new();
         for row in rows {
-            let exit_status = exit_map.get(&row.task_id).and_then(|x| x.parse::<u32>().ok());
+            let exit_status = exit_map
+                .get(&row.task_id)
+                .and_then(|x| x.parse::<u32>().ok());
             out.push(ResultEntry {
                 job_id: job_id.to_owned(),
                 target: row.target,

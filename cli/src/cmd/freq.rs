@@ -62,14 +62,21 @@ impl Run for FreqArgs {
         };
 
         let fields = if self.fields.is_empty() {
-            vec![FieldArg::Stdout, FieldArg::Stderr, FieldArg::Exitcode, FieldArg::Error]
+            vec![
+                FieldArg::Stdout,
+                FieldArg::Stderr,
+                FieldArg::Exitcode,
+                FieldArg::Error,
+            ]
         } else {
             self.fields.clone()
         };
 
         for field in fields {
             println!("{}", field.as_str());
-            let rows = db.freq(field.into_db(), &job_id, self.contains.as_deref()).await?;
+            let rows = db
+                .freq(field.into_db(), &job_id, self.contains.as_deref())
+                .await?;
             if rows.is_empty() {
                 println!("(no rows)");
                 continue;

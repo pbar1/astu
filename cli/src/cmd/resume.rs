@@ -7,8 +7,8 @@ use astu::util::id::Id;
 use clap::Args;
 use uuid::Uuid;
 
-use crate::cmd::Run;
 use crate::cmd::common;
+use crate::cmd::Run;
 
 /// Resume a canceled job.
 #[derive(Debug, Args)]
@@ -59,6 +59,14 @@ impl Run for ResumeArgs {
             .collect::<Result<Vec<_>>>()?;
 
         let new_job = Uuid::now_v7().hyphenated().to_string();
-        common::run_tasks(db, &new_job, specs, &self.auth_args, &self.action_args, None).await
+        common::run_tasks(
+            db,
+            &new_job,
+            specs,
+            &self.auth_args,
+            &self.action_args,
+            None,
+        )
+        .await
     }
 }

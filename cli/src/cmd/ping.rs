@@ -14,8 +14,8 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use uuid::Uuid;
 
-use crate::cmd::Run;
 use crate::cmd::common;
+use crate::cmd::Run;
 
 /// Connect to targets
 #[derive(Debug, Args)]

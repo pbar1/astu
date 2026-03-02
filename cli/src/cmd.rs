@@ -5,8 +5,8 @@ mod gc;
 mod jobs;
 mod output;
 mod ping;
-mod resume;
 mod resolve;
+mod resume;
 mod tasks;
 mod trace;
 

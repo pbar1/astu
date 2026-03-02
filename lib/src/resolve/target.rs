@@ -7,15 +7,15 @@ use std::string::ToString;
 use anyhow::bail;
 use anyhow::Context;
 use camino::Utf8PathBuf;
-use std::collections::BTreeMap;
 use fluent_uri::encoding::encoder::Path;
 use fluent_uri::encoding::Split;
 use fluent_uri::Uri;
+use form_urlencoded;
 use ipnet::IpNet;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use strum::EnumString;
-use form_urlencoded;
 
 /// Hostnames may be either IP addresses or domain names.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

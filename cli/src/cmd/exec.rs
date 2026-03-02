@@ -8,8 +8,8 @@ use astu::util::id::Id;
 use clap::Args;
 use uuid::Uuid;
 
-use crate::cmd::Run;
 use crate::cmd::common;
+use crate::cmd::Run;
 
 /// Execute commands on targets.
 #[derive(Debug, Args)]
@@ -36,7 +36,8 @@ impl Run for ExecArgs {
             .iter()
             .any(|x| x == "-" || x == "/dev/stdin");
 
-        let mode = common::infer_input_mode(&self.action_args, &self.command, has_stdin_target_file);
+        let mode =
+            common::infer_input_mode(&self.action_args, &self.command, has_stdin_target_file);
 
         let stdin_str = String::from_utf8_lossy(&stdin_bytes);
         let stdin_targets = if mode == common::InputMode::Target {
