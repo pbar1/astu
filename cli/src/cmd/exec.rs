@@ -1,6 +1,7 @@
 use anyhow::Result;
 use astu::util::id::Id;
 use clap::Args;
+use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::cmd::Run;
@@ -57,13 +58,16 @@ impl Run for ExecArgs {
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
         let mut pipe_pump = None;
+        let (interrupt_tx, interrupt_rx) = watch::channel(false);
         let pipe_stdin = if mode == crate::args::InputMode::Pipe {
             let spool = crate::args::read_stdin_for_mode(runtime.data_dir().as_str(), &job_id, mode)
                 .await?
                 .spool;
             if let Some(spool_ref) = spool.clone() {
+                let cancel_rx = interrupt_rx.clone();
                 pipe_pump = Some(tokio::spawn(async move {
-                    crate::action::stdin::pump_stdin_to_spool(&spool_ref).await
+                    crate::action::stdin::pump_stdin_to_spool_with_cancel(&spool_ref, cancel_rx)
+                        .await
                 }));
             }
             spool
@@ -72,9 +76,17 @@ impl Run for ExecArgs {
         };
 
         self.action_args
-            .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, pipe_stdin)
+            .run_tasks(
+                runtime.db().clone(),
+                &job_id,
+                specs,
+                &self.auth_args,
+                pipe_stdin,
+                Some(interrupt_tx.clone()),
+            )
             .await?;
 
+        let _ = interrupt_tx.send(true);
         if let Some(handle) = pipe_pump {
             if !handle.is_finished() {
                 handle.abort();

@@ -65,7 +65,10 @@ async fn read_reader_for_mode<R: AsyncRead + Unpin>(
     })
 }
 
-pub async fn pump_stdin_to_spool(spool: &PipeSpool) -> Result<u64> {
+pub async fn pump_stdin_to_spool_with_cancel(
+    spool: &PipeSpool,
+    mut cancel_rx: tokio::sync::watch::Receiver<bool>,
+) -> Result<u64> {
     tokio::fs::create_dir_all(
         spool
             .path
@@ -78,9 +81,15 @@ pub async fn pump_stdin_to_spool(spool: &PipeSpool) -> Result<u64> {
     let mut copied = 0_u64;
     let mut buf = [0_u8; 16 * 1024];
     loop {
+        if *cancel_rx.borrow() {
+            break;
+        }
         let n = tokio::select! {
-            _ = tokio::signal::ctrl_c() => {
-                break;
+            changed = cancel_rx.changed() => {
+                if changed.is_ok() && *cancel_rx.borrow() {
+                    break;
+                }
+                continue;
             }
             read = stdin.read(&mut buf) => read?,
         };

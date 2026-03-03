@@ -16,6 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
+use tokio::sync::watch;
 use tracing::Instrument;
 use uuid::Uuid;
 
@@ -143,6 +144,7 @@ impl ActionArgs {
         specs: Vec<TaskSpec>,
         auth: &AuthArgs,
         pipe_stdin: Option<crate::action::stdin::PipeSpool>,
+        interrupt_tx: Option<watch::Sender<bool>>,
     ) -> Result<()> {
         self.run_tasks_for_operation(
             db,
@@ -153,6 +155,7 @@ impl ActionArgs {
                 pipe_stdin,
                 live: self.live,
             },
+            interrupt_tx,
         )
         .await
     }
@@ -164,6 +167,7 @@ impl ActionArgs {
         job_id: &str,
         specs: Vec<TaskSpec>,
         operation: ActionOperation,
+        interrupt_tx: Option<watch::Sender<bool>>,
     ) -> Result<()> {
         let _spool_cleanup = match &operation {
             ActionOperation::Exec { pipe_stdin, .. } => SpoolCleanup(pipe_stdin.clone()),
@@ -186,6 +190,7 @@ impl ActionArgs {
         let cancel = Arc::new(AtomicBool::new(false));
         {
             let cancel = cancel.clone();
+            let interrupt_tx = interrupt_tx.clone();
             tokio::spawn(async move {
                 let mut interrupts = 0_u8;
                 loop {
@@ -196,6 +201,9 @@ impl ActionArgs {
                             "Received interrupt. Stopping new task starts (press Ctrl-C again to force exit).",
                         );
                         cancel.store(true, Ordering::SeqCst);
+                        if let Some(tx) = &interrupt_tx {
+                            let _ = tx.send(true);
+                        }
                         continue;
                     }
                     let _ = crate::ui::err_line("Received second interrupt. Forcing exit.");

@@ -36,6 +36,7 @@ impl Run for PingArgs {
                 &job_id,
                 specs,
                 crate::args::ActionOperation::Ping,
+                None,
             )
             .await?;
 
