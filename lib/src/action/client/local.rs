@@ -58,14 +58,14 @@ impl Client for LocalClient {
     }
 
     async fn exec(&mut self, command: &str, request: ExecRequest) -> Result<ExecOutput> {
-        let mut child = Command::new("sh")
-            .arg("-c")
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
             .arg(command)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .context("unable to spawn local process")?;
+            .stderr(std::process::Stdio::piped());
+        detach_from_terminal_signal_group(&mut cmd);
+        let mut child = cmd.spawn().context("unable to spawn local process")?;
 
         let stdin_req = request.stdin.clone();
         let live = request.live;
@@ -138,6 +138,20 @@ impl Client for LocalClient {
             stdout,
             stderr,
         })
+    }
+}
+
+fn detach_from_terminal_signal_group(_cmd: &mut Command) {
+    #[cfg(unix)]
+    unsafe {
+        _cmd.pre_exec(|| {
+            let rc = libc::setpgid(0, 0);
+            if rc == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        });
     }
 }
 

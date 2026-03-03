@@ -385,6 +385,7 @@ dependencies = [
  "ipnet",
  "k8s-openapi",
  "kube",
+ "libc",
  "petgraph",
  "regex",
  "rstest",

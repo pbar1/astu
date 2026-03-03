@@ -37,6 +37,7 @@ uuid = { version = "1", features = ["v7"] }
 whoami = "2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 form_urlencoded = "1.2"
+libc = "0.2"
 
 [dev-dependencies]
 ahash = "0.8"
