@@ -30,6 +30,7 @@ strfmt = "0.2"
 tabled = "0.20"
 uuid = { version = "1", features = ["v7"] }
 chrono = "0.4"
+console = "0.15"
 
 [dev-dependencies]
 assert_cmd = "2"

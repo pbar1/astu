@@ -8,6 +8,7 @@ mod cmd;
 mod field;
 mod report;
 mod runtime;
+mod ui;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

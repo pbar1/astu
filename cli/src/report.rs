@@ -32,16 +32,16 @@ pub async fn print_error_freq_summary(
         return Ok(());
     }
 
-    println!("error-freq");
+    crate::ui::out_line("error-freq")?;
     if view.is_empty() {
-        println!("(no rows)");
+        crate::ui::out_line("(no rows)")?;
     } else {
         let mut table = Table::new(view);
         table.with(Style::modern());
-        println!("{table}");
+        crate::ui::out_line(&table.to_string())?;
     }
     let _ = std::io::stdout().flush();
-    eprintln!();
-    eprintln!("Use `astu output` or `astu freq` for result analysis");
+    crate::ui::err_line("")?;
+    crate::ui::err_line("Use `astu output` or `astu freq` for result analysis")?;
     Ok(())
 }

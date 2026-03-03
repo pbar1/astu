@@ -27,8 +27,7 @@ pub fn section_table<T: Tabled>(title: &str, rows: Vec<T>) -> String {
 
 pub fn emit_with_optional_pager(content: &str, enable_pager: bool) -> Result<()> {
     if !enable_pager || !should_use_pager() {
-        print!("{content}");
-        return Ok(());
+        return crate::ui::out(content);
     }
 
     let Ok(mut child) = Command::new("less")
@@ -38,8 +37,7 @@ pub fn emit_with_optional_pager(content: &str, enable_pager: bool) -> Result<()>
         .stderr(Stdio::inherit())
         .spawn()
     else {
-        print!("{content}");
-        return Ok(());
+        return crate::ui::out(content);
     };
 
     if let Some(mut stdin) = child.stdin.take() {

@@ -30,13 +30,13 @@ impl Run for ResumeArgs {
 
         let canceled = duck.canceled_tasks_for_job(&job_id).await?;
         if canceled.is_empty() {
-            println!("No canceled tasks to resume for job: {job_id}");
+            crate::ui::out_line(&format!("No canceled tasks to resume for job: {job_id}"))?;
             return Ok(());
         }
 
         let command = duck.command_for_job(&job_id).await?.unwrap_or_default();
-        println!("Resuming job: {job_id}");
-        println!("Command: {command}");
+        crate::ui::out_line(&format!("Resuming job: {job_id}"))?;
+        crate::ui::out_line(&format!("Command: {command}"))?;
 
         let specs = canceled
             .into_iter()

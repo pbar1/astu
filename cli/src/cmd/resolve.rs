@@ -25,7 +25,7 @@ impl Run for ResolveArgs {
             return Ok(());
         }
         for target in targets {
-            println!("{target}");
+            crate::ui::out_line(&target.to_string())?;
         }
 
         Ok(())

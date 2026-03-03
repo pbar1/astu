@@ -13,7 +13,7 @@ pub fn require_confirm(confirm: Option<usize>, target_count: usize) -> Result<()
         bail!("--confirm={target_count} is required in non-interactive mode");
     }
 
-    eprintln!("Plan affects {target_count} targets.");
+    crate::ui::err_line(&format!("Plan affects {target_count} targets."))?;
     eprint!("Enter target count to confirm: ");
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer)?;

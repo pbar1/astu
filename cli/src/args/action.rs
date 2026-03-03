@@ -192,13 +192,13 @@ impl ActionArgs {
                     let _ = tokio::signal::ctrl_c().await;
                     interrupts = interrupts.saturating_add(1);
                     if interrupts == 1 {
-                        eprintln!(
-                            "Received interrupt. Stopping new task starts (press Ctrl-C again to force exit)."
+                        let _ = crate::ui::err_line(
+                            "Received interrupt. Stopping new task starts (press Ctrl-C again to force exit).",
                         );
                         cancel.store(true, Ordering::SeqCst);
                         continue;
                     }
-                    eprintln!("Received second interrupt. Forcing exit.");
+                    let _ = crate::ui::err_line("Received second interrupt. Forcing exit.");
                     std::process::exit(130);
                 }
             });
