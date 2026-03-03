@@ -51,6 +51,11 @@ impl Run for OutputArgs {
         let needs_vars = fields
             .iter()
             .any(|field| matches!(field, ResultFieldArg::Stdout | ResultFieldArg::Stderr));
+        let vars_by_task = if needs_vars {
+            runtime.db().task_vars_for_job(&job_id).await?
+        } else {
+            std::collections::HashMap::new()
+        };
 
         if matches!(runtime.output(), crate::args::OutputFormat::Json) {
             let mut out = serde_json::Map::new();
@@ -66,15 +71,11 @@ impl Run for OutputArgs {
                     .await?;
                 let mut view = Vec::with_capacity(rows.len());
                 for row in rows {
-                    let vars_for_task = if needs_vars {
-                        runtime.db().task_vars_for_task(&row.task_id).await?
-                    } else {
-                        Vec::new()
-                    };
+                    let vars_for_task = vars_by_task.get(&row.task_id);
                     view.push(OutputRowView {
                         task_id: row.task_id.clone(),
                         target: row.target,
-                        value: denormalize_value(&row.value, Some(&vars_for_task)),
+                        value: denormalize_value(&row.value, vars_for_task),
                     });
                 }
                 out.insert(field.output_title().to_owned(), serde_json::to_value(view)?);
@@ -100,15 +101,11 @@ impl Run for OutputArgs {
                 .await?;
             let mut view = Vec::with_capacity(rows.len());
             for row in rows {
-                let vars_for_task = if needs_vars {
-                    runtime.db().task_vars_for_task(&row.task_id).await?
-                } else {
-                    Vec::new()
-                };
+                let vars_for_task = vars_by_task.get(&row.task_id);
                 view.push(OutputRowView {
                     task_id: row.task_id.clone(),
                     target: row.target,
-                    value: denormalize_value(&row.value, Some(&vars_for_task)),
+                    value: denormalize_value(&row.value, vars_for_task),
                 });
             }
             rendered.push_str(&crate::cmd::render::section_table(

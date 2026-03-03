@@ -448,13 +448,17 @@ impl DuckDb {
         &self,
         job_id: &str,
     ) -> Result<HashMap<String, Vec<(String, String)>>> {
-        let job_blob = uuid_string_to_blob(job_id)?;
+        let job_hex = job_id.replace('-', "").to_uppercase();
         self.sync().await?;
         let conn = self.read_conn()?;
         let mut stmt = conn.prepare(
-            "SELECT tv.task_id, tv.key, tv.value FROM task_vars tv JOIN tasks t ON t.task_id=tv.task_id WHERE t.job_id=?",
+            "SELECT tv.task_id, tv.key, tv.value
+             FROM task_vars tv
+             JOIN tasks t ON hex(t.task_id)=hex(tv.task_id)
+             WHERE hex(t.job_id)=?
+             ORDER BY tv.key ASC",
         )?;
-        let mut rows = stmt.query(params![job_blob])?;
+        let mut rows = stmt.query(params![job_hex])?;
         let mut map: HashMap<String, Vec<(String, String)>> = HashMap::new();
         while let Some(row) = rows.next()? {
             let task_id = uuid_blob_to_string(&row.get::<_, Vec<u8>>(0)?)?;
