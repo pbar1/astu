@@ -196,13 +196,26 @@ impl ActionArgs {
                 loop {
                     let _ = tokio::signal::ctrl_c().await;
                     interrupts = interrupts.saturating_add(1);
+                    tracing::debug!(interrupt_count = interrupts, "ctrl-c received");
                     if interrupts == 1 {
                         let _ = crate::ui::err_line(
                             "Received interrupt. Stopping new task starts (press Ctrl-C again to force exit).",
                         );
                         cancel.store(true, Ordering::SeqCst);
+                        #[cfg(unix)]
+                        {
+                            // Force upstream stdin producers to stop by dropping our read end.
+                            unsafe {
+                                let rc = libc::close(libc::STDIN_FILENO);
+                                tracing::debug!(
+                                    close_rc = rc,
+                                    "closed process stdin after first ctrl-c",
+                                );
+                            }
+                        }
                         if let Some(tx) = &interrupt_tx {
                             let _ = tx.send(true);
+                            tracing::debug!("sent interrupt cancel signal to spool pump");
                         }
                         continue;
                     }

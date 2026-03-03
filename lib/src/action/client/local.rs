@@ -15,6 +15,8 @@ use crate::action::ExecStdin;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
 
+const SPOOL_DRAIN_LOG_EVERY_BYTES: u64 = 64 * 1024 * 1024;
+
 #[derive(Debug, Clone, Default)]
 pub struct LocalClientFactory;
 
@@ -82,30 +84,60 @@ impl Client for LocalClient {
                         }
                     }
                     Some(ExecStdin::SpoolFile { path, done_path }) => {
-                        let mut file = tokio::fs::File::open(path)
+                        tracing::debug!(
+                            spool_path = %path.display(),
+                            done_path = %done_path.display(),
+                            "starting spool drain for local exec",
+                        );
+                        let mut file = tokio::fs::File::open(&path)
                             .await
                             .context("unable to open spool file")?;
                         let mut buf = [0_u8; 16 * 1024];
+                        let mut consumed = 0_u64;
+                        let mut last_log_bucket = 0_u64;
                         loop {
                             let n = file
                                 .read(&mut buf)
                                 .await
                                 .context("unable to read spool file")?;
                             if n == 0 {
-                                if tokio::fs::try_exists(&done_path)
+                                let done = tokio::fs::try_exists(&done_path)
                                     .await
-                                    .context("unable to stat spool done file")?
-                                {
+                                    .context("unable to stat spool done file")?;
+                                if done {
+                                    tracing::debug!(
+                                        spool_path = %path.display(),
+                                        consumed_bytes = consumed,
+                                        "spool drain reached EOF with done marker",
+                                    );
                                     break;
                                 }
                                 tokio::time::sleep(std::time::Duration::from_millis(20)).await;
                                 continue;
                             }
+                            consumed =
+                                consumed.saturating_add(u64::try_from(n).unwrap_or(u64::MAX));
                             if let Err(error) = stdin.write_all(&buf[..n]).await {
                                 if !is_broken_pipe(&error) {
                                     return Err(error).context("unable to write local stdin stream");
                                 }
                                 return Ok(());
+                            }
+                            let bucket = consumed / SPOOL_DRAIN_LOG_EVERY_BYTES;
+                            if bucket > last_log_bucket {
+                                last_log_bucket = bucket;
+                                let head_bytes = tokio::fs::metadata(&path)
+                                    .await
+                                    .map(|m| m.len())
+                                    .unwrap_or(consumed);
+                                let lag_bytes = head_bytes.saturating_sub(consumed);
+                                tracing::debug!(
+                                    spool_path = %path.display(),
+                                    consumed_bytes = consumed,
+                                    head_bytes,
+                                    lag_bytes,
+                                    "spool drain progress",
+                                );
                             }
                         }
                     }

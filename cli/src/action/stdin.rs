@@ -8,6 +8,8 @@ use tokio::io::AsyncWriteExt;
 use crate::args::InputMode;
 use crate::args::TaskSpec;
 
+const SPOOL_LOG_EVERY_BYTES: u64 = 64 * 1024 * 1024;
+
 #[derive(Debug, Default)]
 pub struct PreparedStdin {
     pub bytes: Vec<u8>,
@@ -69,6 +71,11 @@ pub async fn pump_stdin_to_spool_with_cancel(
     spool: &PipeSpool,
     mut cancel_rx: tokio::sync::watch::Receiver<bool>,
 ) -> Result<u64> {
+    tracing::debug!(
+        spool_path = %spool.path.display(),
+        done_path = %spool.done_path.display(),
+        "starting stdin spool pump",
+    );
     tokio::fs::create_dir_all(
         spool
             .path
@@ -79,14 +86,25 @@ pub async fn pump_stdin_to_spool_with_cancel(
     let mut stdin = tokio::io::stdin();
     let mut file = tokio::fs::File::create(&spool.path).await?;
     let mut copied = 0_u64;
+    let mut last_log_bucket = 0_u64;
     let mut buf = [0_u8; 16 * 1024];
     loop {
         if *cancel_rx.borrow() {
+            tracing::debug!(
+                spool_path = %spool.path.display(),
+                copied_bytes = copied,
+                "spool pump canceled before read",
+            );
             break;
         }
         let n = tokio::select! {
             changed = cancel_rx.changed() => {
                 if changed.is_ok() && *cancel_rx.borrow() {
+                    tracing::debug!(
+                        spool_path = %spool.path.display(),
+                        copied_bytes = copied,
+                        "spool pump canceled while waiting for stdin",
+                    );
                     break;
                 }
                 continue;
@@ -94,13 +112,33 @@ pub async fn pump_stdin_to_spool_with_cancel(
             read = stdin.read(&mut buf) => read?,
         };
         if n == 0 {
+            tracing::debug!(
+                spool_path = %spool.path.display(),
+                copied_bytes = copied,
+                "stdin reached EOF for spool pump",
+            );
             break;
         }
         file.write_all(&buf[..n]).await?;
         copied = copied.saturating_add(u64::try_from(n).unwrap_or(u64::MAX));
+        let bucket = copied / SPOOL_LOG_EVERY_BYTES;
+        if bucket > last_log_bucket {
+            last_log_bucket = bucket;
+            tracing::debug!(
+                spool_path = %spool.path.display(),
+                copied_bytes = copied,
+                "spool ingest progress",
+            );
+        }
     }
     file.flush().await?;
     tokio::fs::write(&spool.done_path, b"done").await?;
+    tracing::debug!(
+        spool_path = %spool.path.display(),
+        done_path = %spool.done_path.display(),
+        copied_bytes = copied,
+        "spool pump finished and marked done",
+    );
     Ok(copied)
 }
 
