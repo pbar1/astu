@@ -51,8 +51,6 @@ CREATE TABLE IF NOT EXISTS meta (
 CREATE INDEX IF NOT EXISTS idx_tasks_job_started ON tasks(job_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_job_target ON tasks(job_id, target_uri);
 CREATE INDEX IF NOT EXISTS idx_task_vars_task ON task_vars(task_id);
-DROP INDEX IF EXISTS idx_task_lines_task_stream_seq;
-DROP INDEX IF EXISTS idx_task_lines_stream_task;
 ",
     )
     .context("init schema")?;
