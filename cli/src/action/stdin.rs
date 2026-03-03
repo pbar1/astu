@@ -11,7 +11,23 @@ use crate::args::TaskSpec;
 #[derive(Debug, Default)]
 pub struct PreparedStdin {
     pub bytes: Vec<u8>,
-    pub spool: Option<PathBuf>,
+    pub spool: Option<PipeSpool>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipeSpool {
+    pub path: PathBuf,
+    pub done_path: PathBuf,
+}
+
+impl PipeSpool {
+    pub fn new(data_dir: &str, job_id: &str) -> Self {
+        let spool_dir = PathBuf::from(data_dir).join("spool");
+        Self {
+            path: spool_dir.join(format!("{job_id}.stdin")),
+            done_path: spool_dir.join(format!("{job_id}.stdin.done")),
+        }
+    }
 }
 
 pub async fn read_stdin_for_mode(
@@ -43,22 +59,40 @@ async fn read_reader_for_mode<R: AsyncRead + Unpin>(
         anyhow::bail!("job_id is required for --stdin pipe spooling");
     }
 
-    let spool_dir = PathBuf::from(data_dir).join("spool");
-    tokio::fs::create_dir_all(&spool_dir).await?;
-    let path = spool_dir.join(format!("{job_id}.stdin"));
-    let mut spool_file = tokio::fs::File::create(&path).await?;
-    let copied = tokio::io::copy(reader, &mut spool_file).await?;
-    spool_file.flush().await?;
-
-    if copied == 0 {
-        let _ = tokio::fs::remove_file(&path).await;
-        return Ok(PreparedStdin::default());
-    }
-
     Ok(PreparedStdin {
         bytes: Vec::new(),
-        spool: Some(path),
+        spool: Some(PipeSpool::new(data_dir, job_id)),
     })
+}
+
+pub async fn pump_stdin_to_spool(spool: &PipeSpool) -> Result<u64> {
+    tokio::fs::create_dir_all(
+        spool
+            .path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(".")),
+    )
+    .await?;
+    let mut stdin = tokio::io::stdin();
+    let mut file = tokio::fs::File::create(&spool.path).await?;
+    let mut copied = 0_u64;
+    let mut buf = [0_u8; 16 * 1024];
+    loop {
+        let n = tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                break;
+            }
+            read = stdin.read(&mut buf) => read?,
+        };
+        if n == 0 {
+            break;
+        }
+        file.write_all(&buf[..n]).await?;
+        copied = copied.saturating_add(u64::try_from(n).unwrap_or(u64::MAX));
+    }
+    file.flush().await?;
+    tokio::fs::write(&spool.done_path, b"done").await?;
+    Ok(copied)
 }
 
 pub fn build_task_specs(
@@ -133,10 +167,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pipe_mode_streams_reader_to_spool_file() {
+    async fn pipe_mode_prepares_spool_descriptor_without_buffering() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        let input = b"line-a\nline-b\n".to_vec();
-        let mut reader = BufReader::new(std::io::Cursor::new(input.clone()));
+        let mut reader = BufReader::new(std::io::Cursor::new(b"line-a\nline-b\n".to_vec()));
 
         let prepared = read_reader_for_mode(
             &mut reader,
@@ -149,7 +182,8 @@ mod tests {
 
         assert!(prepared.bytes.is_empty(), "pipe mode must not keep bytes");
         let spool = prepared.spool.expect("spool path");
-        let contents = tokio::fs::read(&spool).await.expect("read spool");
-        assert_eq!(contents, input);
+        assert!(spool.path.ends_with("job-1.stdin"));
+        assert!(spool.done_path.ends_with("job-1.stdin.done"));
     }
+
 }

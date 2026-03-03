@@ -331,6 +331,20 @@ fn stdin_pipe_mode_delivers_identical_bytes_to_multiple_tasks() {
 
 #[test]
 #[serial_test::serial]
+fn run_live_streams_task_stdout() {
+    let dir = tempdir().expect("tmpdir");
+
+    run_astu(
+        dir.path(),
+        &["run", "-T", "local:", "--live", "--confirm=1", "echo live-ok"],
+        None,
+    )
+    .success()
+    .stdout(predicates::str::contains("live-ok"));
+}
+
+#[test]
+#[serial_test::serial]
 fn run_respects_data_dir_flag_for_db_and_spool_root() {
     let dir = tempdir().expect("tmpdir");
 

@@ -4,6 +4,7 @@ use astu::action::transport;
 use astu::action::AuthPayload;
 use astu::action::Client;
 use astu::action::ClientFactory;
+use astu::action::ExecRequest;
 use astu::action::ExecStdin;
 use astu::db::DbTaskStatus;
 use astu::db::DuckDb;
@@ -11,7 +12,6 @@ use astu::normalize::Normalizer;
 use astu::resolve::Target;
 use clap::Args;
 use clap::ValueEnum;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -41,6 +41,10 @@ pub struct ActionArgs {
     /// How to interpret stdin.
     #[clap(long, default_value_t = StdinMode::default(), value_enum, help_heading = HEADING)]
     pub stdin: StdinMode,
+
+    /// Stream task stdout/stderr to terminal while running.
+    #[clap(long, default_value_t = false, help_heading = HEADING)]
+    pub live: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -72,18 +76,20 @@ pub type PreparedStdin = crate::action::stdin::PreparedStdin;
 pub enum ActionOperation {
     Exec {
         auth: AuthArgs,
-        pipe_stdin: Option<PathBuf>,
+        pipe_stdin: Option<crate::action::stdin::PipeSpool>,
+        live: bool,
     },
     Ping,
 }
 
 #[derive(Debug)]
-struct SpoolCleanup(Option<PathBuf>);
+struct SpoolCleanup(Option<crate::action::stdin::PipeSpool>);
 
 impl Drop for SpoolCleanup {
     fn drop(&mut self) {
-        if let Some(path) = self.0.take() {
-            let _ = std::fs::remove_file(path);
+        if let Some(spool) = self.0.take() {
+            let _ = std::fs::remove_file(&spool.path);
+            let _ = std::fs::remove_file(&spool.done_path);
         }
     }
 }
@@ -136,7 +142,7 @@ impl ActionArgs {
         job_id: &str,
         specs: Vec<TaskSpec>,
         auth: &AuthArgs,
-        pipe_stdin: Option<PathBuf>,
+        pipe_stdin: Option<crate::action::stdin::PipeSpool>,
     ) -> Result<()> {
         self.run_tasks_for_operation(
             db,
@@ -145,6 +151,7 @@ impl ActionArgs {
             ActionOperation::Exec {
                 auth: auth.clone(),
                 pipe_stdin,
+                live: self.live,
             },
         )
         .await
@@ -273,7 +280,11 @@ impl ActionArgs {
                     }
 
                     match operation {
-                        ActionOperation::Exec { auth, pipe_stdin } => {
+                        ActionOperation::Exec {
+                            auth,
+                            pipe_stdin,
+                            live,
+                        } => {
                             let t_auth = Instant::now();
                             if let Some(user) = spec.target.user().or(Some(auth.user.as_str())) {
                                 if let Err(error) =
@@ -327,10 +338,21 @@ impl ActionArgs {
                             }
                             let auth_ms =
                                 i64::try_from(t_auth.elapsed().as_millis()).unwrap_or(i64::MAX);
-                            let stdin_input = pipe_stdin.map(ExecStdin::SpoolFile);
+                            let stdin_input = pipe_stdin.map(|spool| ExecStdin::SpoolFile {
+                                path: spool.path,
+                                done_path: spool.done_path,
+                            });
 
                             let t_exec = Instant::now();
-                            let result = client.exec(&spec.command, stdin_input).await;
+                            let result = client
+                                .exec(
+                                    &spec.command,
+                                    ExecRequest {
+                                        stdin: stdin_input,
+                                        live,
+                                    },
+                                )
+                                .await;
                             let exec_ms =
                                 i64::try_from(t_exec.elapsed().as_millis()).unwrap_or(i64::MAX);
 

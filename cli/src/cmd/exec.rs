@@ -56,10 +56,17 @@ impl Run for ExecArgs {
         self.action_args.require_confirm(target_count)?;
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
+        let mut pipe_pump = None;
         let pipe_stdin = if mode == crate::args::InputMode::Pipe {
-            crate::args::read_stdin_for_mode(runtime.data_dir().as_str(), &job_id, mode)
+            let spool = crate::args::read_stdin_for_mode(runtime.data_dir().as_str(), &job_id, mode)
                 .await?
-                .spool
+                .spool;
+            if let Some(spool_ref) = spool.clone() {
+                pipe_pump = Some(tokio::spawn(async move {
+                    crate::action::stdin::pump_stdin_to_spool(&spool_ref).await
+                }));
+            }
+            spool
         } else {
             None
         };
@@ -67,6 +74,13 @@ impl Run for ExecArgs {
         self.action_args
             .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, pipe_stdin)
             .await?;
+
+        if let Some(handle) = pipe_pump {
+            if !handle.is_finished() {
+                handle.abort();
+            }
+            let _ = handle.await;
+        }
 
         crate::report::print_error_freq_summary(runtime.db(), &job_id, runtime.output()).await?;
 

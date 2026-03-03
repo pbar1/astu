@@ -25,7 +25,7 @@ pub trait Client {
     async fn auth(&mut self, auth_type: &AuthPayload) -> Result<()>;
 
     /// Execute commands on a target.
-    async fn exec(&mut self, command: &str, stdin: Option<ExecStdin>) -> Result<ExecOutput>;
+    async fn exec(&mut self, command: &str, request: ExecRequest) -> Result<ExecOutput>;
 }
 
 /// All types of action clients.
@@ -74,7 +74,16 @@ pub struct ExecOutput {
 #[derive(Debug, Clone)]
 pub enum ExecStdin {
     Bytes(Vec<u8>),
-    SpoolFile(PathBuf),
+    SpoolFile {
+        path: PathBuf,
+        done_path: PathBuf,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecRequest {
+    pub stdin: Option<ExecStdin>,
+    pub live: bool,
 }
 
 impl fmt::Debug for ExecOutput {

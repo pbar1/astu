@@ -10,6 +10,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
+use crate::action::ExecRequest;
 use crate::action::ExecStdin;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
@@ -56,7 +57,7 @@ impl Client for LocalClient {
         Ok(())
     }
 
-    async fn exec(&mut self, command: &str, stdin: Option<ExecStdin>) -> Result<ExecOutput> {
+    async fn exec(&mut self, command: &str, request: ExecRequest) -> Result<ExecOutput> {
         let mut child = Command::new("sh")
             .arg("-c")
             .arg(command)
@@ -66,52 +67,113 @@ impl Client for LocalClient {
             .spawn()
             .context("unable to spawn local process")?;
 
-        if let Some(mut child_stdin) = child.stdin.take() {
-            match stdin {
-                Some(ExecStdin::Bytes(stdin_buf)) => {
-                    child_stdin
-                        .write_all(&stdin_buf)
-                        .await
-                        .context("unable to write local stdin bytes")?;
-                }
-                Some(ExecStdin::SpoolFile(path)) => {
-                    let mut file = tokio::fs::File::open(path)
-                        .await
-                        .context("unable to open spool file")?;
-                    let mut buf = [0_u8; 16 * 1024];
-                    loop {
-                        let n = file
-                            .read(&mut buf)
-                            .await
-                            .context("unable to read spool file")?;
-                        if n == 0 {
-                            break;
+        let stdin_req = request.stdin.clone();
+        let live = request.live;
+        let mut child_stdin = child.stdin.take();
+        let stdin_task = tokio::spawn(async move {
+            if let Some(mut stdin) = child_stdin.take() {
+                match stdin_req {
+                    Some(ExecStdin::Bytes(stdin_buf)) => {
+                        if let Err(error) = stdin.write_all(&stdin_buf).await {
+                            if !is_broken_pipe(&error) {
+                                return Err(error).context("unable to write local stdin bytes");
+                            }
+                            return Ok(());
                         }
-                        child_stdin
-                            .write_all(&buf[..n])
+                    }
+                    Some(ExecStdin::SpoolFile { path, done_path }) => {
+                        let mut file = tokio::fs::File::open(path)
                             .await
-                            .context("unable to write local stdin stream")?;
+                            .context("unable to open spool file")?;
+                        let mut buf = [0_u8; 16 * 1024];
+                        loop {
+                            let n = file
+                                .read(&mut buf)
+                                .await
+                                .context("unable to read spool file")?;
+                            if n == 0 {
+                                if tokio::fs::try_exists(&done_path)
+                                    .await
+                                    .context("unable to stat spool done file")?
+                                {
+                                    break;
+                                }
+                                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                                continue;
+                            }
+                            if let Err(error) = stdin.write_all(&buf[..n]).await {
+                                if !is_broken_pipe(&error) {
+                                    return Err(error).context("unable to write local stdin stream");
+                                }
+                                return Ok(());
+                            }
+                        }
+                    }
+                    None => {}
+                }
+                if let Err(error) = stdin.shutdown().await {
+                    if !is_broken_pipe(&error) {
+                        return Err(error).context("unable to close local stdin");
                     }
                 }
-                None => {}
             }
-            child_stdin
-                .shutdown()
-                .await
-                .context("unable to close local stdin")?;
-        }
+            Ok::<(), anyhow::Error>(())
+        });
 
-        let output = child
-            .wait_with_output()
+        let stdout_task = tokio::spawn(read_child_stream(child.stdout.take(), live, false));
+        let stderr_task = tokio::spawn(read_child_stream(child.stderr.take(), live, true));
+
+        let status = child
+            .wait()
             .await
             .context("unable to wait for local process")?;
+        stdin_task.await.context("join stdin task")??;
+        let stdout = stdout_task.await.context("join stdout task")??;
+        let stderr = stderr_task.await.context("join stderr task")??;
 
-        let exit_status = u32::try_from(output.status.code().unwrap_or(1)).unwrap_or(1);
+        let exit_status = u32::try_from(status.code().unwrap_or(1)).unwrap_or(1);
 
         Ok(ExecOutput {
             exit_status,
-            stdout: output.stdout,
-            stderr: output.stderr,
+            stdout,
+            stderr,
         })
     }
+}
+
+fn is_broken_pipe(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::BrokenPipe
+}
+
+async fn read_child_stream(
+    reader: Option<impl tokio::io::AsyncRead + Unpin>,
+    live: bool,
+    stderr: bool,
+) -> Result<Vec<u8>> {
+    let Some(mut reader) = reader else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    let mut buf = [0_u8; 16 * 1024];
+    loop {
+        let n = reader.read(&mut buf).await.context("read local stream")?;
+        if n == 0 {
+            break;
+        }
+        out.extend_from_slice(&buf[..n]);
+        if live {
+            if stderr {
+                tokio::io::stderr()
+                    .write_all(&buf[..n])
+                    .await
+                    .context("stream stderr")?;
+            } else {
+                tokio::io::stdout()
+                    .write_all(&buf[..n])
+                    .await
+                    .context("stream stdout")?;
+            }
+        }
+    }
+    Ok(out)
 }

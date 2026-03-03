@@ -20,7 +20,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
-use crate::action::ExecStdin;
+use crate::action::ExecRequest;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
 
@@ -125,12 +125,8 @@ impl Client for SshClient {
         }
     }
 
-    async fn exec(
-        &mut self,
-        command: &str,
-        _stdin: Option<ExecStdin>,
-    ) -> anyhow::Result<ExecOutput> {
-        self.exec_inner(command).await
+    async fn exec(&mut self, command: &str, request: ExecRequest) -> anyhow::Result<ExecOutput> {
+        self.exec_inner(command, request).await
     }
 }
 
@@ -244,7 +240,7 @@ impl SshClient {
 
 /// Helpers for [`Exec`]
 impl SshClient {
-    async fn exec_inner(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    async fn exec_inner(&mut self, command: &str, request: ExecRequest) -> anyhow::Result<ExecOutput> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -263,10 +259,16 @@ impl SshClient {
 
             match msg {
                 russh::ChannelMsg::Data { ref data } => {
+                    if request.live {
+                        tokio::io::stdout().write_all(data).await?;
+                    }
                     stdout.write_all(data).await?;
                     stdout.flush().await?;
                 }
                 russh::ChannelMsg::ExtendedData { ref data, ext: 1 } => {
+                    if request.live {
+                        tokio::io::stderr().write_all(data).await?;
+                    }
                     stderr.write_all(data).await?;
                     stderr.flush().await?;
                 }

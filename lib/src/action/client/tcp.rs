@@ -14,7 +14,7 @@ use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
-use crate::action::ExecStdin;
+use crate::action::ExecRequest;
 use crate::resolve::Target;
 
 // Factory --------------------------------------------------------------------
@@ -100,7 +100,7 @@ impl Client for TcpClient {
         bail!("TcpClient::auth not supported");
     }
 
-    async fn exec(&mut self, _command: &str, _stdin: Option<ExecStdin>) -> Result<ExecOutput> {
+    async fn exec(&mut self, _command: &str, _request: ExecRequest) -> Result<ExecOutput> {
         bail!("TcpClient::exec not supported");
     }
 }

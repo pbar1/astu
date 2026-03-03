@@ -1,13 +1,14 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use async_trait::async_trait;
+use tokio::io::AsyncWriteExt;
 
 use crate::action::AuthPayload;
 use crate::action::Client;
 use crate::action::ClientFactory;
 use crate::action::ClientImpl;
 use crate::action::ExecOutput;
-use crate::action::ExecStdin;
+use crate::action::ExecRequest;
 use crate::resolve::Target;
 use crate::resolve::TargetKind;
 
@@ -50,7 +51,7 @@ impl Client for DummyClient {
         Ok(())
     }
 
-    async fn exec(&mut self, _command: &str, _stdin: Option<ExecStdin>) -> Result<ExecOutput> {
+    async fn exec(&mut self, _command: &str, request: ExecRequest) -> Result<ExecOutput> {
         let query = self.target.query_pairs().unwrap_or_default();
 
         let stdout = query
@@ -69,6 +70,15 @@ impl Client for DummyClient {
             .transpose()
             .map_err(|error| anyhow!("invalid dummy exitcode: {error}"))?
             .unwrap_or(0);
+
+        if request.live {
+            if !stdout.is_empty() {
+                tokio::io::stdout().write_all(&stdout).await?;
+            }
+            if !stderr.is_empty() {
+                tokio::io::stderr().write_all(&stderr).await?;
+            }
+        }
 
         Ok(ExecOutput {
             exit_status,
