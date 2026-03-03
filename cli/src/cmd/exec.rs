@@ -24,9 +24,6 @@ pub struct ExecArgs {
 
 impl Run for ExecArgs {
     async fn run(&self, _id: Id, runtime: &Runtime) -> Result<()> {
-        let stdin_bytes = crate::args::read_stdin_all_if_piped()
-            .await?
-            .unwrap_or_default();
         let has_stdin_target_file = self
             .resolution_args
             .target_files
@@ -37,28 +34,38 @@ impl Run for ExecArgs {
             .action_args
             .infer_input_mode(&self.command, has_stdin_target_file);
 
-        let stdin_str = String::from_utf8_lossy(&stdin_bytes);
-        let stdin_targets = if mode == crate::args::InputMode::Target {
-            Some(stdin_str.as_ref())
+        let prepared_stdin = if mode == crate::args::InputMode::Pipe {
+            crate::args::PreparedStdin::default()
+        } else {
+            crate::args::read_stdin_for_mode(runtime.data_dir().as_str(), "", mode).await?
+        };
+
+        let stdin_targets_owned = if mode == crate::args::InputMode::Target {
+            Some(String::from_utf8_lossy(&prepared_stdin.bytes).into_owned())
         } else {
             None
         };
 
-        let targets = self.resolution_args.set_with_default(stdin_targets).await?;
-        let specs = crate::args::build_task_specs(targets, &self.command, mode, &stdin_bytes);
+        let targets = self
+            .resolution_args
+            .set_with_default(stdin_targets_owned.as_deref())
+            .await?;
+        let specs =
+            crate::args::build_task_specs(targets, &self.command, mode, &prepared_stdin.bytes);
         let target_count = specs.len();
         self.action_args.require_confirm(target_count)?;
 
         let job_id = Uuid::now_v7().hyphenated().to_string();
-        let spool = crate::args::ActionArgs::maybe_spool_stdin(
-            runtime.data_dir().as_str(),
-            &job_id,
-            mode,
-            &stdin_bytes,
-        )?;
+        let pipe_stdin = if mode == crate::args::InputMode::Pipe {
+            crate::args::read_stdin_for_mode(runtime.data_dir().as_str(), &job_id, mode)
+                .await?
+                .spool
+        } else {
+            None
+        };
 
         self.action_args
-            .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, spool)
+            .run_tasks(runtime.db().clone(), &job_id, specs, &self.auth_args, pipe_stdin)
             .await?;
 
         crate::report::print_error_freq_summary(runtime.db(), &job_id, runtime.output()).await?;

@@ -66,6 +66,8 @@ pub struct TaskSpec {
     pub param: Option<String>,
 }
 
+pub type PreparedStdin = crate::action::stdin::PreparedStdin;
+
 #[derive(Debug, Clone)]
 pub enum ActionOperation {
     Exec {
@@ -125,15 +127,6 @@ impl ActionArgs {
 
     pub fn require_confirm(&self, target_count: usize) -> Result<()> {
         crate::action::confirm::require_confirm(self.confirm, target_count)
-    }
-
-    pub fn maybe_spool_stdin(
-        data_dir: &str,
-        job_id: &str,
-        mode: InputMode,
-        stdin: &[u8],
-    ) -> Result<Option<PathBuf>> {
-        crate::action::stdin::maybe_spool_stdin(data_dir, job_id, mode, stdin)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -437,8 +430,12 @@ impl ActionArgs {
     }
 }
 
-pub async fn read_stdin_all_if_piped() -> Result<Option<Vec<u8>>> {
-    crate::action::stdin::read_stdin_all_if_piped().await
+pub async fn read_stdin_for_mode(
+    data_dir: &str,
+    job_id: &str,
+    mode: InputMode,
+) -> Result<PreparedStdin> {
+    crate::action::stdin::read_stdin_for_mode(data_dir, job_id, mode).await
 }
 
 pub fn build_task_specs(
