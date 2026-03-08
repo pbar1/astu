@@ -5,7 +5,7 @@
 Main Cargo workspaces:
 
 - `astu-cli`: CLI scaffolding. No logic.
-  - Args are in `arg`
+  - Args are in `arg`.
   - Subcommands are in `cmd`. Files here must only be subcommands.
 - `astu-types`: Shared data models and types. No logic.
 - `astu-core`: Core logic.
