@@ -1,16 +1,18 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::CommandFactory;
+use clap::Parser;
+use clap::Subcommand;
+use clap_complete::Shell;
 use clap_complete::generate_to;
 
 fn main() -> anyhow::Result<()> {
-    let cli = Xtask::parse();
-
-    match cli.command {
-        XtaskCommand::Man(args) => generate_man_pages(args.out_dir),
-        XtaskCommand::Completions(args) => generate_completions(args.out_dir, args.shell),
+    match Xtask::parse().command {
+        XtaskCommand::Man { out_dir } => generate_man_pages(out_dir),
+        XtaskCommand::Completions { out_dir, shell } => generate_completions(&out_dir, shell),
     }
 }
 
@@ -24,36 +26,20 @@ struct Xtask {
 #[derive(Debug, Subcommand)]
 enum XtaskCommand {
     /// Generate clap man pages for the astu CLI
-    Man(ManArgs),
+    Man {
+        /// Destination directory for generated man pages
+        #[arg(long, default_value = "target/man/man1")]
+        out_dir: PathBuf,
+    },
     /// Generate shell completions for the astu CLI
-    Completions(CompletionsArgs),
-}
-
-#[derive(Debug, clap::Args)]
-struct ManArgs {
-    /// Destination directory for generated man pages
-    #[arg(long, default_value = "target/man/man1")]
-    out_dir: PathBuf,
-}
-
-#[derive(Debug, clap::Args)]
-struct CompletionsArgs {
-    /// Destination directory for generated completion files
-    #[arg(long, default_value = "target/completions")]
-    out_dir: PathBuf,
-    /// Shells to generate. If omitted, all supported shells are generated.
-    #[arg(long, value_enum)]
-    shell: Vec<CompletionShell>,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum CompletionShell {
-    Bash,
-    Elvish,
-    Fish,
-    #[value(name = "powershell")]
-    PowerShell,
-    Zsh,
+    Completions {
+        /// Destination directory for generated completion files
+        #[arg(long, default_value = "target/completions")]
+        out_dir: PathBuf,
+        /// Shells to generate. If omitted, all supported shells are generated.
+        #[arg(long, value_enum)]
+        shell: Vec<Shell>,
+    },
 }
 
 fn generate_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
@@ -70,18 +56,18 @@ fn generate_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
     write_command_and_subcommands(&root, "astu", &out_dir)
 }
 
-fn generate_completions(out_dir: PathBuf, shells: Vec<CompletionShell>) -> anyhow::Result<()> {
-    clean_dir(&out_dir, "completion dir")?;
-    fs::create_dir_all(&out_dir)
+fn generate_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
+    clean_dir(out_dir, "completion dir")?;
+    fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
 
     let shells = if shells.is_empty() {
         vec![
-            CompletionShell::Bash,
-            CompletionShell::Elvish,
-            CompletionShell::Fish,
-            CompletionShell::PowerShell,
-            CompletionShell::Zsh,
+            Shell::Bash,
+            Shell::Elvish,
+            Shell::Fish,
+            Shell::PowerShell,
+            Shell::Zsh,
         ]
     } else {
         shells
@@ -89,10 +75,9 @@ fn generate_completions(out_dir: PathBuf, shells: Vec<CompletionShell>) -> anyho
 
     for shell in shells {
         let shell_name = format!("{shell:?}");
-        let generator: clap_complete::Shell = shell.into();
         let mut command = astu_cli::Cli::command();
         command = command.name("astu");
-        generate_to(generator, &mut command, "astu", &out_dir).with_context(|| {
+        generate_to(shell, &mut command, "astu", out_dir).with_context(|| {
             format!(
                 "failed to generate completion for {} in {}",
                 shell_name,
@@ -137,18 +122,6 @@ fn clean_dir(path: &Path, label: &str) -> anyhow::Result<()> {
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(err) => {
             Err(err).with_context(|| format!("failed to remove {label} {}", path.display()))
-        }
-    }
-}
-
-impl From<CompletionShell> for clap_complete::Shell {
-    fn from(value: CompletionShell) -> Self {
-        match value {
-            CompletionShell::Bash => Self::Bash,
-            CompletionShell::Elvish => Self::Elvish,
-            CompletionShell::Fish => Self::Fish,
-            CompletionShell::PowerShell => Self::PowerShell,
-            CompletionShell::Zsh => Self::Zsh,
         }
     }
 }
