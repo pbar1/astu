@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command as ProcessCommand;
 
 use anyhow::Context;
+use anyhow::ensure;
 use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
@@ -11,8 +13,9 @@ use clap_complete::generate_to;
 
 fn main() -> anyhow::Result<()> {
     match Xtask::parse().command {
-        XtaskCommand::Man { out_dir } => generate_man_pages(out_dir),
-        XtaskCommand::Completions { out_dir, shell } => generate_completions(&out_dir, shell),
+        XtaskCommand::Man { out_dir } => gen_man_pages(out_dir),
+        XtaskCommand::Completions { out_dir, shell } => gen_completions(&out_dir, shell),
+        XtaskCommand::Book { view } => build_book(view),
     }
 }
 
@@ -40,10 +43,16 @@ enum XtaskCommand {
         #[arg(long, value_enum)]
         shell: Vec<Shell>,
     },
+    /// Build or serve the project mdBook
+    Book {
+        /// Serve the book and open it in a browser instead of building once
+        #[arg(long)]
+        view: bool,
+    },
 }
 
-fn generate_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
-    let out_dir = normalize_man_output_dir(out_dir);
+fn gen_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
+    let out_dir = normalize_man_output_dir(resolve_workspace_path(out_dir));
     let man_root = man_output_root(&out_dir);
 
     clean_dir(&man_root, "man dir")?;
@@ -56,9 +65,10 @@ fn generate_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
     write_command_and_subcommands(&root, "astu", &out_dir)
 }
 
-fn generate_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
-    clean_dir(out_dir, "completion dir")?;
-    fs::create_dir_all(out_dir)
+fn gen_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
+    let out_dir = resolve_workspace_path(out_dir.to_path_buf());
+    clean_dir(&out_dir, "completion dir")?;
+    fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
 
     let shells = if shells.is_empty() {
@@ -77,7 +87,7 @@ fn generate_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()
         let shell_name = format!("{shell:?}");
         let mut command = astu_cli::Cli::command();
         command = command.name("astu");
-        generate_to(shell, &mut command, "astu", out_dir).with_context(|| {
+        generate_to(shell, &mut command, "astu", &out_dir).with_context(|| {
             format!(
                 "failed to generate completion for {} in {}",
                 shell_name,
@@ -87,6 +97,41 @@ fn generate_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()
     }
 
     Ok(())
+}
+
+fn build_book(view: bool) -> anyhow::Result<()> {
+    let workspace_root = workspace_root()?;
+    let mut command = ProcessCommand::new("mdbook");
+    let command_str = if view {
+        command.args(["serve", "--open", "book"]);
+        "mdbook serve --open book"
+    } else {
+        command.args(["build", "book"]);
+        "mdbook build book"
+    };
+    command.current_dir(&workspace_root);
+
+    let status = command
+        .status()
+        .with_context(|| format!("failed to run `{command_str}`"))?;
+    ensure!(status.success(), "`{command_str}` exited with {status}");
+    Ok(())
+}
+
+fn resolve_workspace_path(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        return path;
+    }
+
+    workspace_root().map_or_else(|_| path.clone(), |root| root.join(&path))
+}
+
+fn workspace_root() -> anyhow::Result<PathBuf> {
+    let xtask_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    xtask_manifest_dir
+        .parent()
+        .map(Path::to_path_buf)
+        .context("failed to determine workspace root from xtask manifest path")
 }
 
 fn normalize_man_output_dir(out_dir: PathBuf) -> PathBuf {

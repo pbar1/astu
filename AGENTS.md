@@ -31,6 +31,10 @@ Other directories:
 - Do not make commits to the repo unless explicitly told.
 - Commits must be [Conventional Commits][convc].
 
+## Project Commands
+
+- `cargo xtask`: General project automation. Run it to see all commands.
+
 <!-- References -->
 
 [xtask]: https://github.com/matklad/cargo-xtask
