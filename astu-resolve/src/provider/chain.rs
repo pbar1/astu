@@ -2,12 +2,12 @@ use std::fmt;
 use std::sync::Arc;
 
 use anyhow::Result;
+use astu_types::Target;
 use async_stream::stream;
-use futures::stream::BoxStream;
 use futures::StreamExt;
+use futures::stream::BoxStream;
 
-use crate::resolve::Resolve;
-use crate::resolve::Target;
+use crate::Resolve;
 
 /// Composite resolver that flattens the streams of a set of resolvers into one.
 ///
@@ -58,9 +58,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::resolve::provider::CidrResolver;
-    use crate::resolve::provider::DnsResolver;
-    use crate::resolve::ResolveExt;
+    use crate::CidrResolver;
+    use crate::DnsResolver;
+    use crate::ResolveExt;
 
     #[rstest]
     #[case("127.0.0.1", 1)]

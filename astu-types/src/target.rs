@@ -2,15 +2,13 @@ use std::fmt;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::string::ToString;
 
-use anyhow::bail;
-use anyhow::Context;
-use camino::Utf8Path;
 use camino::Utf8PathBuf;
-use fluent_uri::encoding::encoder::Path;
-use fluent_uri::encoding::Split;
+use eyre::WrapErr;
+use eyre::bail;
 use fluent_uri::Uri;
+use fluent_uri::encoding::Split;
+use fluent_uri::encoding::encoder::Path;
 use ipnet::IpNet;
 use serde::Deserialize;
 use serde::Serialize;
@@ -27,11 +25,7 @@ impl FromStr for Host {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(ip) = IpAddr::from_str(s) {
-            Ok(Self::Ip(ip))
-        } else {
-            Ok(Self::Domain(s.to_owned()))
-        }
+        IpAddr::from_str(s).map_or_else(|_| Ok(Self::Domain(s.to_owned())), |ip| Ok(Self::Ip(ip)))
     }
 }
 
@@ -44,7 +38,6 @@ impl FromStr for Host {
 pub enum TargetKind {
     Cidr,
     Dns,
-    File,
     Ip,
     Ssh,
     Tcp,
@@ -61,7 +54,7 @@ pub struct Target {
 /// Accessors
 impl Target {
     #[must_use]
-    pub fn kind(&self) -> TargetKind {
+    pub const fn kind(&self) -> TargetKind {
         self.kind
     }
 
@@ -130,10 +123,10 @@ impl Target {
     }
 
     pub fn path_segments(&self) -> Split<'_, Path> {
-        match self.uri.path().segments_if_absolute() {
-            Some(segments) => segments,
-            None => self.uri.path().split('/'),
-        }
+        self.uri
+            .path()
+            .segments_if_absolute()
+            .unwrap_or_else(|| self.uri.path().split('/'))
     }
 
     #[must_use]
@@ -214,19 +207,7 @@ impl Target {
     /// # Errors
     ///
     /// If the URI is malformed
-    pub fn new_file(path: &Utf8Path) -> anyhow::Result<Self> {
-        let uri = if path.is_absolute() {
-            format!("file://{path}")
-        } else {
-            format!("file:{path}")
-        };
-        Self::from_str(&uri)
-    }
-
-    /// # Errors
-    ///
-    /// If the URI is malformed
-    pub fn new_cidr(cidr: &IpNet, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new_cidr(cidr: &IpNet, port: Option<u16>, user: Option<&str>) -> eyre::Result<Self> {
         let mut uri = "cidr://".to_owned();
         if let Some(user) = user {
             uri.push_str(user);
@@ -245,7 +226,7 @@ impl Target {
     /// # Errors
     ///
     /// If the URI is malformed
-    pub fn new_ip(ip: &IpAddr, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new_ip(ip: &IpAddr, port: Option<u16>, user: Option<&str>) -> eyre::Result<Self> {
         let mut uri = "ip://".to_owned();
         if let Some(user) = user {
             uri.push_str(user);
@@ -262,7 +243,7 @@ impl Target {
     /// # Errors
     ///
     /// If the URI is malformed
-    pub fn new_dns(domain: &str, port: Option<u16>, user: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new_dns(domain: &str, port: Option<u16>, user: Option<&str>) -> eyre::Result<Self> {
         let mut uri = "dns://".to_owned();
         if let Some(user) = user {
             uri.push_str(user);
@@ -282,9 +263,9 @@ impl Target {
     /// # Errors
     ///
     /// If the string does not conform to any of the supported short forms.
-    pub fn parse_short_form(s: &str) -> anyhow::Result<Self> {
+    pub fn parse_short_form(s: &str) -> eyre::Result<Self> {
         if s.starts_with("localhost") {
-            return Target::from_str(&format!("dns://{s}"));
+            return Self::from_str(&format!("dns://{s}"));
         }
 
         if let Ok(value) = IpNet::from_str(s) {
@@ -310,16 +291,16 @@ impl fmt::Display for Target {
 }
 
 impl FromStr for Target {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(target) = Self::parse_short_form(s) {
             return Ok(target);
         }
-        let uri = Uri::from_str(s).with_context(|| format!("Failed to parse as URI: {s}"))?;
+        let uri = Uri::from_str(s).wrap_err_with(|| format!("Failed to parse as URI: {s}"))?;
         let kind = TargetKind::from_str(uri.scheme().as_str())
-            .with_context(|| format!("URI not supported: {s}"))?;
-        Ok(Target { uri, kind })
+            .wrap_err_with(|| format!("URI not supported: {s}"))?;
+        Ok(Self { uri, kind })
     }
 }
 
@@ -350,6 +331,7 @@ impl From<IpNet> for Target {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use std::str::FromStr;
 
@@ -367,8 +349,6 @@ mod tests {
     #[case("0.0.0.0:0",                                  K::Ip,   "ip://0.0.0.0:0")]
     #[case("[::]:0",                                     K::Ip,   "ip://[::]:0")]
     #[case("localhost",                                  K::Dns,  "dns://localhost")]
-    #[case("file:relative.txt",                          K::File, "file:relative.txt")]
-    #[case("file:///absolute.txt",                       K::File, "file:///absolute.txt")]
     #[case("cidr://user@0.0.0.0:0/0",                    K::Cidr, "cidr://user@0.0.0.0:0/0")]
     #[case("ip://user@0.0.0.0:0",                        K::Ip,   "ip://user@0.0.0.0:0")]
     #[case("dns://user@localhost:0",                     K::Dns,  "dns://user@localhost:0")]
@@ -380,16 +360,6 @@ mod tests {
         assert_eq!(target.kind(), kind_should);
         let output = target.to_string();
         assert_eq!(output, output_should);
-    }
-
-    #[rustfmt::skip::attributes(case)]
-    #[rstest]
-    #[case("file:relative/file.txt",    "relative/file.txt")]
-    #[case("file:///absolute/file.txt", "/absolute/file.txt")]
-    fn file_works(#[case] uri: &str, #[case] path_should: &str) {
-        let target = Target::from_str(uri).unwrap();
-        let path = target.path().unwrap();
-        assert_eq!(path, path_should);
     }
 
     #[rustfmt::skip::attributes(case)]

@@ -1,7 +1,6 @@
 use anyhow::Result;
+use astu_types::Target;
 use async_trait::async_trait;
-
-use crate::resolve::Target;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TransportFactory {}

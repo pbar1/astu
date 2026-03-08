@@ -1,6 +1,7 @@
-use crate::action::ClientFactoryImpl;
-use crate::action::ClientImpl;
-use crate::resolve::Target;
+use astu_types::Target;
+
+use crate::ClientFactoryImpl;
+use crate::ClientImpl;
 
 /// Composite factory for mapping targets to clients at runtime.
 ///
@@ -18,7 +19,7 @@ impl DynamicClientFactory {
     }
 }
 
-impl crate::action::ClientFactory for DynamicClientFactory {
+impl crate::ClientFactory for DynamicClientFactory {
     fn client(&self, target: &Target) -> Option<ClientImpl> {
         for factory in &self.factories {
             if let Some(client) = factory.client(target) {

@@ -4,6 +4,19 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow = { version = "1", features = ["backtrace"] }
+astu-action = { path = "../astu-action" }
+astu-resolve = { path = "../astu-resolve" }
+astu-types = { path = "../astu-types" }
+base32 = "0.5"
+bon = "3"
+enum_dispatch = "0.3"
+futures = "0.3"
+sonyflake = "0.4"
+tracing = "0.1"
+uuid = { version = "1", features = ["v7"] }
+whoami = "2"
+tokio = { version = "1", features = ["full"] }
 
 [lints]
 workspace = true

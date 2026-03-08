@@ -4,6 +4,16 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow = { version = "1", features = ["backtrace"] }
+astu-types = { path = "../astu-types" }
+async-stream = "0.3"
+futures = "0.3"
+hickory-resolver = "0.25"
+ipnet = "2"
+
+[dev-dependencies]
+rstest = "0.26"
+tokio = { version = "1", features = ["full"] }
 
 [lints]
 workspace = true

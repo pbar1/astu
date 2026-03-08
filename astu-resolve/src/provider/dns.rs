@@ -3,16 +3,16 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use anyhow::Result;
+use astu_types::Host;
+use astu_types::Target;
 use async_stream::try_stream;
-use futures::stream::BoxStream;
 use futures::StreamExt;
-use hickory_resolver::proto::rr::rdata::PTR;
+use futures::stream::BoxStream;
 use hickory_resolver::Name;
 use hickory_resolver::TokioResolver;
+use hickory_resolver::proto::rr::rdata::PTR;
 
-use crate::resolve::Host;
-use crate::resolve::Resolve;
-use crate::resolve::Target;
+use crate::Resolve;
 
 /// Resolves DNS queries - both forward and reverse - into targets.
 #[derive(Debug, Clone)]
@@ -109,7 +109,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::resolve::ResolveExt;
+    use crate::ResolveExt;
 
     #[rstest]
     #[case("localhost")]
