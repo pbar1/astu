@@ -269,15 +269,15 @@ impl Target {
         }
 
         if let Ok(value) = IpNet::from_str(s) {
-            return Ok(Self::from(value));
+            return Self::try_from(value);
         }
 
         if let Ok(value) = IpAddr::from_str(s) {
-            return Ok(Self::from(value));
+            return Self::try_from(value);
         }
 
         if let Ok(value) = SocketAddr::from_str(s) {
-            return Ok(Self::from(value));
+            return Self::try_from(value);
         }
 
         bail!("Unsupported target short form: {s}");
@@ -304,37 +304,44 @@ impl FromStr for Target {
     }
 }
 
-impl From<IpAddr> for Target {
-    fn from(value: IpAddr) -> Self {
+impl TryFrom<IpAddr> for Target {
+    type Error = eyre::Error;
+
+    fn try_from(value: IpAddr) -> Result<Self, Self::Error> {
         let s = match value {
             IpAddr::V4(ip) => format!("ip://{ip}"),
             IpAddr::V6(ip) => format!("ip://[{ip}]"),
         };
-        Self::from_str(&s).expect("URI invariant not upheld")
+        Self::from_str(&s)
     }
 }
 
-impl From<SocketAddr> for Target {
-    fn from(value: SocketAddr) -> Self {
-        Self::from_str(&format!("ip://{value}")).expect("URI invariant not upheld")
+impl TryFrom<SocketAddr> for Target {
+    type Error = eyre::Error;
+
+    fn try_from(value: SocketAddr) -> Result<Self, Self::Error> {
+        Self::from_str(&format!("ip://{value}"))
     }
 }
 
-impl From<IpNet> for Target {
-    fn from(value: IpNet) -> Self {
+impl TryFrom<IpNet> for Target {
+    type Error = eyre::Error;
+
+    fn try_from(value: IpNet) -> Result<Self, Self::Error> {
         let s = match value {
             IpNet::V4(cidr) => format!("cidr://{cidr}"),
             IpNet::V6(cidr) => format!("cidr://[{}]/{}", cidr.network(), cidr.prefix_len()),
         };
-        Self::from_str(&s).expect("URI invariant not upheld")
+        Self::from_str(&s)
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use std::str::FromStr;
 
+    use eyre::OptionExt;
+    use pretty_assertions::assert_eq;
     use rstest::rstest;
 
     use super::TargetKind as K;
@@ -355,11 +362,16 @@ mod tests {
     #[case("ssh://user:password@localhost:2222",         K::Ssh,  "ssh://user:password@localhost:2222")]
     #[case("k8s:pod#container",                          K::K8s,  "k8s:pod#container")]
     #[case("k8s://user@cluster/namespace/pod#container", K::K8s,  "k8s://user@cluster/namespace/pod#container")]
-    fn roundtrip_works(#[case] uri: &str, #[case] kind_should: K, #[case] output_should: &str) {
-        let target = Target::from_str(uri).unwrap();
+    fn roundtrip_works(
+        #[case] uri: &str,
+        #[case] kind_should: K,
+        #[case] output_should: &str,
+    ) -> eyre::Result<()> {
+        let target = Target::from_str(uri)?;
         assert_eq!(target.kind(), kind_should);
         let output = target.to_string();
         assert_eq!(output, output_should);
+        Ok(())
     }
 
     #[rustfmt::skip::attributes(case)]
@@ -375,20 +387,22 @@ mod tests {
         #[case] cidr_should: &str,
         #[case] user_should: impl Into<Option<&'static str>>,
         #[case] port_should: impl Into<Option<u16>>,
-    ) {
-        let cidr_should = IpNet::from_str(cidr_should).unwrap();
+    ) -> eyre::Result<()> {
+        let cidr_should = IpNet::from_str(cidr_should)?;
         let user_should = user_should.into();
         let port_should = port_should.into();
 
-        let target = Target::from_str(uri).unwrap();
+        let target = Target::from_str(uri)?;
 
-        let cidr = target.cidr().unwrap();
+        let cidr = target.cidr().ok_or_eyre("no cidr")?;
         let user = target.user();
         let port = target.port();
 
         assert_eq!(cidr, cidr_should);
         assert_eq!(user, user_should);
         assert_eq!(port, port_should);
+
+        Ok(())
     }
 
     #[rustfmt::skip::attributes(case)]
@@ -406,20 +420,22 @@ mod tests {
         #[case] ip_should: &str,
         #[case] user_should: impl Into<Option<&'static str>>,
         #[case] port_should: impl Into<Option<u16>>,
-    ) {
-        let ip_should = IpAddr::from_str(ip_should).unwrap();
+    ) -> eyre::Result<()> {
+        let ip_should = IpAddr::from_str(ip_should)?;
         let user_should = user_should.into();
         let port_should = port_should.into();
 
-        let target = Target::from_str(uri).unwrap();
+        let target = Target::from_str(uri)?;
 
-        let ip = target.ip().unwrap();
+        let ip = target.ip().ok_or_eyre("no ip")?;
         let user = target.user();
         let port = target.port();
 
         assert_eq!(ip, ip_should);
         assert_eq!(user, user_should);
         assert_eq!(port, port_should);
+
+        Ok(())
     }
 
     #[rustfmt::skip::attributes(case)]
@@ -432,19 +448,21 @@ mod tests {
         #[case] domain_should: &str,
         #[case] port_should: impl Into<Option<u16>>,
         #[case] user_should: impl Into<Option<&'static str>>,
-    ) {
+    ) -> eyre::Result<()> {
         let port_should = port_should.into();
         let user_should = user_should.into();
 
-        let target = Target::from_str(uri).unwrap();
+        let target = Target::from_str(uri)?;
 
-        let domain = target.domain().unwrap();
+        let domain = target.domain().ok_or_eyre("no domain")?;
         let user = target.user();
         let port = target.port();
 
         assert_eq!(domain, domain_should);
         assert_eq!(port, port_should);
         assert_eq!(user, user_should);
+
+        Ok(())
     }
 
     #[rustfmt::skip::attributes(case)]
@@ -459,15 +477,15 @@ mod tests {
         #[case] port_should: impl Into<Option<u16>>,
         #[case] user_should: impl Into<Option<&'static str>>,
         #[case] password_should: impl Into<Option<&'static str>>,
-    ) {
+    ) -> eyre::Result<()> {
         let host_should = Host::from_str(host_should).unwrap();
         let port_should = port_should.into();
         let user_should = user_should.into();
         let password_should = password_should.into();
 
-        let target = Target::from_str(uri).unwrap();
+        let target = Target::from_str(uri)?;
 
-        let host = target.host().unwrap();
+        let host = target.host().ok_or_eyre("no host")?;
         let port = target.port();
         let user = target.user();
         let password = target.password();
@@ -476,6 +494,8 @@ mod tests {
         assert_eq!(port, port_should);
         assert_eq!(user, user_should);
         assert_eq!(password, password_should);
+
+        Ok(())
     }
 
     #[rustfmt::skip::attributes(case)]
@@ -496,19 +516,21 @@ mod tests {
         #[case] container: impl Into<Option<&'static str>>,
         #[case] cluster: impl Into<Option<&'static str>>,
         #[case] user: impl Into<Option<&'static str>>,
-    ) {
+    ) -> eyre::Result<()> {
         let namespace_should = namespace.into();
         let pod_should = resource.into();
         let container_should = container.into();
         let cluster_should = cluster.into();
         let user_should = user.into();
 
-        let target = Target::from_str(input).unwrap();
+        let target = Target::from_str(input)?;
 
         assert_eq!(target.k8s_namespace(), namespace_should);
         assert_eq!(target.k8s_pod(), pod_should);
         assert_eq!(target.k8s_container(), container_should);
         assert_eq!(target.k8s_cluster(), cluster_should);
         assert_eq!(target.user(), user_should);
+
+        Ok(())
     }
 }

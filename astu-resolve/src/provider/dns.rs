@@ -4,7 +4,6 @@ use std::str::FromStr;
 use astu_types::Host;
 use astu_types::Target;
 use async_stream::try_stream;
-use eyre::OptionExt;
 use eyre::Result;
 use eyre::eyre;
 use futures::StreamExt;
@@ -119,10 +118,11 @@ mod tests {
     #[case("127.0.0.1")]
     #[case("127.0.0.1:22")]
     #[tokio::test]
-    async fn resolve_works(#[case] query: &str) {
-        let target = Target::from_str(query).unwrap();
-        let resolver = DnsResolver::try_new().unwrap().with_reverse(true);
+    async fn resolve_works(#[case] query: &str) -> eyre::Result<()> {
+        let target = Target::from_str(query)?;
+        let resolver = DnsResolver::try_new()?.with_reverse(true);
         let targets = resolver.resolve_set(target).await;
         assert!(!targets.is_empty());
+        Ok(())
     }
 }

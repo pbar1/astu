@@ -121,13 +121,15 @@ mod tests {
     #[rstest]
     #[case("10.0.0.54:22")]
     #[tokio::test]
-    async fn works(#[case] input: &str) {
-        let target = Target::from_str(input).unwrap();
+    async fn works(#[case] input: &str) -> eyre::Result<()> {
+        let target = Target::from_str(input)?;
 
         let timeout = Duration::from_secs(2);
         let transport = transport::tcp::TransportFactory::new(timeout).into();
 
         let mut client = TcpClient::new(transport, &target);
-        client.connect().await.unwrap();
+        client.connect().await?;
+
+        Ok(())
     }
 }

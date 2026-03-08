@@ -48,10 +48,11 @@ mod tests {
     #[case("::1/128", 1)]
     #[case("::1/112", 65536)]
     #[tokio::test]
-    async fn resolve_works(#[case] query: &str, #[case] num: usize) {
-        let target = Target::from_str(query).unwrap();
+    async fn resolve_works(#[case] query: &str, #[case] num: usize) -> eyre::Result<()> {
+        let target = Target::from_str(query)?;
         let resolver = CidrResolver::default();
         let targets = resolver.resolve_set(target).await;
         assert_eq!(targets.len(), num);
+        Ok(())
     }
 }

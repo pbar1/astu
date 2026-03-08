@@ -67,13 +67,14 @@ mod tests {
     #[case("127.0.0.1/31", 2)]
     #[case("localhost", 1)]
     #[tokio::test]
-    async fn resolve_works(#[case] query: &str, #[case] num: usize) {
-        let target = Target::from_str(query).unwrap();
+    async fn resolve_works(#[case] query: &str, #[case] num: usize) -> eyre::Result<()> {
+        let target = Target::from_str(query)?;
         let resolver = ChainResolver::default()
             .with(CidrResolver::default())
-            .with(DnsResolver::try_new().unwrap());
+            .with(DnsResolver::try_new()?);
         let targets = resolver.resolve_set(target).await;
-        dbg!(&targets);
         assert_eq!(targets.len(), num);
+
+        Ok(())
     }
 }

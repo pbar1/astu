@@ -12,6 +12,7 @@ serde = { version = "1", features = ["derive"] }
 strum = { version = "0.27", features = ["derive"] }
 
 [dev-dependencies]
+pretty_assertions = "1"
 rstest = "0.26"
 
 [lints]
