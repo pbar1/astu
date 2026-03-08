@@ -1,8 +1,15 @@
+[package]
+name = "astu"
+description = "Arbitrary Shell Targeting Utility"
+version = "0.0.1"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/pbar1/astu"
+edition = "2024"
+
 [workspace]
-members = ["cli", "lib"]
+members = ["astu-action", "astu-cli", "astu-db", "astu-engine", "astu-resolve", "lib", "xtask"]
 resolver = "2"
 
-# The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
 lto = "thin"

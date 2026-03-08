@@ -1,5 +1,5 @@
 [package]
-name = "astu"
+name = "astu-lib-old"
 version = "0.0.0"
 edition = "2021"
 description = "Astu library"

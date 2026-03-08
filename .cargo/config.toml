@@ -1,3 +1,6 @@
 [build]
 # suppress "was built for newer 'macOS' version (15.4) than being linked (11.0)"
 rustflags = ["-Alinker_messages"]
+
+[alias]
+xtask = "run --package xtask --"
