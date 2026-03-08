@@ -5,13 +5,35 @@ use clap::ValueEnum;
 
 #[derive(Debug, Clone, Default, Args)]
 pub struct GlobalFlags {
-    #[arg(global = true, long, env = "ASTU_DATA_DIR", value_name = "DIR")]
+    /// Astu database path.
+    #[arg(
+        global = true,
+        help_heading = "Global Flags",
+        long,
+        env = "ASTU_DATA_DIR",
+        value_name = "DIR"
+    )]
     pub data_dir: Option<PathBuf>,
 
-    #[arg(global = true, long, env = "ASTU_LOG", default_value = "debug")]
+    /// Filter directive for log file. Follows the `RUST_LOG` format.
+    #[arg(
+        global = true,
+        help_heading = "Global Flags",
+        long,
+        env = "ASTU_LOG",
+        default_value = "debug"
+    )]
     pub log_level: String,
 
-    #[arg(global = true, short = 'o', long, default_value = "text")]
+    /// Output format.
+    #[arg(
+        global = true,
+        help_heading = "Global Flags",
+        short = 'o',
+        long,
+        default_value = "text",
+        value_name = "FORMAT"
+    )]
     pub output: OutputFormat,
 }
 

@@ -4,4 +4,5 @@ mod result;
 
 pub use action::ActionFlags;
 pub use global::GlobalFlags;
+pub use result::ResultField;
 pub use result::ResultFlags;

@@ -4,15 +4,12 @@ mod jobs;
 mod lookup;
 mod output;
 mod ping;
-mod result_field;
 mod resume;
 mod run;
 mod tasks;
 mod trace;
 
-use clap::Subcommand;
-
-#[derive(Debug, Subcommand)]
+#[derive(Debug, clap::Subcommand)]
 pub enum Command {
     #[command(visible_aliases = ["l", "resolve"])]
     Lookup(lookup::Lookup),
