@@ -10,6 +10,11 @@ edition = "2024"
 members = ["astu-action", "astu-cli", "astu-db", "astu-engine", "astu-resolve", "lib", "xtask"]
 resolver = "2"
 
+[dependencies]
+astu-cli = { path = "./astu-cli" }
+tokio = { version = "1", features = ["full"] }
+anyhow = { version = "1", features = ["backtrace"] }
+
 [profile.dist]
 inherits = "release"
 lto = "thin"

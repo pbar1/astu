@@ -1,3 +1,4 @@
-fn main() {
-    println!("hello friend");
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    astu_cli::run().await
 }
