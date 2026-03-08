@@ -1,20 +1,40 @@
+[workspace]
+members = [".", "astu-action", "astu-cli", "astu-core", "astu-db", "astu-resolve", "astu-types", "xtask"]
+default-members = ["."]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+missing_errors_doc = "allow"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+# Root crate ------------------------------------------------------------------
+
 [package]
 name = "astu"
 description = "Arbitrary Shell Targeting Utility"
-version = "0.0.1"
-license = "MIT OR Apache-2.0"
 repository = "https://github.com/pbar1/astu"
-edition = "2024"
-
-[workspace]
-members = ["astu-action", "astu-cli", "astu-db", "astu-engine", "astu-resolve", "lib", "xtask"]
-resolver = "2"
+license = "MIT OR Apache-2.0"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 astu-cli = { path = "./astu-cli" }
 tokio = { version = "1", features = ["full"] }
 anyhow = { version = "1", features = ["backtrace"] }
 
-[profile.dist]
-inherits = "release"
-lto = "thin"
+[lints]
+workspace = true

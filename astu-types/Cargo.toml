@@ -1,10 +1,9 @@
 [package]
-name = "astu-cli"
+name = "astu-types"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
 
 [lints]
 workspace = true

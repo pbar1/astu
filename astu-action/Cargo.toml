@@ -1,5 +1,9 @@
 [package]
 name = "astu-action"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
+
+[lints]
+workspace = true

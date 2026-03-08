@@ -1,5 +1,0 @@
-[package]
-name = "astu-engine"
-edition = "2024"
-
-[dependencies]

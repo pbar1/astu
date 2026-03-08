@@ -1,4 +1,4 @@
 pub async fn run() -> anyhow::Result<()> {
-    println!("hello friend");
+    println!("Hello friend");
     Ok(())
 }
