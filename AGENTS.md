@@ -22,8 +22,6 @@ Other directories:
 
 - `.cargo`: Cargo config. Off limits.
 - `.github`: GitHub Actions CI/CD config.
-- `.vscode`: VS Code project settings and debug config.
-- `lib`: Existing code that is being broken into workspaces crates.
 - `book`: mdbook for detailed docs.
 
 ## Guidelines
@@ -34,6 +32,7 @@ Other directories:
 ## Project Commands
 
 - `cargo xtask`: General project automation. Run it to see all commands.
+  - Do not run `cargo check` - use `cargo xtask lint` instead.
 
 <!-- References -->
 

@@ -8,6 +8,7 @@ use clap::Parser;
 use clap::Subcommand;
 use clap_complete::Shell;
 use clap_complete::generate_to;
+use duct::cmd;
 use eyre::WrapErr;
 use eyre::ensure;
 use eyre::eyre;
@@ -17,6 +18,10 @@ fn main() -> eyre::Result<()> {
         XtaskCommand::Man { out_dir } => gen_man_pages(out_dir),
         XtaskCommand::Completions { out_dir, shell } => gen_completions(&out_dir, shell),
         XtaskCommand::Book { view } => build_book(view),
+        XtaskCommand::Fmt => run_workspace_command(&["+nightly", "fmt", "--all"]),
+        XtaskCommand::Lint => run_workspace_command(&["clippy", "--workspace", "--fix"]),
+        XtaskCommand::Build => run_workspace_command(&["build", "--workspace"]),
+        XtaskCommand::Test => run_workspace_command(&["test", "--workspace"]),
     }
 }
 
@@ -29,6 +34,14 @@ struct Xtask {
 
 #[derive(Debug, Subcommand)]
 enum XtaskCommand {
+    /// Format all workspace crates
+    Fmt,
+    /// Lint all workspace crates and apply fixes
+    Lint,
+    /// Build all workspace crates
+    Build,
+    /// Test all workspace crates
+    Test,
     /// Generate clap man pages for the astu CLI
     Man {
         /// Destination directory for generated man pages
@@ -50,6 +63,16 @@ enum XtaskCommand {
         #[arg(long)]
         view: bool,
     },
+}
+
+fn run_workspace_command(args: &[&str]) -> eyre::Result<()> {
+    let workspace_root = workspace_root()?;
+    let command_str = format!("cargo {}", args.join(" "));
+    cmd("cargo", args)
+        .dir(workspace_root)
+        .run()
+        .wrap_err_with(|| format!("failed to run `{command_str}`"))?;
+    Ok(())
 }
 
 fn gen_man_pages(out_dir: PathBuf) -> eyre::Result<()> {
