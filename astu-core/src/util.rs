@@ -11,7 +11,7 @@ use futures::TryFutureExt;
 use futures::TryStream;
 use futures::TryStreamExt;
 
-impl<T: ?Sized> AstuTryFutureExt for T where T: TryFuture {}
+impl<T: ?Sized + TryFuture> AstuTryFutureExt for T {}
 
 /// Adapters specific to [`Result`]-returning futures.
 pub trait AstuTryFutureExt: TryFuture {
@@ -32,7 +32,7 @@ pub trait AstuTryFutureExt: TryFuture {
     }
 }
 
-impl<T: ?Sized> AstuTryStreamExt for T where T: TryStream {}
+impl<T: ?Sized + TryStream> AstuTryStreamExt for T {}
 
 /// Adapters specific to [`Result`]-returning streams.
 pub trait AstuTryStreamExt: TryStream {

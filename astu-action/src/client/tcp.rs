@@ -27,7 +27,7 @@ pub struct TcpClientFactory {
 
 impl TcpClientFactory {
     #[must_use]
-    pub fn new(transport: TransportFactoryImpl) -> Self {
+    pub const fn new(transport: TransportFactoryImpl) -> Self {
         Self { transport }
     }
 }

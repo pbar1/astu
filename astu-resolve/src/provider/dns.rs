@@ -23,7 +23,7 @@ pub struct DnsResolver {
 }
 
 impl Resolve for DnsResolver {
-    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<'_, Result<Target>> {
         let fwd = self.forward;
         let rev = self.reverse;
         match target.host() {
@@ -53,20 +53,20 @@ impl DnsResolver {
 
     /// Set forward lookup.
     #[must_use]
-    pub fn with_forward(mut self, enable: bool) -> Self {
+    pub const fn with_forward(mut self, enable: bool) -> Self {
         self.forward = enable;
         self
     }
 
     /// Set reverse lookup.
     #[must_use]
-    pub fn with_reverse(mut self, enable: bool) -> Self {
+    pub const fn with_reverse(mut self, enable: bool) -> Self {
         self.reverse = enable;
         self
     }
 
     /// Forward DNS resolution
-    fn resolve_domain(&self, name: String, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_domain(&self, name: String, target: Target) -> BoxStream<'_, Result<Target>> {
         try_stream! {
             let ips = self.dns.lookup_ip(name).await?;
             for ip in ips {
@@ -79,7 +79,7 @@ impl DnsResolver {
     }
 
     /// Reverse DNS resolution
-    fn resolve_ip(&self, ip: IpAddr, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_ip(&self, ip: IpAddr, target: Target) -> BoxStream<'_, Result<Target>> {
         try_stream! {
             let names = self.dns.reverse_lookup(ip).await?;
             for ptr in names {

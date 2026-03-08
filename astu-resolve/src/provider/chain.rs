@@ -25,7 +25,7 @@ impl fmt::Debug for ChainResolver {
 }
 
 impl Resolve for ChainResolver {
-    fn resolve_fallible(&self, target: Target) -> BoxStream<Result<Target>> {
+    fn resolve_fallible(&self, target: Target) -> BoxStream<'_, Result<Target>> {
         stream! {
             let mut bounce_original = true;
             for resolver in &self.resolvers {
