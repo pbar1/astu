@@ -1,8 +1,9 @@
-use anyhow::Context;
-use anyhow::Result;
-use anyhow::bail;
 use astu_types::Target;
 use async_trait::async_trait;
+use eyre::Result;
+use eyre::WrapErr;
+use eyre::bail;
+use eyre::eyre;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
@@ -72,7 +73,7 @@ impl Client for TcpClient {
             .transport
             .setup(&self.target)
             .await
-            .context("failed connecting target transport")?;
+            .wrap_err("failed connecting target transport")?;
 
         self.stream = match transport {
             Transport::Tcp(stream) => Some(stream),
@@ -83,7 +84,10 @@ impl Client for TcpClient {
     }
 
     async fn ping(&mut self) -> Result<Vec<u8>> {
-        let stream = self.stream.take().context("stream not connected")?;
+        let stream = self
+            .stream
+            .take()
+            .ok_or_else(|| eyre!("stream not connected"))?;
         let mut reader = BufReader::new(stream);
 
         let mut output = Vec::new();

@@ -1,11 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
-use anyhow::Result;
-use anyhow::bail;
 use astu_types::Target;
 use async_trait::async_trait;
+use eyre::Result;
+use eyre::WrapErr;
+use eyre::bail;
+use eyre::eyre;
 use russh::client::Handle;
 use russh::keys::HashAlg;
 use russh::keys::key::PrivateKeyWithHashAlg;
@@ -84,7 +85,7 @@ impl SshClient {
 
 #[async_trait]
 impl Client for SshClient {
-    async fn connect(&mut self) -> anyhow::Result<()> {
+    async fn connect(&mut self) -> eyre::Result<()> {
         let config = Arc::new(russh::client::Config {
             inactivity_timeout: Some(Duration::from_secs(30)),
             ..Default::default()
@@ -96,7 +97,7 @@ impl Client for SshClient {
             .transport
             .setup(&self.target)
             .await
-            .context("failed connecting target transport")?;
+            .wrap_err("failed connecting target transport")?;
 
         let session = match transport {
             Transport::Tcp(stream) => {
@@ -110,11 +111,14 @@ impl Client for SshClient {
     }
 
     async fn ping(&mut self) -> Result<Vec<u8>> {
-        let _session = self.session.take().context("session not connected")?;
+        let _session = self
+            .session
+            .take()
+            .ok_or_else(eyre!("session not connected"))?;
         Ok(Vec::new())
     }
 
-    async fn auth(&mut self, auth_type: &AuthPayload) -> anyhow::Result<()> {
+    async fn auth(&mut self, auth_type: &AuthPayload) -> eyre::Result<()> {
         match auth_type {
             AuthPayload::User(x) => self.auth_user(x).await,
             AuthPayload::Password(x) => self.auth_password(x).await,
@@ -124,7 +128,7 @@ impl Client for SshClient {
         }
     }
 
-    async fn exec(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    async fn exec(&mut self, command: &str) -> eyre::Result<ExecOutput> {
         self.exec_inner(command).await
     }
 }
@@ -132,7 +136,7 @@ impl Client for SshClient {
 /// Helpers for [`Auth`]
 impl SshClient {
     #[allow(clippy::unused_async)]
-    async fn auth_user(&mut self, user: &str) -> anyhow::Result<()> {
+    async fn auth_user(&mut self, user: &str) -> eyre::Result<()> {
         if self.user.is_some() {
             bail!("ssh user is already set");
         }
@@ -140,7 +144,7 @@ impl SshClient {
         Ok(())
     }
 
-    async fn auth_password(&mut self, password: &str) -> anyhow::Result<()> {
+    async fn auth_password(&mut self, password: &str) -> eyre::Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -156,7 +160,7 @@ impl SshClient {
         Ok(())
     }
 
-    async fn auth_ssh_key(&mut self, private_key: &str) -> anyhow::Result<()> {
+    async fn auth_ssh_key(&mut self, private_key: &str) -> eyre::Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -179,7 +183,7 @@ impl SshClient {
         Ok(())
     }
 
-    async fn auth_ssh_cert(&mut self, private_key: &str, cert: &str) -> anyhow::Result<()> {
+    async fn auth_ssh_cert(&mut self, private_key: &str, cert: &str) -> eyre::Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -202,7 +206,7 @@ impl SshClient {
 
     /// Iterates through all identities found in SSH agent and returns on the
     /// first authentication success, or failure if exhausted before success.
-    async fn auth_ssh_agent(&mut self, socket: &str) -> anyhow::Result<()> {
+    async fn auth_ssh_agent(&mut self, socket: &str) -> eyre::Result<()> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -239,7 +243,7 @@ impl SshClient {
 
 /// Helpers for [`Exec`]
 impl SshClient {
-    async fn exec_inner(&mut self, command: &str) -> anyhow::Result<ExecOutput> {
+    async fn exec_inner(&mut self, command: &str) -> eyre::Result<ExecOutput> {
         let Some(ref mut session) = self.session else {
             bail!("no ssh session");
         };
@@ -274,7 +278,7 @@ impl SshClient {
             }
         }
 
-        let exit_status = code.context("program did not exit cleanly")?;
+        let exit_status = code.ok_or_else(|| eyre!("program did not exit cleanly"))?;
 
         Ok(ExecOutput {
             exit_status,

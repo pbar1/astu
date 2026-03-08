@@ -8,7 +8,7 @@ default = []
 ssh = ["dep:russh"]
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
+eyre = "0.6"
 astu-types = { path = "../astu-types" }
 async-trait = "0.1"
 bstr = { version = "1", default-features = false }

@@ -37,7 +37,7 @@ edition.workspace = true
 [dependencies]
 astu-cli = { path = "./astu-cli" }
 tokio = { version = "1", features = ["full"] }
-anyhow = { version = "1", features = ["backtrace"] }
+eyre = "0.6"
 
 [lints]
 workspace = true

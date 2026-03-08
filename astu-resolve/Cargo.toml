@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
+eyre = "0.6"
 astu-types = { path = "../astu-types" }
 async-stream = "0.3"
 futures = "0.3"

@@ -46,7 +46,7 @@ impl SonyflakeGenerator {
     /// # Errors
     ///
     /// - If creating the ID fails
-    pub fn from_hostname() -> anyhow::Result<Self> {
+    pub fn from_hostname() -> eyre::Result<Self> {
         let sonyflake = sonyflake::Sonyflake::builder()
             .machine_id(&machine_id_from_hostname)
             .finalize()?;

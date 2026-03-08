@@ -11,7 +11,7 @@ pub use self::dns::DnsResolver;
 /// # Errors
 ///
 /// If any of the resolvers in the chain fail to build.
-pub fn forward_chain() -> anyhow::Result<ChainResolver> {
+pub fn forward_chain() -> eyre::Result<ChainResolver> {
     let chain = ChainResolver::default()
         .with(CidrResolver::default())
         .with(DnsResolver::try_new()?);
@@ -23,7 +23,7 @@ pub fn forward_chain() -> anyhow::Result<ChainResolver> {
 /// # Errors
 ///
 /// If any of the resolvers in the chain fail to build.
-pub fn reverse_chain() -> anyhow::Result<ChainResolver> {
+pub fn reverse_chain() -> eyre::Result<ChainResolver> {
     let chain = ChainResolver::default().with(
         DnsResolver::try_new()?
             .with_forward(false)

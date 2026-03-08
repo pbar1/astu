@@ -1,8 +1,8 @@
 use std::future::Future;
 use std::time::Duration;
 
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Result;
+use eyre::WrapErr;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
@@ -54,6 +54,7 @@ pub trait AstuTryStreamExt: TryStream {
 ///
 /// - If the timeout is reached
 /// - If the task fails to join
+#[allow(dead_code)]
 pub async fn spawn_timeout<T>(
     duration: Duration,
     future: impl Future<Output = T> + Send + 'static,
@@ -65,7 +66,7 @@ where
     let timeout = tokio::time::timeout(duration, task);
     let t = timeout
         .await
-        .context("tokio task timed out")?
-        .context("tokio task failed to join")?;
+        .wrap_err("tokio task timed out")?
+        .wrap_err("tokio task failed to join")?;
     Ok(t)
 }

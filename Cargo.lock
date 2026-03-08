@@ -133,8 +133,8 @@ dependencies = [
 name = "astu"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "astu-cli",
+ "eyre",
  "tokio",
 ]
 
@@ -142,11 +142,11 @@ dependencies = [
 name = "astu-action"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "astu-types",
  "async-trait",
  "bstr",
  "enum_dispatch",
+ "eyre",
  "rstest",
  "russh",
  "tokio",
@@ -157,21 +157,21 @@ dependencies = [
 name = "astu-cli"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "clap",
+ "eyre",
 ]
 
 [[package]]
 name = "astu-core"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "astu-action",
  "astu-resolve",
  "astu-types",
  "base32",
  "bon",
  "enum_dispatch",
+ "eyre",
  "futures",
  "sonyflake",
  "tokio",
@@ -188,9 +188,9 @@ version = "0.0.0"
 name = "astu-resolve"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "astu-types",
  "async-stream",
+ "eyre",
  "futures",
  "hickory-resolver",
  "ipnet",
@@ -202,7 +202,6 @@ dependencies = [
 name = "astu-types"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "camino",
  "eyre",
  "fluent-uri",
@@ -3877,12 +3876,12 @@ checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
 name = "xtask"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "astu-cli",
  "clap",
  "clap_complete",
  "clap_mangen",
  "duct",
+ "eyre",
 ]
 
 [[package]]

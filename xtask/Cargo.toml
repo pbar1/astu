@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
+eyre = "0.6"
 astu-cli = { path = "../astu-cli" }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"

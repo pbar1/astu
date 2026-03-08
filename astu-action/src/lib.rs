@@ -3,11 +3,11 @@ pub mod transport;
 
 use std::fmt;
 
-use anyhow::Result;
 use astu_types::Target;
 use async_trait::async_trait;
 use bstr::ByteSlice;
 use enum_dispatch::enum_dispatch;
+use eyre::Result;
 
 /// Actions that a client can perform.
 #[async_trait]

@@ -1,5 +1,5 @@
-use anyhow::Result;
 use astu_types::Target;
+use eyre::Result;
 use futures::StreamExt;
 use futures::stream::BoxStream;
 use ipnet::IpNet;

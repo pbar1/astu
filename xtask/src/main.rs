@@ -3,15 +3,16 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 
-use anyhow::Context;
-use anyhow::ensure;
 use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
 use clap_complete::Shell;
 use clap_complete::generate_to;
+use eyre::WrapErr;
+use eyre::ensure;
+use eyre::eyre;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     match Xtask::parse().command {
         XtaskCommand::Man { out_dir } => gen_man_pages(out_dir),
         XtaskCommand::Completions { out_dir, shell } => gen_completions(&out_dir, shell),
@@ -51,13 +52,13 @@ enum XtaskCommand {
     },
 }
 
-fn gen_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
+fn gen_man_pages(out_dir: PathBuf) -> eyre::Result<()> {
     let out_dir = normalize_man_output_dir(resolve_workspace_path(out_dir));
     let man_root = man_output_root(&out_dir);
 
     clean_dir(&man_root, "man dir")?;
     fs::create_dir_all(&out_dir)
-        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+        .wrap_err_with(|| format!("failed to create output directory {}", out_dir.display()))?;
 
     let mut root = astu_cli::Cli::command();
     root = root.name("astu");
@@ -65,11 +66,11 @@ fn gen_man_pages(out_dir: PathBuf) -> anyhow::Result<()> {
     write_command_and_subcommands(&root, "astu", &out_dir)
 }
 
-fn gen_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
+fn gen_completions(out_dir: &Path, shells: Vec<Shell>) -> eyre::Result<()> {
     let out_dir = resolve_workspace_path(out_dir.to_path_buf());
     clean_dir(&out_dir, "completion dir")?;
     fs::create_dir_all(&out_dir)
-        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+        .wrap_err_with(|| format!("failed to create output directory {}", out_dir.display()))?;
 
     let shells = if shells.is_empty() {
         vec![
@@ -87,7 +88,7 @@ fn gen_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
         let shell_name = format!("{shell:?}");
         let mut command = astu_cli::Cli::command();
         command = command.name("astu");
-        generate_to(shell, &mut command, "astu", &out_dir).with_context(|| {
+        generate_to(shell, &mut command, "astu", &out_dir).wrap_err_with(|| {
             format!(
                 "failed to generate completion for {} in {}",
                 shell_name,
@@ -99,7 +100,7 @@ fn gen_completions(out_dir: &Path, shells: Vec<Shell>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_book(view: bool) -> anyhow::Result<()> {
+fn build_book(view: bool) -> eyre::Result<()> {
     let workspace_root = workspace_root()?;
     let mut command = ProcessCommand::new("mdbook");
     let command_str = if view {
@@ -113,7 +114,7 @@ fn build_book(view: bool) -> anyhow::Result<()> {
 
     let status = command
         .status()
-        .with_context(|| format!("failed to run `{command_str}`"))?;
+        .wrap_err_with(|| format!("failed to run `{command_str}`"))?;
     ensure!(status.success(), "`{command_str}` exited with {status}");
     Ok(())
 }
@@ -126,12 +127,12 @@ fn resolve_workspace_path(path: PathBuf) -> PathBuf {
     workspace_root().map_or_else(|_| path.clone(), |root| root.join(&path))
 }
 
-fn workspace_root() -> anyhow::Result<PathBuf> {
+fn workspace_root() -> eyre::Result<PathBuf> {
     let xtask_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     xtask_manifest_dir
         .parent()
         .map(Path::to_path_buf)
-        .context("failed to determine workspace root from xtask manifest path")
+        .ok_or_else(|| eyre!("failed to determine workspace root from xtask manifest path"))
 }
 
 fn normalize_man_output_dir(out_dir: PathBuf) -> PathBuf {
@@ -161,12 +162,12 @@ fn man_output_root(out_dir: &Path) -> PathBuf {
     out_dir.to_path_buf()
 }
 
-fn clean_dir(path: &Path, label: &str) -> anyhow::Result<()> {
+fn clean_dir(path: &Path, label: &str) -> eyre::Result<()> {
     match fs::remove_dir_all(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(err) => {
-            Err(err).with_context(|| format!("failed to remove {label} {}", path.display()))
+            Err(err).wrap_err_with(|| format!("failed to remove {label} {}", path.display()))
         }
     }
 }
@@ -175,7 +176,7 @@ fn write_command_and_subcommands(
     command: &clap::Command,
     name: &str,
     out_dir: &Path,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let mut page_command = command.clone();
     let page_name: &'static str = Box::leak(name.to_owned().into_boxed_str());
     page_command = page_command
@@ -186,10 +187,10 @@ fn write_command_and_subcommands(
     let mut rendered = Vec::new();
     clap_mangen::Man::new(page_command)
         .render(&mut rendered)
-        .with_context(|| format!("failed rendering man page for '{name}'"))?;
+        .wrap_err_with(|| format!("failed rendering man page for '{name}'"))?;
 
     let output_file = out_dir.join(format!("{name}.1"));
-    fs::write(&output_file, rendered).with_context(|| {
+    fs::write(&output_file, rendered).wrap_err_with(|| {
         format!(
             "failed writing man page '{}' to {}",
             name,

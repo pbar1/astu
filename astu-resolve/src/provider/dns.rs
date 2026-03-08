@@ -1,11 +1,12 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use anyhow::Context;
-use anyhow::Result;
 use astu_types::Host;
 use astu_types::Target;
 use async_stream::try_stream;
+use eyre::OptionExt;
+use eyre::Result;
+use eyre::eyre;
 use futures::StreamExt;
 use futures::stream::BoxStream;
 use hickory_resolver::Name;
@@ -97,7 +98,7 @@ fn remove_trailing_dot(ptr: &PTR) -> Result<Name> {
     let name = ptr.0.to_string();
     let name = name
         .strip_suffix('.')
-        .context("unable to strip trailing dot")?;
+        .ok_or_else(|| eyre!("unable to strip trailing dot"))?;
     let name = Name::from_str(name)?;
     Ok(name)
 }

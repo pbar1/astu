@@ -8,7 +8,7 @@ pub use crate::cmd::Command;
 pub use crate::run::Run;
 
 #[allow(clippy::unused_async)]
-pub async fn run() -> anyhow::Result<()> {
+pub async fn run() -> eyre::Result<()> {
     let _cli = Cli::parse();
     Ok(())
 }

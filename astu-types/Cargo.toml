@@ -4,9 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
-camino = "1"
 eyre = "0.6"
+camino = "1"
 fluent-uri = { version = "0.3", features = ["net", "serde"] }
 ipnet = "2"
 serde = { version = "1", features = ["derive"] }
