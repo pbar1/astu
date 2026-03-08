@@ -1,5 +1,11 @@
 [package]
 name = "xtask"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
+clap = "4"
+duct = "1"
+
+[lints]
+workspace = true

@@ -21,6 +21,8 @@ Other directories:
 - `.cargo`: Cargo config. Off limits.
 - `.github`: GitHub Actions CI/CD config.
 - `.vscode`: VS Code project settings and debug config.
+- `lib`: Existing code that is being broken into workspaces crates.
+- `book`: mdbook for detailed docs.
 
 ## Guidelines
 

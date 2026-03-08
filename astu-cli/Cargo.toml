@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 [lints]
 workspace = true
