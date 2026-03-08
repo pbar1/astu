@@ -3,7 +3,6 @@ mod util;
 
 use std::collections::BTreeSet;
 
-use astu_action::AuthPayload;
 use astu_resolve::ChainResolver;
 use astu_resolve::ResolveExt;
 use astu_types::Target;
@@ -64,6 +63,5 @@ pub struct Task {
 pub enum Action {
     Connect,
     Ping,
-    Auth { payload: AuthPayload },
     RunCommand { command: String },
 }

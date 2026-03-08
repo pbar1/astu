@@ -19,7 +19,7 @@ fn main() -> eyre::Result<()> {
         XtaskCommand::Completions { out_dir, shell } => gen_completions(&out_dir, shell),
         XtaskCommand::Book { view } => build_book(view),
         XtaskCommand::Fmt => run_workspace_command(&["+nightly", "fmt", "--all"]),
-        XtaskCommand::Lint => run_workspace_command(&["clippy", "--workspace", "--fix"]),
+        XtaskCommand::Lint => run_workspace_command(&["clippy", "--workspace"]),
         XtaskCommand::Build => run_workspace_command(&["build", "--workspace"]),
         XtaskCommand::Test => run_workspace_command(&["test", "--workspace"]),
     }
@@ -36,7 +36,7 @@ struct Xtask {
 enum XtaskCommand {
     /// Format all workspace crates
     Fmt,
-    /// Lint all workspace crates and apply fixes
+    /// Lint all workspace crates
     Lint,
     /// Build all workspace crates
     Build,

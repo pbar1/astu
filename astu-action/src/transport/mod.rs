@@ -1,11 +1,8 @@
 //! Underlying transport used by clients.
 
 use astu_types::Target;
-use async_trait::async_trait;
-use enum_dispatch::enum_dispatch;
 use eyre::Result;
 
-pub mod opaque;
 pub mod tcp;
 pub mod tcp_reuse;
 
@@ -13,25 +10,28 @@ pub mod tcp_reuse;
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Transport {
-    /// No stream, will be handled by the client.
-    Opaque,
     /// Async TCP stream.
     Tcp(tokio::net::TcpStream),
 }
 
 /// Factory for creating transports.
-#[async_trait]
-#[enum_dispatch]
 pub trait TransportFactory {
     /// Sets up a transport to the target.
     async fn setup(&self, target: &Target) -> Result<Transport>;
 }
 
 /// All transport factory implementations.
-#[enum_dispatch(TransportFactory)]
 #[derive(Debug, Clone)]
 pub enum TransportFactoryImpl {
-    Opaque(opaque::TransportFactory),
     Tcp(tcp::TransportFactory),
     TcpReuse(tcp_reuse::TransportFactory),
+}
+
+impl TransportFactory for TransportFactoryImpl {
+    async fn setup(&self, target: &Target) -> Result<Transport> {
+        match self {
+            Self::Tcp(factory) => factory.setup(target).await,
+            Self::TcpReuse(factory) => factory.setup(target).await,
+        }
+    }
 }

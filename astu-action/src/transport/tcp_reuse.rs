@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use astu_types::Target;
-use async_trait::async_trait;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::eyre;
@@ -41,7 +40,6 @@ impl TransportFactory {
     }
 }
 
-#[async_trait]
 impl super::TransportFactory for TransportFactory {
     async fn setup(&self, target: &Target) -> Result<super::Transport> {
         let addr = target

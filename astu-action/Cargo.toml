@@ -3,19 +3,13 @@ name = "astu-action"
 version.workspace = true
 edition.workspace = true
 
-[features]
-default = []
-ssh = ["dep:russh"]
-
 [dependencies]
 eyre = "0.6"
 astu-types = { path = "../astu-types" }
-async-trait = "0.1"
-bstr = { version = "1", default-features = false }
-enum_dispatch = "0.3"
-russh = { version = "=0.56.0", optional = true }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
+openssh = "0.11.6"
+tempfile = "3"
 
 [dev-dependencies]
 rstest = "0.26"
