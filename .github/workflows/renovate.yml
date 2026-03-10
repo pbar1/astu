@@ -16,6 +16,7 @@ jobs:
       RENOVATE_ONBOARDING: "false"
       RENOVATE_REQUIRE_CONFIG: "required"
       RENOVATE_REPOSITORIES: ${{ github.repository }}
+      RENOVATE_GIT_AUTHOR: "Pierce Bartine <piercebartine@gmail.com>"
       RENOVATE_GIT_PRIVATE_KEY: ${{ secrets.RENOVATE_GIT_PRIVATE_KEY }}
     steps:
     - name: Checkout
