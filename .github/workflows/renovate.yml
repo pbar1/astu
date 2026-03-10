@@ -12,6 +12,7 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     env:
+      LOG_LEVEL: "debug"
       RENOVATE_ONBOARDING: "false"
       RENOVATE_REQUIRE_CONFIG: "required"
       RENOVATE_REPOSITORIES: ${{ github.repository }}
