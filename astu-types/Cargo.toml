@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 eyre = "0.6"
 camino = "1"
-fluent-uri = { version = "0.3", features = ["net", "serde"] }
+fluent-uri = { version = "0.4", features = ["net", "serde"] }
 ipnet = "2"
 serde = { version = "1", features = ["derive"] }
 strum = { version = "0.27", features = ["derive"] }
