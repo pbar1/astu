@@ -6,8 +6,6 @@
   packageRules: [
     {
       matchManagers: ["cargo", "github-actions"],
-      matchUpdateTypes: ["minor", "patch", "pin", "pinDigest", "digest"],
-      matchCurrentVersion: "!/^0\\./",
       automerge: true,
       automergeStrategy: "squash",
     },
