@@ -1,7 +1,7 @@
 name: dependabot-automerge
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, synchronize]
 
 permissions:
@@ -9,7 +9,18 @@ permissions:
   pull-requests: write
 
 jobs:
+  auto-approve:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve Dependabot PR
+        run: gh pr review --approve "$PR_URL"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+
   enable-automerge:
+    needs: auto-approve
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
