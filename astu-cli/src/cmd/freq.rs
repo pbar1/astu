@@ -23,3 +23,9 @@ pub struct Freq {
     )]
     pub field: Vec<ResultField>,
 }
+
+impl crate::Run for Freq {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

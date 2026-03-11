@@ -38,3 +38,20 @@ pub enum Command {
 
     Gc(gc::Gc),
 }
+
+impl crate::Run for Command {
+    async fn run(&self) -> eyre::Result<()> {
+        match self {
+            Self::Lookup(inner) => inner.run().await,
+            Self::Ping(inner) => inner.run().await,
+            Self::Run(inner) => inner.run().await,
+            Self::Resume(inner) => inner.run().await,
+            Self::Output(inner) => inner.run().await,
+            Self::Freq(inner) => inner.run().await,
+            Self::Trace(inner) => inner.run().await,
+            Self::Jobs(inner) => inner.run().await,
+            Self::Tasks(inner) => inner.run().await,
+            Self::Gc(inner) => inner.run().await,
+        }
+    }
+}

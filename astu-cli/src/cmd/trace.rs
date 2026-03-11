@@ -15,3 +15,9 @@ pub struct Trace {
     #[arg(short = 'T', long, value_name = "TARGET")]
     pub target: Vec<String>,
 }
+
+impl crate::Run for Trace {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

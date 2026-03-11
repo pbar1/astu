@@ -10,3 +10,9 @@ pub struct Tasks {
     #[command(flatten)]
     pub result: ResultFlags,
 }
+
+impl crate::Run for Tasks {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

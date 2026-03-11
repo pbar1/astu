@@ -15,3 +15,9 @@ pub struct Ping {
     #[command(flatten)]
     pub action: ActionFlags,
 }
+
+impl crate::Run for Ping {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

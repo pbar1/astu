@@ -26,3 +26,9 @@ pub struct Output {
     )]
     pub field: Vec<ResultField>,
 }
+
+impl crate::Run for Output {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

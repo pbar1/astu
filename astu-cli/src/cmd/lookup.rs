@@ -9,3 +9,9 @@ pub struct Lookup {
     #[command(flatten)]
     pub action: crate::arg::ActionFlags,
 }
+
+impl crate::Run for Lookup {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

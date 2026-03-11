@@ -43,3 +43,9 @@ pub enum TemplateToken {
     User,
     Ip,
 }
+
+impl crate::Run for Run {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}

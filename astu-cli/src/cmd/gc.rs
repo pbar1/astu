@@ -9,3 +9,9 @@ pub struct Gc {
     #[arg(long, value_name = "DURATION")]
     pub before: Option<String>,
 }
+
+impl crate::Run for Gc {
+    async fn run(&self) -> eyre::Result<()> {
+        eyre::bail!("unimplemented")
+    }
+}
