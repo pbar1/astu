@@ -88,7 +88,6 @@ version = "0.0.0"
 dependencies = [
  "astu-cli",
  "color-eyre",
- "eyre",
  "tokio",
 ]
 
