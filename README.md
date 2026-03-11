@@ -6,3 +6,7 @@
   <img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/pbar1/astu/ci.yml?style=flat-square">
   <img alt="Release status" src="https://img.shields.io/github/release/pbar1/astu.svg?style=flat-square">
 </p>
+
+---
+
+<sub>[Hello friend](https://web.archive.org/web/20191207172538/https://www.red-wheelbarrow.com/)</sub>
