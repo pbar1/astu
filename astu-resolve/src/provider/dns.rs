@@ -113,8 +113,6 @@ mod tests {
 
     #[rstest]
     #[case("localhost")]
-    #[case("google.com")]
-    #[case("google.com.")]
     #[case("127.0.0.1")]
     #[case("127.0.0.1:22")]
     #[tokio::test]

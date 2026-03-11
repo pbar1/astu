@@ -7,8 +7,8 @@ use camino::Utf8PathBuf;
 use eyre::WrapErr;
 use eyre::bail;
 use fluent_uri::Uri;
-use fluent_uri::encoding::Split;
-use fluent_uri::encoding::encoder::Path;
+use fluent_uri::pct_enc::Split;
+use fluent_uri::pct_enc::encoder::Path;
 use ipnet::IpNet;
 use serde::Deserialize;
 use serde::Serialize;
@@ -189,7 +189,10 @@ impl Target {
         if self.kind != TargetKind::K8s {
             return None;
         }
-        let pod: Option<_> = self.path_segments().next_back()?.as_str().into();
+        let pod = self
+            .path_segments()
+            .next_back()
+            .map(fluent_uri::pct_enc::EStr::as_str);
         pod.filter(|x| !x.is_empty())
     }
 
@@ -213,7 +216,7 @@ impl Target {
             uri.push_str(user);
             uri.push('@');
         }
-        uri.push_str(&cidr.addr().to_string());
+        uri.push_str(&Self::format_host(&cidr.addr()));
         if let Some(port) = port {
             uri.push(':');
             uri.push_str(&port.to_string());
@@ -232,7 +235,7 @@ impl Target {
             uri.push_str(user);
             uri.push('@');
         }
-        uri.push_str(&ip.to_string());
+        uri.push_str(&Self::format_host(ip));
         if let Some(port) = port {
             uri.push(':');
             uri.push_str(&port.to_string());
@@ -280,7 +283,26 @@ impl Target {
             return Self::try_from(value);
         }
 
+        if !s.is_empty()
+            && !s.contains("://")
+            && !s.contains('/')
+            && !s.contains('?')
+            && !s.contains('#')
+        {
+            return Self::from_str(&format!("dns://{s}"));
+        }
+
         bail!("Unsupported target short form: {s}");
+    }
+}
+
+/// Helpers
+impl Target {
+    fn format_host(ip: &IpAddr) -> String {
+        match ip {
+            IpAddr::V4(ip) => ip.to_string(),
+            IpAddr::V6(ip) => format!("[{ip}]"),
+        }
     }
 }
 
@@ -441,6 +463,8 @@ mod tests {
     #[rustfmt::skip::attributes(case)]
     #[rstest]
     #[case("localhost",               "localhost", None, None)]
+    #[case("google.com",              "google.com", None, None)]
+    #[case("google.com.",             "google.com.", None, None)]
     #[case("dns://localhost",         "localhost", None, None)]
     #[case("dns://root@localhost:22", "localhost", 22,   "root")]
     fn dns_works(
