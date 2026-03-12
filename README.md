@@ -7,6 +7,4 @@
   <img alt="Release status" src="https://img.shields.io/github/release/pbar1/astu.svg?style=flat-square">
 </p>
 
----
-
 <sub>[Hello friend](https://web.archive.org/web/20191207172538/https://www.red-wheelbarrow.com/)</sub>
