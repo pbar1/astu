@@ -4,14 +4,14 @@
 
 Main Cargo workspaces:
 
-- `astu-cli`: CLI scaffolding. No logic.
+- `crates/astu-cli`: CLI scaffolding. No logic.
   - Args are in `arg`.
   - Subcommands are in `cmd`. Files here must only be subcommands.
-- `astu-types`: Shared data models and types. No logic.
-- `astu-core`: Core logic.
-- `astu-db`: Storage layer.
-- `astu-resolve`: Target resolvers.
-- `astu-action`: Action clients.
+- `crates/astu-types`: Shared data models and types. No logic.
+- `crates/astu-core`: Core logic.
+- `crates/astu-db`: Storage layer.
+- `crates/astu-resolve`: Target resolvers.
+- `crates/astu-action`: Action clients.
 
 Other Cargo workspaces:
 

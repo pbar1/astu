@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 eyre = "0.6"
-astu-cli = { path = "../astu-cli" }
+astu-cli = { path = "../crates/astu-cli" }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 clap_mangen = "0.2"

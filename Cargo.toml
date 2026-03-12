@@ -1,5 +1,14 @@
 [workspace]
-members = [".", "astu-action", "astu-cli", "astu-core", "astu-db", "astu-resolve", "astu-types", "xtask"]
+members = [
+    ".",
+    "crates/astu-action",
+    "crates/astu-cli",
+    "crates/astu-core",
+    "crates/astu-db",
+    "crates/astu-resolve",
+    "crates/astu-types",
+    "xtask",
+]
 default-members = ["."]
 resolver = "2"
 
@@ -35,7 +44,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-astu-cli = { path = "./astu-cli" }
+astu-cli = { path = "./crates/astu-cli" }
 tokio = { version = "1", features = ["full"] }
 color-eyre = "0.6"
 
