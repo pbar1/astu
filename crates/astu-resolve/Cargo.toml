@@ -8,7 +8,7 @@ eyre = "0.6"
 astu-types = { path = "../astu-types" }
 async-stream = "0.3"
 futures = "0.3"
-hickory-resolver = "0.25"
+hickory-resolver = "0.26"
 ipnet = "2"
 
 [dev-dependencies]
